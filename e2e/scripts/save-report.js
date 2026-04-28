@@ -95,6 +95,51 @@ function parseResults(data) {
   };
 }
 
+// ── Extract error summary from network-log attachments ────────────────────
+function extractErrorSummary(data) {
+  let consoleErrors = 0, apiErrors = 0, failedRequests = 0, pageErrors = 0;
+  const topErrors = [];
+
+  function walkSuites(suites) {
+    if (!Array.isArray(suites)) return;
+    for (const suite of suites) {
+      for (const spec of suite.specs ?? []) {
+        for (const test of spec.tests ?? []) {
+          for (const result of test.results ?? []) {
+            for (const att of result.attachments ?? []) {
+              if (att.name === 'network-log' && att.path && fs.existsSync(att.path)) {
+                try {
+                  const log = JSON.parse(fs.readFileSync(att.path, 'utf8'));
+                  consoleErrors   += log.consoleErrors?.length  ?? 0;
+                  apiErrors       += log.apiErrors?.length      ?? 0;
+                  failedRequests  += log.failedRequests?.length ?? 0;
+                  pageErrors      += log.pageErrors?.length     ?? 0;
+                  // Collect representative error messages (max 2 per test)
+                  for (const e of (log.consoleErrors ?? []).slice(0, 2))
+                    topErrors.push(e.slice(0, 120));
+                  for (const e of (log.apiErrors ?? []).slice(0, 2))
+                    topErrors.push(`${e.status} ${e.method} ${e.url}`);
+                } catch { /* ignore unreadable attachments */ }
+              }
+            }
+          }
+        }
+      }
+      walkSuites(suite.suites ?? []);
+    }
+  }
+
+  walkSuites(data.suites ?? []);
+
+  return {
+    consoleErrors,
+    apiErrors,
+    failedRequests,
+    pageErrors,
+    topErrors: topErrors.slice(0, 5),
+  };
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 function main() {
   // Guard: results.json must exist
@@ -117,10 +162,12 @@ function main() {
   }
 
   // 3. Write meta.json
-  let stats = { passed: 0, failed: 0, skipped: 0, total: 0, durationMs: 0, products: [] };
+  let stats        = { passed: 0, failed: 0, skipped: 0, total: 0, durationMs: 0, products: [] };
+  let errorSummary = { consoleErrors: 0, apiErrors: 0, failedRequests: 0, pageErrors: 0, topErrors: [] };
   try {
     const raw = JSON.parse(fs.readFileSync(RESULTS, 'utf8'));
-    stats = parseResults(raw);
+    stats        = parseResults(raw);
+    errorSummary = extractErrorSummary(raw);
   } catch (e) {
     console.warn('[save-report] Could not parse results.json for stats:', e.message);
   }
@@ -129,12 +176,14 @@ function main() {
     timestamp: ts,
     label:     makeLabel(ts),
     ...stats,
+    errorSummary,
   };
 
   fs.writeFileSync(path.join(dest, 'meta.json'), JSON.stringify(meta, null, 2));
 
+  const errCount = errorSummary.consoleErrors + errorSummary.apiErrors + errorSummary.failedRequests + errorSummary.pageErrors;
   console.log(`[save-report] ✅ Saved run → ${dest}`);
-  console.log(`[save-report]    ${meta.label} | ✅${meta.passed} ❌${meta.failed} ⏭${meta.skipped} | ${(meta.durationMs / 1000).toFixed(1)}s`);
+  console.log(`[save-report]    ${meta.label} | ✅${meta.passed} ❌${meta.failed} ⏭${meta.skipped} | ${(meta.durationMs / 1000).toFixed(1)}s${errCount ? ` | ⚠️ ${errCount} network issues` : ''}`);
 }
 
 main();

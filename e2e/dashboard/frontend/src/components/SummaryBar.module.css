@@ -1,0 +1,150 @@
+/* SummaryBar.module.css — stat cards + pass rate bar */
+
+.bar {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+/* ── Stat cards ─────────────────────────────────────────────────────────── */
+.statCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  border: 1px solid;
+  min-width: 84px;
+}
+
+.statCard.pass {
+  background: var(--pass-bg);
+  border-color: #a7f3d0;
+}
+
+.statCard.fail {
+  background: var(--fail-bg);
+  border-color: #fecaca;
+}
+
+.statCard.skip {
+  background: var(--skip-bg);
+  border-color: #fde68a;
+}
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.statCard.pass .statValue { color: var(--pass); }
+.statCard.fail .statValue { color: var(--fail); }
+.statCard.skip .statValue { color: var(--skip); }
+
+/* ── Right panel ────────────────────────────────────────────────────────── */
+.right {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 200px;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+/* ── Pass rate bar ───────────────────────────────────────────────────────── */
+.rateRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rateLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.rateTrack {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rateFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.ratePct {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Meta row ────────────────────────────────────────────────────────────── */
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dur {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface2);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.productTag {
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px solid #c4b5fd;
+  border-radius: 10px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.reportBtn {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(79,70,229,0.28);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.reportBtn:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px rgba(79,70,229,0.38);
+}

@@ -1,0 +1,197 @@
+/* RunList.module.css — sidebar + run item cards */
+
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.sidebarHeader {
+  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebarLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.countBadge {
+  background: var(--surface3);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* ── Filter ─────────────────────────────────────────────────────────────── */
+.filter {
+  padding: 0 12px 10px;
+}
+
+.filterSelect {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 6px 28px 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.15s;
+}
+
+.filterSelect:focus { outline: none; border-color: var(--accent); }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Run list scroll container ───────────────────────────────────────────── */
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 8px;
+}
+
+/* ── Individual run card ─────────────────────────────────────────────────── */
+.runCard {
+  margin: 3px 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.runCard:hover {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
+.runCard.selected {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot.pass  { background: var(--pass); }
+.dot.fail  { background: var(--fail); }
+.dot.empty { background: var(--text-sub); }
+
+.cardDate {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardTime {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Counts row ─────────────────────────────────────────────────────────── */
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.countPass { font-size: 11px; color: var(--pass); font-weight: 600; }
+.countFail { font-size: 11px; color: var(--fail); font-weight: 600; }
+.countSkip { font-size: 11px; color: var(--skip); font-weight: 500; }
+
+.errorBadge {
+  margin-left: auto;
+  background: var(--warn-light);
+  color: var(--warn);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid #fdba74;
+}
+
+/* ── Mini progress bar ───────────────────────────────────────────────────── */
+.progressBar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ── Product tags ────────────────────────────────────────────────────────── */
+.tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.tag {
+  background: var(--surface3);
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+}
