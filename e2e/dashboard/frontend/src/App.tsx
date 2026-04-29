@@ -3,9 +3,10 @@ import type { RunMeta } from './types';
 import { RunList } from './components/RunList';
 import { RunDetail } from './components/RunDetail';
 import { ControlPanel } from './components/ControlPanel';
+import { ScormPanel } from './components/ScormPanel';
 import s from './App.module.css';
 
-type Tab = 'reports' | 'control';
+type Tab = 'reports' | 'control' | 'scorm';
 
 export function App() {
   const [tab, setTab]         = useState<Tab>('control');
@@ -66,6 +67,12 @@ export function App() {
           >
             📋 Reports {runs.length > 0 && <span className={s.tabBadge}>{runs.length}</span>}
           </button>
+          <button
+            className={`${s.tabBtn} ${tab === 'scorm' ? s.tabActive : ''}`}
+            onClick={() => handleTabChange('scorm')}
+          >
+            ⚡ SCORM Tester
+          </button>
         </nav>
 
         {loading && tab === 'reports' && (
@@ -80,6 +87,8 @@ export function App() {
       <div className={s.body}>
 
         {tab === 'control' && <ControlPanel />}
+
+        {tab === 'scorm' && <ScormPanel />}
 
         {tab === 'reports' && (
           <>

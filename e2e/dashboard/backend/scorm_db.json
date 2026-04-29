@@ -1,0 +1,97 @@
+{
+  "snapshots": [
+    {
+      "id": "d3b30ef5-3132-4cdc-9a28-51b3fcb09740",
+      "filename": "minimal_scorm2004.zip",
+      "file_size": 1414,
+      "job_id": "093ed9df-3ee1-4790-8936-fda8b753e62b",
+      "generator_type": "minimal-scorm2004",
+      "test_category": "break",
+      "notes": "Generated: Minimal SCORM 2004 3rd Ed. Expected: status:complete, 1 markdown extracted",
+      "uploaded_at": "2026-04-29T13:53:31.120401Z",
+      "completed_at": "2026-04-29T13:53:37.3371594Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "093ed9df-3ee1-4790-8936-fda8b753e62b"
+      },
+      "status_response": {
+        "elapsed_seconds": 4.990342,
+        "error": null,
+        "external_links": null,
+        "job_id": "093ed9df-3ee1-4790-8936-fda8b753e62b",
+        "markdown": "# SCORM 2004 Test Course — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# SCORM 2004 Test Course — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "SCORM 2004 Test Course — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# SCORM 2004 Test Course — Course Index\n\n## Contents\n\n- **Module 1: SCORM 2004 Basics**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "SCORM 2004 Test Course — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "9e0e441a-1f04-4c64-b500-cbdcf8bcd859",
+      "filename": "minimal_scorm12.zip",
+      "file_size": 1495,
+      "job_id": "e7d61301-7808-4a8d-95ee-81e9097ddd92",
+      "generator_type": "minimal-scorm12",
+      "test_category": "valid",
+      "notes": "Generated: Minimal SCORM 1.2. Expected: status:complete, 1 markdown extracted",
+      "uploaded_at": "2026-04-29T13:52:10.9582144Z",
+      "completed_at": "2026-04-29T13:52:23.1658746Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "e7d61301-7808-4a8d-95ee-81e9097ddd92"
+      },
+      "status_response": {
+        "elapsed_seconds": 11.490982,
+        "error": null,
+        "external_links": null,
+        "job_id": "e7d61301-7808-4a8d-95ee-81e9097ddd92",
+        "markdown": "# Minimal SCORM 1.2 Test Course — Course Summary\n\n## Chapter 1: Introduction\n\nThis lesson introduces SCORM 1.2, explaining it as a set of technical standards for eLearning software that enables communication between online learning content and learning management systems. It outlines key components such as the imsmanifest.xml file, which defines course structure, SCOs (Shareable Content Objects) as individual learning units, and the LMS that hosts SCORM courses. The learning objectives include understanding the SCORM 1.2 package structure, verifying imsmanifest.xml parsing, and confirming HTML content extraction. The content provides foundational knowledge necessary for working with SCORM packages and their components. It also clarifies the purpose of the test package in validating scraping services for SCORM courses.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# Minimal SCORM 1.2 Test Course — Course Summary\n\n## Chapter 1: Introduction\n\nThis lesson introduces SCORM 1.2, explaining it as a set of technical standards for eLearning software that enables communication between online learning content and learning management systems. It outlines key components such as the imsmanifest.xml file, which defines course structure, SCOs (Shareable Content Objects) as individual learning units, and the LMS that hosts SCORM courses. The learning objectives include understanding the SCORM 1.2 package structure, verifying imsmanifest.xml parsing, and confirming HTML content extraction. The content provides foundational knowledge necessary for working with SCORM packages and their components. It also clarifies the purpose of the test package in validating scraping services for SCORM courses.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Minimal SCORM 1.2 Test Course — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Minimal SCORM 1.2 Test Course — Course Index\n\n## Contents\n\n- **Chapter 1: Introduction**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Minimal SCORM 1.2 Test Course — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# Chapter 1: Introduction\n\n\n---\n\nChapter 1: Introduction to SCORM\n\nThis is a minimal SCORM 1.2 test package created for the SCORM Scraper QA suite.\n\nLearning Objectives\nUnderstand SCORM 1.2 package structure\nVerify imsmanifest.xml parsing\nConfirm HTML content extraction\nWhat is SCORM?\n\nSCORM (Sharable Content Object Reference Model) is a set of technical standards for eLearning software products. It defines how online learning content and learning management systems communicate with each other.\n\nKey Components\nimsmanifest.xml — the course structure definition\nSCO (Shareable Content Object) — individual learning units\nLMS — Learning Management System that hosts SCORM courses\nSummary: This package validates that the scraping service correctly identifies and extracts a single-SCO SCORM 1.2 course.",
+            "org_node_id": "7358802e-c9bd-473d-b5bd-5fa7cbcfd458",
+            "source_file_path": "index.html",
+            "title": "Chapter 1: Introduction"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    }
+  ]
+}

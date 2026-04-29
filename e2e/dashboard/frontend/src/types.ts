@@ -53,3 +53,29 @@ export interface SpecGroup {
   file: string;        // spec file path (relative to project root)
   tests: TestEntry[];
 }
+
+// ── SCORM Tester types ───────────────────────────────────────────────────────
+
+export interface GenMeta {
+  type:        string;
+  name:        string;
+  category:    'valid' | 'edge' | 'break';
+  description: string;
+  expected:    string;
+  filename:    string;
+}
+
+export interface Snapshot {
+  id:              string;
+  filename:        string;
+  file_size:       number;
+  job_id:          string;
+  generator_type?: string;
+  test_category:   string;
+  notes?:          string;
+  uploaded_at:     string;
+  completed_at?:   string;
+  status:          string;
+  upload_response: unknown;
+  status_response?: unknown;
+}
