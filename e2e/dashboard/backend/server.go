@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -280,7 +281,7 @@ func handleStartRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		cmd := exec.Command("cmd", "/c", "npm", "run", scriptName)
+		cmd := npmRunCmd(scriptName)
 		cmd.Dir = repoRoot
 
 		stdout, _ := cmd.StdoutPipe()
@@ -504,6 +505,13 @@ func notBuiltHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+func npmRunCmd(script string) *exec.Cmd {
+	if runtime.GOOS == "windows" {
+		return exec.Command("cmd", "/c", "npm", "run", script)
+	}
+	return exec.Command("npm", "run", script)
+}
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
