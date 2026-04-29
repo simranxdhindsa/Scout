@@ -351,15 +351,16 @@ export function ScormPanel() {
           </div>
           <div className={s.panelBody}>
             {outputTab === 'visual' && (
-              result ? (
-                <div className={s.infoGrid}>
-                  <KV label="Job ID"          value={result.job_id ?? '-'} />
-                  <KV label="Language"        value={result.language ?? '-'} />
-                  <KV label="Mode"            value={result.mode ?? '-'} />
-                  <KV label="Authoring tool"  value={(result.authoring_tools_detected ?? []).join(', ') || '-'} />
-                  {result.error && <KV label="Error" value={result.error} />}
-                </div>
-              ) : <div className={s.empty}>Upload a ZIP or click a generated test case to see output.</div>
+              markdownItems.length
+                ? markdownItems.map((item, i) => (
+                  <div key={i} className={`${s.panel} ${s.markdownSection}`}>
+                    <div className={s.panelHead}><strong>{i + 1}. {item.title}</strong></div>
+                    <div className={s.panelBody}>
+                      <pre className={s.rawMarkdown}>{item.content}</pre>
+                    </div>
+                  </div>
+                ))
+                : <div className={s.empty}>Upload a ZIP or click a generated test case to see raw markdown output.</div>
             )}
 
             {outputTab === 'markdown' && (
@@ -368,13 +369,11 @@ export function ScormPanel() {
                   <div key={i} className={`${s.panel} ${s.markdownSection}`}>
                     <div className={s.panelHead}><strong>{i + 1}. {item.title}</strong></div>
                     <div className={`${s.panelBody} ${s.markdown}`}>
-                      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-                        {item.content}
-                      </pre>
+                      <MarkdownPreview content={item.content} />
                     </div>
                   </div>
                 ))
-                : <div className={s.empty}>No markdown content yet.</div>
+                : <div className={s.empty}>No markdown preview yet.</div>
             )}
 
             {outputTab === 'json' && (
@@ -488,6 +487,136 @@ function KV({ label, value }: { label: string; value: string }) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+function MarkdownPreview({ content }: { content: string }) {
+  return <>{renderMarkdownBlocks(content)}</>;
+}
+
+function renderMarkdownBlocks(content: string) {
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const blocks: React.ReactNode[] = [];
+  let paragraph: string[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  let code: string[] | null = null;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(<p key={`p-${blocks.length}`}>{renderInline(paragraph.join(' '))}</p>);
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (!list) return;
+    const Tag = list.ordered ? 'ol' : 'ul';
+    blocks.push(
+      <Tag key={`list-${blocks.length}`}>
+        {list.items.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
+      </Tag>,
+    );
+    list = null;
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\s+$/, '');
+    const fence = line.match(/^```(?:\w+)?\s*$/);
+
+    if (code) {
+      if (fence) {
+        blocks.push(
+          <pre key={`code-${blocks.length}`} className={s.markdownCode}>
+            <code>{code.join('\n')}</code>
+          </pre>,
+        );
+        code = null;
+      } else {
+        code.push(rawLine);
+      }
+      continue;
+    }
+
+    if (fence) {
+      flushParagraph();
+      flushList();
+      code = [];
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const Tag = `h${heading[1].length}` as keyof JSX.IntrinsicElements;
+      blocks.push(<Tag key={`h-${blocks.length}`}>{renderInline(heading[2])}</Tag>);
+      continue;
+    }
+
+    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (ordered || unordered) {
+      flushParagraph();
+      const isOrdered = Boolean(ordered);
+      if (!list || list.ordered !== isOrdered) flushList();
+      if (!list) list = { ordered: isOrdered, items: [] };
+      list.items.push((ordered ?? unordered)![1]);
+      continue;
+    }
+
+    const quote = line.match(/^>\s?(.+)$/);
+    if (quote) {
+      flushParagraph();
+      flushList();
+      blocks.push(<blockquote key={`quote-${blocks.length}`}>{renderInline(quote[1])}</blockquote>);
+      continue;
+    }
+
+    paragraph.push(line.trim());
+  }
+
+  if (code) {
+    blocks.push(
+      <pre key={`code-${blocks.length}`} className={s.markdownCode}>
+        <code>{code.join('\n')}</code>
+      </pre>,
+    );
+  }
+  flushParagraph();
+  flushList();
+
+  return blocks.length ? blocks : <p>{content}</p>;
+}
+
+function renderInline(text: string) {
+  const parts: React.ReactNode[] = [];
+  const token = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = token.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+
+    const value = match[0];
+    if (value.startsWith('`')) {
+      parts.push(<code key={parts.length}>{value.slice(1, -1)}</code>);
+    } else if (value.startsWith('[')) {
+      const link = value.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      const href = link?.[2] ?? '#';
+      parts.push(<a key={parts.length} href={href} target="_blank" rel="noreferrer">{link?.[1] ?? value}</a>);
+    } else {
+      parts.push(<strong key={parts.length}>{value.slice(2, -2)}</strong>);
+    }
+
+    lastIndex = token.lastIndex;
+  }
+
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
 
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';

@@ -1,6 +1,178 @@
 {
   "snapshots": [
     {
+      "id": "6c20595e-09cb-4803-b89e-74806214009d",
+      "filename": "multilingual_ur.zip",
+      "file_size": 1294,
+      "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b",
+      "generator_type": "multilingual-ur",
+      "test_category": "valid",
+      "notes": "Generated: Urdu Content (ur-IN). Expected: language:ur-IN detected",
+      "uploaded_at": "2026-04-29T14:08:56.9808449Z",
+      "completed_at": "2026-04-29T14:08:59.1866062Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b"
+      },
+      "status_response": {
+        "elapsed_seconds": 7.43007,
+        "error": null,
+        "external_links": null,
+        "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b",
+        "markdown": "# کمپیوٹر کی بنیادی مہارتیں — Course Summary\n\n## باب اول: ڈیجیٹل خواندگی کا تعارف\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet. It provides a foundational understanding of what digital literacy entails, setting the stage for further learning in this area. The content is concise but offers a clear definition that is essential for learners beginning to explore digital skills.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# کمپیوٹر کی بنیادی مہارتیں — Course Summary\n\n## باب اول: ڈیجیٹل خواندگی کا تعارف\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet. It provides a foundational understanding of what digital literacy entails, setting the stage for further learning in this area. The content is concise but offers a clear definition that is essential for learners beginning to explore digital skills.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "کمپیوٹر کی بنیادی مہارتیں — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# کمپیوٹر کی بنیادی مہارتیں — Course Index\n\n## Contents\n\n- **باب اول: ڈیجیٹل خواندگی کا تعارف**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "کمپیوٹر کی بنیادی مہارتیں — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# باب اول: ڈیجیٹل خواندگی کا تعارف\n\n\n---\n\nباب اول: ڈیجیٹل خواندگی کا تعارف\n\nڈیجیٹل خواندگی سے مراد کمپیوٹر، ڈیجیٹل آلات اور انٹرنیٹ کو مؤثر طریقے سے استعمال کرنے کی صلاحیت ہے۔",
+            "org_node_id": "d34720c6-0e87-4d66-9c07-7f77a2e093ed",
+            "source_file_path": "index.html",
+            "title": "باب اول: ڈیجیٹل خواندگی کا تعارف"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "b5b76f5e-7143-4e24-bea5-5383452286f8",
+      "filename": "multilingual_ur.zip",
+      "file_size": 1294,
+      "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b",
+      "generator_type": "multilingual-ur",
+      "test_category": "valid",
+      "notes": "Generated: Urdu Content (ur-IN). Expected: language:ur-IN detected",
+      "uploaded_at": "2026-04-29T14:08:43.9814646Z",
+      "completed_at": "2026-04-29T14:08:52.189362Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b"
+      },
+      "status_response": {
+        "elapsed_seconds": 7.43007,
+        "error": null,
+        "external_links": null,
+        "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b",
+        "markdown": "# کمپیوٹر کی بنیادی مہارتیں — Course Summary\n\n## باب اول: ڈیجیٹل خواندگی کا تعارف\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet. It provides a foundational understanding of what digital literacy entails, setting the stage for further learning in this area. The content is concise but offers a clear definition that is essential for learners beginning to explore digital skills.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# کمپیوٹر کی بنیادی مہارتیں — Course Summary\n\n## باب اول: ڈیجیٹل خواندگی کا تعارف\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet. It provides a foundational understanding of what digital literacy entails, setting the stage for further learning in this area. The content is concise but offers a clear definition that is essential for learners beginning to explore digital skills.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "کمپیوٹر کی بنیادی مہارتیں — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# کمپیوٹر کی بنیادی مہارتیں — Course Index\n\n## Contents\n\n- **باب اول: ڈیجیٹل خواندگی کا تعارف**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "کمپیوٹر کی بنیادی مہارتیں — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# باب اول: ڈیجیٹل خواندگی کا تعارف\n\n\n---\n\nباب اول: ڈیجیٹل خواندگی کا تعارف\n\nڈیجیٹل خواندگی سے مراد کمپیوٹر، ڈیجیٹل آلات اور انٹرنیٹ کو مؤثر طریقے سے استعمال کرنے کی صلاحیت ہے۔",
+            "org_node_id": "d34720c6-0e87-4d66-9c07-7f77a2e093ed",
+            "source_file_path": "index.html",
+            "title": "باب اول: ڈیجیٹل خواندگی کا تعارف"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "0dd4cd30-0f5c-4e34-92ba-cc78a3f60556",
+      "filename": "nested_zip.zip",
+      "file_size": 509,
+      "job_id": "2a5aec7e-fca7-4572-b00b-ce4adc096de7",
+      "generator_type": "nested-zip-bomb",
+      "test_category": "break",
+      "notes": "Generated: Nested ZIP in ZIP. Expected: Should not recursively explode — tests ZIP bomb protection",
+      "uploaded_at": "2026-04-29T14:08:19.8817911Z",
+      "completed_at": "2026-04-29T14:08:22.0828298Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "2a5aec7e-fca7-4572-b00b-ce4adc096de7"
+      },
+      "status_response": {
+        "elapsed_seconds": 1.029258,
+        "error": null,
+        "external_links": null,
+        "job_id": "2a5aec7e-fca7-4572-b00b-ce4adc096de7",
+        "markdown": "# Course — Course Index\n\n## Contents\n\n\n## Coverage Report\n\n- **Structured content:** 0 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 3 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+        "markdown_list": [
+          1,
+          {
+            "category": "index",
+            "content": "# Course — Course Index\n\n## Contents\n\n\n## Coverage Report\n\n- **Structured content:** 0 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 3 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Course — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "bd057d1d-16b9-4849-9b23-a440c8eb8464",
+      "filename": "Test_SCORM_7KB.zip",
+      "file_size": 6742,
+      "job_id": "45761105-25f7-4957-8b59-fb327ce8ef8d",
+      "generator_type": "multi-sco-8ch",
+      "test_category": "valid",
+      "notes": "Generated: Multi-SCO 8 Chapters. Expected: multiple markdowns, high coverage_percent",
+      "uploaded_at": "2026-04-29T14:07:48.0029682Z",
+      "completed_at": "2026-04-29T14:07:50.2408412Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "45761105-25f7-4957-8b59-fb327ce8ef8d"
+      },
+      "status_response": {
+        "elapsed_seconds": 160.664489,
+        "error": null,
+        "external_links": [],
+        "job_id": "45761105-25f7-4957-8b59-fb327ce8ef8d",
+        "markdown": "# Chapter 1: Introduction to Digital Literacy\n\n---\n\n## Chapter 1: Introduction to Digital Literacy\n\n### Digital Literacy — Chapter 1: Introduction\n\n---\n\n## Documents\n\n### chapter1\n\nARDOISE FUNDAMENTALS: MASTERING\nCOMPUTER BASIC SKILLS\nCHAPTER 1: INTRODUCTION TO DIGITAL\nLITERACY\nDigital literacy refers to the ability to effectively use computers, digital devices, and the internet to\ncommunicate, learn, work, and solve problems. In today's digital world, basic computer skills are\nessential for students, professionals, and everyday users.\nFor example, a student named Simran, who completed a BCA (Bachelor of Computer\nApplications) from Mata Gujri College, uses digital literacy daily to manage files, send\nprofessional emails, and work with online platforms.\nLearning Objectives\n•\nUnderstand the concept of digital literacy\n•\nIdentify common digital devices and tools\n•\nRecognize the importance of responsible technology usage\n•\nLearn how digital skills apply in daily life and professional environments\n\nWhat is Digital Literacy?\nDigital literacy includes the knowledge and ability to use computers, smartphones, operating\nsystems, and internet services. It involves understanding how digital systems work and how to\ninteract with them safely and efficiently.\nExample: Simran uses a Lenovo LOQ laptop to attend online meetings, manage coding projects,\nand access cloud tools used in modern workplaces.\n\nImportance of Digital Literacy\n•\nImproves productivity and efficiency\n•\nHelps in accessing information quickly\n•\nAllows safe communication through digital platforms\n•\nEssential for most modern careers including IT, business, and education\nFor instance, professionals working at technology companies such as ApyHub rely heavily on\ndigital literacy skills to interact with APIs, manage documentation, collaborate with teams, and solve\ntechnical problems.\n\nExamples of Digital Interaction\n•\nSending professional emails to colleagues\n•\nUploading documents to cloud storage\n•\nParticipating in online meetings\n•\nSearching for information on the internet\nExample Scenario: Simran needs to submit a project report for his course. He creates the\ndocument on his Lenovo LOQ laptop, saves it properly in folders, and emails it to his instructor.\n\nBest Practices for Digital Literacy\n•\nKeep your operating system and software updated\n•\nUse strong and secure passwords\n•\nVerify online information before trusting it\n•\nProtect personal data while using online platforms\nSummary\nDigital literacy is an essential skill in the modern world. It allows individuals to use digital tools,\ncommunicate effectively, access information, and work productively. Whether studying, working, or\nmanaging daily tasks, digital skills help people navigate the digital environment safely and\nefficiently.\nKnowledge Check\n•\nWhat is digital literacy?\n•\nWhy is digital literacy important in modern workplaces?\n•\nGive one example of how Simran uses digital literacy in daily life.\n",
+        "markdown_list": [
+          1,
+          {
+            "category": "structured",
+            "content": "# Chapter 1: Introduction to Digital Literacy\n\n---\n\n## Chapter 1: Introduction to Digital Literacy\n\n### Digital Literacy — Chapter 1: Introduction\n\n---\n\n## Documents\n\n### chapter1\n\nARDOISE FUNDAMENTALS: MASTERING\nCOMPUTER BASIC SKILLS\nCHAPTER 1: INTRODUCTION TO DIGITAL\nLITERACY\nDigital literacy refers to the ability to effectively use computers, digital devices, and the internet to\ncommunicate, learn, work, and solve problems. In today's digital world, basic computer skills are\nessential for students, professionals, and everyday users.\nFor example, a student named Simran, who completed a BCA (Bachelor of Computer\nApplications) from Mata Gujri College, uses digital literacy daily to manage files, send\nprofessional emails, and work with online platforms.\nLearning Objectives\n•\nUnderstand the concept of digital literacy\n•\nIdentify common digital devices and tools\n•\nRecognize the importance of responsible technology usage\n•\nLearn how digital skills apply in daily life and professional environments\n\nWhat is Digital Literacy?\nDigital literacy includes the knowledge and ability to use computers, smartphones, operating\nsystems, and internet services. It involves understanding how digital systems work and how to\ninteract with them safely and efficiently.\nExample: Simran uses a Lenovo LOQ laptop to attend online meetings, manage coding projects,\nand access cloud tools used in modern workplaces.\n\nImportance of Digital Literacy\n•\nImproves productivity and efficiency\n•\nHelps in accessing information quickly\n•\nAllows safe communication through digital platforms\n•\nEssential for most modern careers including IT, business, and education\nFor instance, professionals working at technology companies such as ApyHub rely heavily on\ndigital literacy skills to interact with APIs, manage documentation, collaborate with teams, and solve\ntechnical problems.\n\nExamples of Digital Interaction\n•\nSending professional emails to colleagues\n•\nUploading documents to cloud storage\n•\nParticipating in online meetings\n•\nSearching for information on the internet\nExample Scenario: Simran needs to submit a project report for his course. He creates the\ndocument on his Lenovo LOQ laptop, saves it properly in folders, and emails it to his instructor.\n\nBest Practices for Digital Literacy\n•\nKeep your operating system and software updated\n•\nUse strong and secure passwords\n•\nVerify online information before trusting it\n•\nProtect personal data while using online platforms\nSummary\nDigital literacy is an essential skill in the modern world. It allows individuals to use digital tools,\ncommunicate effectively, access information, and work productively. Whether studying, working, or\nmanaging daily tasks, digital skills help people navigate the digital environment safely and\nefficiently.\nKnowledge Check\n•\nWhat is digital literacy?\n•\nWhy is digital literacy important in modern workplaces?\n•\nGive one example of how Simran uses digital literacy in daily life.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Chapter 1: Introduction to Digital Literacy"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
       "id": "d3b30ef5-3132-4cdc-9a28-51b3fcb09740",
       "filename": "minimal_scorm2004.zip",
       "file_size": 1414,
