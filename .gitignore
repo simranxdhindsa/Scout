@@ -9,6 +9,11 @@ Bots Configuration/
 !e2e/specs/studio-web/
 !e2e/specs/ui/
 
+!e2e/pages/
+!e2e/pages/mission-control/
+!e2e/pages/studio-web/
+!e2e/pages/ui/
+
 # Dependencies
 node_modules/
 
