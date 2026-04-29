@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -404,16 +405,44 @@ func handleCodegen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scriptName := "pw:codegen:" + body.Product
-	cmd := exec.Command("cmd", "/c", "npm", "run", scriptName)
+	if err := os.MkdirAll(filepath.Join(repoRoot, "e2e", "specs", "recorded"), 0755); err != nil {
+		http.Error(w, "failed to prepare output dir: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	urlEnvKey := map[string]string{
+		"ui": "PLAYWRIGHT_UI_URL",
+		"mc": "PLAYWRIGHT_MC_URL",
+		"sw": "PLAYWRIGHT_SW_URL",
+	}[body.Product]
+	targetURL, err := readEnvVar(filepath.Join(repoRoot, ".env.e2e"), urlEnvKey)
+	if err != nil || targetURL == "" {
+		http.Error(w, "could not resolve URL for product "+body.Product, http.StatusInternalServerError)
+		return
+	}
+
+	authFile := filepath.Join(repoRoot, "e2e", ".auth", body.Product+"-user.json")
+	outputFile := filepath.Join(repoRoot, "e2e", "specs", "recorded", "recorded.spec.ts")
+
+	cmd := npxPlaywrightCmd("codegen",
+		"--load-storage="+authFile,
+		"--output="+outputFile,
+		targetURL,
+	)
 	cmd.Dir = repoRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	// Detach into its own session so it survives the HTTP handler returning
+	// and isn't killed by signals sent to the Go server's process group.
+	if runtime.GOOS != "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	}
 
 	if err := cmd.Start(); err != nil {
 		http.Error(w, "failed to launch browser: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Interactive process — don't wait, let it run
 	go func() { _ = cmd.Wait() }()
 
 	writeJSON(w, map[string]string{"status": "launched", "product": body.Product})
@@ -511,6 +540,30 @@ func npmRunCmd(script string) *exec.Cmd {
 		return exec.Command("cmd", "/c", "npm", "run", script)
 	}
 	return exec.Command("npm", "run", script)
+}
+
+// npxPlaywrightCmd builds a cross-platform `npx playwright <args>` command.
+func npxPlaywrightCmd(args ...string) *exec.Cmd {
+	all := append([]string{"playwright"}, args...)
+	if runtime.GOOS == "windows" {
+		return exec.Command("cmd", append([]string{"/c", "npx"}, all...)...)
+	}
+	return exec.Command("npx", all...)
+}
+
+// readEnvVar parses a .env file and returns the value for the given key.
+func readEnvVar(envFile, key string) (string, error) {
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, key+"=") {
+			return strings.TrimPrefix(line, key+"="), nil
+		}
+	}
+	return "", nil
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
