@@ -40,7 +40,7 @@ export function ControlPanel() {
   const [logLines, setLogLines]       = useState<string[]>([]);
   const [offsetRef]                   = useState({ current: 0 });
   const pollRef                       = useRef<ReturnType<typeof setInterval> | null>(null);
-  const logEndRef                     = useRef<HTMLDivElement>(null);
+  const logContainerRef               = useRef<HTMLDivElement>(null);
 
   // Codegen state
   const [codegenProduct, setCodegenProduct] = useState('');
@@ -50,14 +50,29 @@ export function ControlPanel() {
   const [authStatus, setAuthStatus]   = useState<AuthInfo[]>([]);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // ── Load auth status on mount ──────────────────────────────────────────
+  // ── Load auth status on mount + resume any in-progress run ───────────
   useEffect(() => {
     loadAuthStatus();
+
+    fetch('/api/run/output?offset=0')
+      .then(r => r.json())
+      .then((data: RunOutput) => {
+        if (data.status === 'running') {
+          setRunStatus('running');
+          setRunProduct(data.product);
+          setLogLines(data.lines);
+          offsetRef.current = data.lines.length;
+          startPolling();
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Auto-scroll log ────────────────────────────────────────────────────
+  // ── Auto-scroll log container (not the page) ──────────────────────────
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = logContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [logLines]);
 
   // ── Cleanup poll on unmount ────────────────────────────────────────────
@@ -224,14 +239,13 @@ export function ControlPanel() {
               )}
             </div>
 
-            <div className={s.log}>
+            <div className={s.log} ref={logContainerRef}>
               {logLines.map((line, i) => (
                 <div key={i} className={`${s.logLine} ${colorLine(line)}`}>
                   {line || '\u00A0'}
                 </div>
               ))}
               {isRunning && <div className={s.logCursor}>▋</div>}
-              <div ref={logEndRef} />
             </div>
           </div>
         )}
