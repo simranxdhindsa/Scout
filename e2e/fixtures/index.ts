@@ -3,10 +3,12 @@ import { AuthenticatedPage } from './authenticated-page';
 import { ApiMocker } from './api-mock';
 import { AccessibilityHelper } from './accessibility';
 import { NetworkLogger } from './network-logger';
+import { OnboardingMocks } from './onboarding-mocks';
 
 type CustomFixtures = {
   authenticatedPage: AuthenticatedPage;
   apiMocker: ApiMocker;
+  onboardingMocks: OnboardingMocks;
   a11y: AccessibilityHelper;
   networkLogger: NetworkLogger;
 };
@@ -18,6 +20,11 @@ export const test = base.extend<CustomFixtures>({
   apiMocker: async ({ page }, use) => {
     const mocker = new ApiMocker(page);
     await use(mocker);
+    await mocker.removeAll();
+  },
+  onboardingMocks: async ({ page }, use) => {
+    const mocker = new ApiMocker(page);
+    await use(new OnboardingMocks(mocker));
     await mocker.removeAll();
   },
   a11y: async ({ page }, use) => {

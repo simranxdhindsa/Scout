@@ -154,8 +154,8 @@ async function browserLoginEmailPassword(app: AppConfig, storagePath: string): P
       // Submit
       await page.getByRole('button', { name: /se connecter/i }).click();
 
-      // Wait for dashboard
-      await page.waitForURL('**/dashboard', { timeout: 60_000 });
+      // Wait for redirect away from /auth/ (may land on /dashboard or /onboarding/*)
+      await page.waitForURL((url) => !url.pathname.includes('/auth/'), { timeout: 60_000 });
       await page.waitForTimeout(3000); // buffer for SPA auth token setup
 
       console.log(`[${app.name}] Login successful — landed on: ${page.url()}`);
