@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -69,6 +68,8 @@ func main() {
 	repoRoot = filepath.Clean(filepath.Join(cwd, "..", "..", ".."))
 	authDir  = filepath.Join(repoRoot, "e2e", ".auth")
 
+	initScorm(cwd)
+
 	mux := http.NewServeMux()
 
 	// ── Existing report API ───────────────────────────────────────────────
@@ -76,6 +77,9 @@ func main() {
 	mux.HandleFunc("GET /api/runs/{ts}/results", handleResults)
 	mux.HandleFunc("GET /api/screenshot", handleScreenshot)
 	mux.HandleFunc("GET /api/attachment", handleAttachment)
+
+	// ── SCORM tester API ──────────────────────────────────────────────────
+	registerScormRoutes(mux)
 
 	// ── Control panel API ─────────────────────────────────────────────────
 	mux.HandleFunc("POST /api/run", handleStartRun)
@@ -492,11 +496,8 @@ func handleCodegen(w http.ResponseWriter, r *http.Request) {
 	cmd.Dir = repoRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	// Detach into its own session so it survives the HTTP handler returning
-	// and isn't killed by signals sent to the Go server's process group.
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	}
+	// Detach on Unix so the browser process survives the HTTP handler returning.
+	setSetsid(cmd)
 
 	if err := cmd.Start(); err != nil {
 		http.Error(w, "failed to launch browser: "+err.Error(), http.StatusInternalServerError)

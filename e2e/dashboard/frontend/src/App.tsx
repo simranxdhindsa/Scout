@@ -3,9 +3,10 @@ import type { RunMeta } from './types';
 import { RunList } from './components/RunList';
 import { RunDetail } from './components/RunDetail';
 import { ControlPanel } from './components/ControlPanel';
+import { ScormPanel } from './components/ScormPanel';
 import s from './App.module.css';
 
-type Tab = 'reports' | 'control';
+type Tab = 'reports' | 'control' | 'scorm';
 type RunStatus = 'idle' | 'running' | 'done' | 'failed' | 'stopped';
 
 export function App() {
@@ -95,6 +96,12 @@ export function App() {
           >
             📋 Reports {runs.length > 0 && <span className={s.tabBadge}>{runs.length}</span>}
           </button>
+          <button
+            className={`${s.tabBtn} ${tab === 'scorm' ? s.tabActive : ''}`}
+            onClick={() => handleTabChange('scorm')}
+          >
+            ⚡ SCORM Tester
+          </button>
         </nav>
 
         {/* Stop button — always visible; disabled when no run is active */}
@@ -119,6 +126,8 @@ export function App() {
       <div className={s.body}>
 
         {tab === 'control' && <ControlPanel />}
+
+        {tab === 'scorm' && <ScormPanel />}
 
         {tab === 'reports' && (
           <>

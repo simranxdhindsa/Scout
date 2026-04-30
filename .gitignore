@@ -40,10 +40,4 @@ playwright-report/
 Thumbs.db
 
 
-.md
-*.md
-!README.md
-!CONTRIBUTING.md
-!LICENSE.md
-!CLAUDE.md
-!docs/
+
