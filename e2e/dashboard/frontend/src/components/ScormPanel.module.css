@@ -19,8 +19,20 @@
   border-right: 1px solid #d9e0ea;
   background: rgba(255,255,255,.78);
   backdrop-filter: blur(10px);
-  overflow-y: auto;
   box-shadow: 0 10px 30px rgba(23,32,51,.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sideFixed {
+  flex: 0 0 auto;
+}
+
+.sideScroll {
+  flex: 1 1 0;
+  overflow-y: auto;
+  border-top: 1px solid #d9e0ea;
 }
 
 .preview {
@@ -203,22 +215,28 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
+  font-family: inherit;
+  font-size: inherit;
   font-weight: 650;
-  font: inherit;
   cursor: pointer;
+  transition: background .15s, filter .15s;
 }
 
-.btn:hover { background: #f9fbfd; }
+.btn:hover { background: #f0f4f8; }
 
 .btnPrimary {
   border-color: transparent;
   background: linear-gradient(135deg, #0969da, #0f8a5f);
-  color: #fff;
+  color: #fff !important;
   box-shadow: 0 10px 20px rgba(9,105,218,.18);
 }
 
-.btnPrimary:hover { filter: brightness(1.04); }
-.btnPrimary:disabled { border-color: #d9e0ea; background: #e9eef5; color: #9aa4b2; cursor: not-allowed; box-shadow: none; filter: none; }
+.btnPrimary:hover {
+  background: linear-gradient(135deg, #0860c8, #0d7a54);
+  filter: brightness(1.06);
+}
+
+.btnPrimary:disabled { border-color: #d9e0ea; background: #e9eef5 !important; color: #9aa4b2 !important; cursor: not-allowed; box-shadow: none; filter: none; }
 
 .btnDanger { color: #c4322b; border-color: #f1beb9; background: #fff; }
 .btnIcon { width: 34px; height: 34px; padding: 0; }

