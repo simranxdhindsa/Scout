@@ -45,14 +45,14 @@ test.describe('Onboarding — Happy Path', () => {
   });
 
   test('Step 2 — Play button is rendered (CI-safe, no autoplay assertion)', async ({ page }) => {
-    // Navigate directly to the audio tab with a known avatarId from mock data
     await audioPage.goto('avatar-1');
+    await audioPage.waitForListReady();
 
-    // At least one play button must exist in the list
+    // Voice model names from mock must be visible
+    await expect(page.getByText('Natural')).toBeVisible();
+    // Play button must exist — clicking it (actual playback) is not asserted
     const playBtn = page.getByRole('button', { name: /play|preview|écouter/i }).first();
-    const exists = await playBtn.isVisible({ timeout: 5_000 }).catch(() => false);
-    // Document the expectation — if no play button the test informs rather than hard-fails
-    expect(typeof exists).toBe('boolean');
+    await expect(playBtn).toBeVisible({ timeout: 5_000 });
   });
 
   test('Step 2 — Selecting an audio model enables Next', async ({ page }) => {
@@ -85,11 +85,10 @@ test.describe('Onboarding — Happy Path', () => {
 
     await expect(tourPage.allInterestChips.first()).toBeVisible();
     // Click first chip — it should toggle to selected state
-    await tourPage.allInterestChips.first().click();
-    // Mantine Chip marks selected with aria-checked or data-checked
-    await expect(
-      tourPage.allInterestChips.first(),
-    ).toHaveAttribute(/aria-checked|data-checked/, /true|checked/);
+    const firstChip = tourPage.allInterestChips.first();
+    await firstChip.click();
+    // Mantine Chip root receives data-checked="true" when selected
+    await expect(firstChip).toHaveAttribute('data-checked', 'true');
   });
 
   test('Step 6 — Summary shows complete button', async ({ page }) => {
@@ -100,17 +99,19 @@ test.describe('Onboarding — Happy Path', () => {
 
   test('Step 6 — Complete button fires PUT /complete and redirects to /dashboard', async ({ page }) => {
     let completeCalled = false;
+    // Register before goto so it captures the request; Playwright routes LIFO so this wins over mockAll's route
     await page.route('**/o/user/onboarding/complete', async (route) => {
-      if (route.request().method() === 'PUT') completeCalled = true;
-      await route.fulfill({ status: 200, body: JSON.stringify({ data: { success: true } }) });
+      completeCalled = route.request().method() === 'PUT';
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { success: true } }) });
     });
 
     await summaryPage.goto();
     await summaryPage.waitForSummaryReady();
+    await expect(page.getByText("You're all set!")).toBeVisible();
     await summaryPage.complete();
 
     expect(completeCalled).toBe(true);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
   });
 
   test('Full happy path — avatar → audio → preference → tour → interests → summary → complete', async ({ page }) => {
