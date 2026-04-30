@@ -1,0 +1,270 @@
+/* TestRow.module.css — individual test rows, error panels, network log */
+
+.row {
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child { border-bottom: none; }
+
+/* ── Row header ─────────────────────────────────────────────────────────── */
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  transition: background 0.1s;
+}
+
+.rowHeader:hover { background: var(--surface2); }
+
+/* ── Status pills ────────────────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pillPassed, .pillExpected {
+  background: var(--pass-light);
+  color: var(--pass);
+}
+
+.pillFailed, .pillUnexpected {
+  background: var(--fail-light);
+  color: var(--fail);
+}
+
+.pillTimedOut {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.pillSkipped {
+  background: var(--surface3);
+  color: var(--text-muted);
+}
+
+.pillInterrupted {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.pillUnknown {
+  background: var(--surface3);
+  color: var(--text-sub);
+}
+
+/* ── Title, project tag, duration ────────────────────────────────────────── */
+.title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--surface3);
+  border-radius: 10px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+}
+
+.dur {
+  font-size: 11px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  min-width: 44px;
+  text-align: right;
+}
+
+.netWarnBadge {
+  font-size: 11px;
+  background: var(--warn-light);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+/* ── Detail panel (expanded) ─────────────────────────────────────────────── */
+.detail {
+  padding: 12px 16px 16px 38px;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+}
+
+/* ── Error block ─────────────────────────────────────────────────────────── */
+.errorBlock {
+  background: var(--fail-bg);
+  border: 1px solid #fecaca;
+  border-left: 3px solid var(--fail);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  color: #991b1b;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-bottom: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+/* ── Network log accordion ───────────────────────────────────────────────── */
+.netSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.netHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.netHeader:hover { background: #ffedd5; }
+
+.netBadge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.netBadgeConsole { background: #fee2e2; color: #991b1b; }
+.netBadgeApi     { background: #ffedd5; color: #9a3412; }
+.netBadgeNet     { background: #f3e8ff; color: #6b21a8; }
+.netBadgeCrash   { background: #fee2e2; color: #7f1d1d; }
+
+.netBody {
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.netSubtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 4px;
+}
+
+.netEntryPre {
+  background: var(--fail-bg);
+  color: #991b1b;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  margin: 2px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+}
+
+.netApiRow {
+  background: #fff7ed;
+  border-left: 3px solid var(--warn);
+  padding: 5px 10px;
+  margin: 3px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.netApiStatus { color: var(--warn); font-weight: 700; }
+.netApiMethod { color: var(--text-muted); }
+.netApiUrl    { color: #4338ca; word-break: break-all; }
+.netApiSnippet {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.netReqRow {
+  background: #faf5ff;
+  border-left: 3px solid #a855f7;
+  padding: 5px 10px;
+  margin: 3px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.netReqMethod { color: #7c3aed; font-weight: 700; }
+.netReqUrl    { color: #4338ca; word-break: break-all; }
+.netReqReason { color: #ef4444; font-size: 11px; display: block; margin-top: 2px; }
+
+/* ── Screenshot ──────────────────────────────────────────────────────────── */
+.screenshot {
+  margin-bottom: 10px;
+}
+
+.screenshotImg {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  display: block;
+}
+
+.screenshotImg:hover { box-shadow: var(--shadow-lg); }
+
+/* ── Links row ───────────────────────────────────────────────────────────── */
+.links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.link {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 3px 8px;
+  border: 1px solid var(--accent-light);
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+  transition: background 0.12s;
+}
+
+.link:hover { background: #ddd6fe; }
+
+.traceBlock {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface3);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-family: 'Consolas', 'Courier New', monospace;
+}

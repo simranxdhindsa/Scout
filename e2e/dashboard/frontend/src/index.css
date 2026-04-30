@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Global reset & CSS variables ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:            #f5f7fb;
+  --surface:       #ffffff;
+  --surface2:      #f0f2f8;
+  --surface3:      #e8eaf4;
+  --border:        #e2e5f0;
+  --border-strong: #c5c9e0;
+  --text:          #1e2033;
+  --text-muted:    #6b7280;
+  --text-sub:      #9ca3af;
+  --accent:        #4f46e5;
+  --accent-light:  #ede9fe;
+  --accent-hover:  #4338ca;
+  --pass:          #059669;
+  --pass-light:    #d1fae5;
+  --pass-bg:       #ecfdf5;
+  --fail:          #dc2626;
+  --fail-light:    #fee2e2;
+  --fail-bg:       #fff5f5;
+  --skip:          #d97706;
+  --skip-light:    #fef3c7;
+  --skip-bg:       #fffbeb;
+  --warn:          #ea580c;
+  --warn-light:    #ffedd5;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:     0 10px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+  --radius:        8px;
+  --radius-sm:     4px;
+  --radius-lg:     12px;
+  --sidebar-w:     280px;
+
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body, #root { height: 100%; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-sub); }
+
+/* ── Shared skeleton animation (used by multiple components) ─────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── details reset (used by spec group + network section) ────────────────── */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }

@@ -3,6 +3,17 @@ mission-control/
 studio-web/
 Bots Configuration/
 
+# Un-ignore e2e specs (overrides the folder rules above)
+!e2e/specs/
+!e2e/specs/mission-control/
+!e2e/specs/studio-web/
+!e2e/specs/ui/
+
+!e2e/pages/
+!e2e/pages/mission-control/
+!e2e/pages/studio-web/
+!e2e/pages/ui/
+
 # Dependencies
 node_modules/
 
@@ -10,9 +21,11 @@ node_modules/
 .env
 .env.local
 .env.e2e
+py scripts/
 
 # E2E / Playwright
 e2e/.auth/
+e2e/specs/recorded/
 e2e/reports/
 e2e/snapshots/
 e2e/test-results/
@@ -25,3 +38,6 @@ playwright-report/
 # OS
 .DS_Store
 Thumbs.db
+
+
+
