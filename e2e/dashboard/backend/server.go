@@ -20,11 +20,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
+	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -293,9 +292,7 @@ func handleStartRun(w http.ResponseWriter, r *http.Request) {
 		cmd := npmRunCmd(scriptName)
 		cmd.Dir = repoRoot
 		// Own process group so we can kill the whole tree (npm → node → playwright → browsers)
-		if runtime.GOOS != "windows" {
-			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-		}
+		setProcGroup(cmd)
 
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
@@ -431,12 +428,7 @@ func handleStopRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Kill the entire process group so npm, node, playwright, and browser children all die.
-	var killErr error
-	if runtime.GOOS != "windows" {
-		killErr = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-	} else {
-		killErr = cmd.Process.Kill()
-	}
+	killErr := killProcGroup(cmd)
 	if killErr != nil {
 		http.Error(w, "failed to kill process: "+killErr.Error(), http.StatusInternalServerError)
 		return
