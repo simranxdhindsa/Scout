@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCORM Scraper Test Lab</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --panel-2: #f9fbfd;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9e0ea;
+      --line-2: #edf1f6;
+      --blue: #0969da;
+      --blue-soft: #e8f2ff;
+      --green: #0f8a5f;
+      --green-soft: #e7f7ef;
+      --amber: #b26a00;
+      --amber-soft: #fff4dd;
+      --red: #c4322b;
+      --red-soft: #fdebea;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: grid; grid-template-rows: 56px 1fr; }
+    .topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); position: sticky; top: 0; z-index: 10; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.02em; }
+    .brand-mark { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 7px; background: #eef6ff; color: var(--blue); }
+    .env { font-family: var(--mono); color: var(--muted); font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+    .top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .status { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--amber); }
+    .dot.ok { background: var(--green); }
+    .dot.bad { background: var(--red); }
+    .shell { display: grid; grid-template-columns: 360px minmax(0, 1fr) 390px; min-height: calc(100vh - 56px); }
+    .side, .preview { border-right: 1px solid var(--line); background: var(--panel); overflow: auto; }
+    .preview { border-right: 0; border-left: 1px solid var(--line); }
+    .main { overflow: auto; padding: 18px; }
+    .section { padding: 16px; border-bottom: 1px solid var(--line); }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .eyebrow { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 750; }
+    .title { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .drop { position: relative; min-height: 154px; display: grid; place-items: center; text-align: center; border: 1px dashed #a7b2c2; border-radius: 8px; background: var(--panel-2); transition: .15s; padding: 18px; }
+    .drop:hover, .drop.hot { border-color: var(--blue); background: var(--blue-soft); }
+    .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-icon { width: 42px; height: 42px; margin: 0 auto 10px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--blue); }
+    .file-chip { display: none; margin-top: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .file-chip strong { display: block; word-break: break-all; }
+    .form-grid { display: grid; gap: 8px; margin-top: 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); padding: 9px 10px; outline: none; }
+    textarea { min-height: 68px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(9,105,218,.12); }
+    .btn { border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); min-height: 34px; padding: 7px 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-weight: 650; }
+    .btn:hover { background: var(--panel-2); }
+    .btn.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+    .btn.primary:disabled { border-color: var(--line); background: #e9eef5; color: #9aa4b2; cursor: not-allowed; }
+    .btn.danger { color: var(--red); border-color: #f1beb9; background: #fff; }
+    .btn.icon { width: 34px; padding: 0; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .progress { display: none; height: 5px; margin-top: 10px; background: var(--line-2); border-radius: 999px; overflow: hidden; }
+    .progress div { width: 0; height: 100%; background: var(--blue); transition: width .25s; }
+    .gen-tools { display: flex; gap: 8px; margin-bottom: 10px; }
+    .gen-list { display: grid; gap: 8px; }
+    .gen-card { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 10px; text-align: left; }
+    .gen-card:hover { border-color: var(--blue); box-shadow: 0 1px 0 rgba(16,24,40,.04); }
+    .gen-name { font-weight: 750; margin: 5px 0 4px; }
+    .gen-desc { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 7px; font-size: 11px; font-family: var(--mono); border: 1px solid transparent; }
+    .valid { color: var(--green); background: var(--green-soft); border-color: #bfe8d2; }
+    .edge { color: var(--amber); background: var(--amber-soft); border-color: #f1d294; }
+    .break { color: var(--red); background: var(--red-soft); border-color: #f2b6b0; }
+    .uploaded, .processing, .running { color: var(--amber); background: var(--amber-soft); border-color: #f1d294; }
+    .complete { color: var(--green); background: var(--green-soft); border-color: #bfe8d2; }
+    .error, .failed { color: var(--red); background: var(--red-soft); border-color: #f2b6b0; }
+    .hero-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
+    .metric { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; min-height: 88px; }
+    .metric span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 750; }
+    .metric strong { display: block; margin-top: 8px; font-size: 22px; letter-spacing: -.03em; }
+    .panel { border: 1px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; margin-bottom: 14px; }
+    .panel-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 11px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+    .panel-body { padding: 12px; }
+    .tabs { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .tab { border: 0; background: transparent; border-radius: 6px; padding: 7px 10px; color: var(--muted); }
+    .tab.active { background: var(--blue-soft); color: var(--blue); font-weight: 750; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kv { border: 1px solid var(--line-2); border-radius: 7px; padding: 9px; background: #fff; min-width: 0; }
+    .kv label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+    .kv div { word-break: break-word; }
+    .mono { font-family: var(--mono); font-size: 12px; }
+    .markdown { line-height: 1.65; }
+    .markdown h1 { font-size: 20px; margin: 0 0 12px; }
+    .markdown h2 { font-size: 16px; margin: 18px 0 8px; }
+    .markdown h3 { font-size: 14px; margin: 14px 0 6px; }
+    .markdown p, .markdown ul, .markdown ol { margin: 0 0 10px; }
+    .markdown code { background: var(--line-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 11px; border-bottom: 1px solid var(--line-2); text-align: left; vertical-align: middle; }
+    th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; background: var(--panel-2); }
+    tr:hover td { background: #fbfdff; }
+    .td-file { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+    .empty { color: var(--muted); padding: 30px; text-align: center; }
+    .toastbox { position: fixed; right: 18px; bottom: 18px; display: grid; gap: 8px; z-index: 20; }
+    .toast { max-width: 360px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 10px 12px; box-shadow: 0 14px 36px rgba(16,24,40,.14); }
+    .toast.ok { border-color: #bfe8d2; }
+    .toast.err { border-color: #f2b6b0; }
+    .poll { display: none; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid #b9d8ff; background: var(--blue-soft); border-radius: 8px; margin-bottom: 12px; color: var(--blue); }
+    .spinner { width: 14px; height: 14px; border: 2px solid #b9d8ff; border-top-color: var(--blue); border-radius: 999px; animation: spin .8s linear infinite; }
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(9,105,218,.16), transparent 34rem),
+        radial-gradient(circle at top right, rgba(15,138,95,.14), transparent 30rem),
+        linear-gradient(135deg, #f7fbff 0%, #f6f8fb 42%, #fff8ef 100%);
+    }
+    .topbar {
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 28px rgba(23,32,51,.06);
+    }
+    .brand-mark {
+      border: 0;
+      color: #fff;
+      background: linear-gradient(135deg, #0969da, #0f8a5f);
+      box-shadow: 0 8px 18px rgba(9,105,218,.22);
+    }
+    .env { border-color: #b9d8ff; color: #0758b8; background: #edf6ff; }
+    .side, .preview, .panel, .metric, .table-wrap, .kv, .gen-card, .file-chip, input, select, textarea {
+      box-shadow: 0 10px 30px rgba(23,32,51,.05);
+    }
+    .side, .preview { background: rgba(255,255,255,.78); backdrop-filter: blur(10px); }
+    .drop {
+      border: 1px solid #b9d8ff;
+      background: linear-gradient(135deg, #eef6ff 0%, #ffffff 52%, #eaf8f1 100%);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 14px 30px rgba(9,105,218,.08);
+    }
+    .drop:hover, .drop.hot, .drop.selected {
+      border-color: #0969da;
+      background: linear-gradient(135deg, #e4f1ff 0%, #f6fbff 48%, #e7f7ef 100%);
+      transform: translateY(-1px);
+    }
+    .drop.selected .drop-icon {
+      color: #fff;
+      border-color: transparent;
+      background: linear-gradient(135deg, #0969da, #0f8a5f);
+    }
+    .file-chip {
+      border-color: #b9d8ff;
+      background: linear-gradient(135deg, #ffffff, #f2f8ff);
+      display: none;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .file-chip.visible { display: flex; }
+    .file-badge {
+      flex: 0 0 auto;
+      min-width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 12px;
+      background: linear-gradient(135deg, #0969da, #7c3aed);
+    }
+    .file-copy { min-width: 0; }
+    .file-copy strong { display: block; word-break: break-word; }
+    .file-copy .hint { margin-top: 3px; }
+    .btn.primary {
+      border-color: transparent;
+      background: linear-gradient(135deg, #0969da, #0f8a5f);
+      box-shadow: 0 10px 20px rgba(9,105,218,.18);
+    }
+    .btn.primary:hover { filter: brightness(1.04); }
+    .progress div { background: linear-gradient(90deg, #0969da, #0f8a5f, #b26a00); }
+    .metric {
+      border-color: #d3e4f8;
+      background: linear-gradient(180deg, #ffffff, #f6fbff);
+    }
+    .metric:nth-child(2) { border-color: #c8ead8; background: linear-gradient(180deg, #ffffff, #f3fbf7); }
+    .metric:nth-child(3) { border-color: #ead9ff; background: linear-gradient(180deg, #ffffff, #faf6ff); }
+    .metric:nth-child(4) { border-color: #f5d9ad; background: linear-gradient(180deg, #ffffff, #fff8ed); }
+    .metric:nth-child(5) { border-color: #ffc9c4; background: linear-gradient(180deg, #ffffff, #fff6f5); }
+    .gen-card { transition: transform .15s, border-color .15s, box-shadow .15s; }
+    .gen-card:hover {
+      transform: translateY(-1px);
+      border-color: #0969da;
+      box-shadow: 0 14px 28px rgba(9,105,218,.12);
+    }
+    .panel-head {
+      background: linear-gradient(90deg, #f6fbff, #ffffff);
+    }
+    .toast { border-left: 4px solid #0969da; }
+    .toast.ok { border-left-color: #0f8a5f; }
+    .toast.err { border-left-color: #c4322b; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 1180px) { .shell { grid-template-columns: 330px 1fr; } .preview { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); } .hero-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 760px) { .shell { display: block; } .side, .preview, .main { overflow: visible; } .hero-row, .info-grid, .row { grid-template-columns: 1fr; } .topbar { flex-wrap: wrap; height: auto; padding: 10px; } }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">S</div><div>SCORM Scraper Test Lab</div></div>
+    <div class="env">phoenix.private.ardoirse.com</div>
+    <div class="top-actions">
+      <div class="status"><span class="dot" id="healthDot"></span><span id="healthText">Checking proxy</span></div>
+      <button class="btn" id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="side">
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Upload</div>
+            <h1 class="title">Run a package</h1>
+          </div>
+        </div>
+        <div class="drop" id="drop">
+          <input id="fileInput" type="file" accept=".zip,application/zip,application/octet-stream">
+          <div>
+            <div class="drop-icon">ZIP</div>
+            <strong>Drop a SCORM ZIP here</strong>
+            <div class="hint">Local upload through the Go proxy. The upstream service stays on the live server.</div>
+          </div>
+        </div>
+        <div class="file-chip" id="fileChip">
+          <div class="file-badge">ZIP</div>
+          <div class="file-copy">
+            <strong id="fileName"></strong>
+            <div class="hint" id="fileMeta"></div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="row">
+            <select id="category">
+              <option value="valid">Valid test</option>
+              <option value="edge">Edge case</option>
+              <option value="break">Break test</option>
+            </select>
+            <input id="generatorType" placeholder="Generator type">
+          </div>
+          <textarea id="notes" placeholder="Run notes, expected behavior, repro details"></textarea>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="uploadBtn" disabled>Upload and poll</button>
+          <button class="btn" id="clearBtn">Clear</button>
+        </div>
+        <div class="progress" id="progress"><div id="progressFill"></div></div>
+      </section>
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Generator</div>
+            <h1 class="title">ZIP test cases</h1>
+          </div>
+        </div>
+        <div class="gen-tools">
+          <select id="genFilter">
+            <option value="all">All cases</option>
+            <option value="valid">Valid</option>
+            <option value="edge">Edge</option>
+            <option value="break">Break</option>
+          </select>
+        </div>
+        <div id="genList" class="gen-list"><div class="empty">Loading generators...</div></div>
+      </section>
+    </aside>
+    <main class="main">
+      <div class="poll" id="pollBox"><span class="spinner"></span><span id="pollText">Polling status...</span></div>
+      <div class="hero-row" id="metrics">
+        <div class="metric"><span>Status</span><strong>-</strong></div>
+        <div class="metric"><span>Coverage</span><strong>-</strong></div>
+        <div class="metric"><span>Markdowns</span><strong>-</strong></div>
+        <div class="metric"><span>Audio</span><strong>-</strong></div>
+        <div class="metric"><span>Elapsed</span><strong>-</strong></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <strong>Run output</strong>
+          <div class="tabs">
+            <button class="tab active" data-tab="visual">Visual</button>
+            <button class="tab" data-tab="markdown">Markdown</button>
+            <button class="tab" data-tab="json">JSON</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="tabVisual"><div class="empty">Upload a ZIP or choose a generated test case to see extraction output.</div></div>
+          <div id="tabMarkdown" style="display:none"><div class="empty">No markdown yet.</div></div>
+          <div id="tabJson" style="display:none"><pre id="jsonView">{}</pre></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <strong>Snapshot history</strong>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="historyFilter">
+              <option value="all">All</option>
+              <option value="valid">Valid</option>
+              <option value="edge">Edge</option>
+              <option value="break">Break</option>
+              <option value="complete">Complete</option>
+              <option value="error">Error</option>
+            </select>
+            <button class="btn danger" id="clearHistoryBtn">Clear all</button>
+          </div>
+        </div>
+        <div id="history" class="table-wrap"><div class="empty">No snapshots yet.</div></div>
+      </div>
+    </main>
+    <aside class="preview">
+      <section class="section">
+        <div class="eyebrow">Selected snapshot</div>
+        <h1 class="title" id="selectedTitle">Nothing selected</h1>
+        <p class="hint" id="selectedHint">Every upload is recorded in local <span class="mono">db.json</span> with filename, job id, upload response, final status response, and notes.</p>
+      </section>
+      <section class="section">
+        <div class="eyebrow">Run details</div>
+        <div class="info-grid" id="detailsGrid" style="margin-top:10px"></div>
+      </section>
+      <section class="section">
+        <div class="eyebrow">Break ideas covered</div>
+        <p class="hint">Empty ZIP, missing manifest, corrupt ZIP, malformed XML, binary HTML, renamed PDF, zero-byte upload, nested ZIP, Windows paths, huge HTML, empty HTML, external links, PDFs, deep nesting, multi-SCO, and language detection cases.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+<div class="toastbox" id="toastbox"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const API_BASE = location.port && location.port !== "8080" ? "http://127.0.0.1:8080" : "";
+let selectedFile = null, pollTimer = null, currentResult = null, generators = [], snapshots = [], markdownItems = [];
+
+function apiPath(path) {
+  return `${API_BASE}${path}`;
+}
+
+function toast(message, kind = "info") {
+  const node = document.createElement("div");
+  node.className = "toast " + (kind === "success" ? "ok" : kind === "error" ? "err" : "");
+  node.textContent = message;
+  $("toastbox").appendChild(node);
+  setTimeout(() => node.remove(), 3800);
+}
+function formatBytes(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B","KB","MB","GB"];
+  const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, idx)).toFixed(idx ? 1 : 0)} ${units[idx]}`;
+}
+function escapeHTML(str = "") {
+  return String(str).replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[ch]));
+}
+function miniMarkdown(md = "") {
+  const lines = escapeHTML(md).split(/\r?\n/);
+  let html = "", inList = false;
+  for (const line of lines) {
+    if (/^\s*[-*•]\s+/.test(line)) {
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += `<li>${line.replace(/^\s*[-*•]\s+/, "")}</li>`;
+      continue;
+    }
+    if (inList) { html += "</ul>"; inList = false; }
+    if (/^###\s+/.test(line)) html += `<h3>${line.replace(/^###\s+/, "")}</h3>`;
+    else if (/^##\s+/.test(line)) html += `<h2>${line.replace(/^##\s+/, "")}</h2>`;
+    else if (/^#\s+/.test(line)) html += `<h1>${line.replace(/^#\s+/, "")}</h1>`;
+    else if (/^---+$/.test(line.trim())) html += "<hr>";
+    else if (line.trim()) html += `<p>${line}</p>`;
+  }
+  if (inList) html += "</ul>";
+  return html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+function setFile(file) {
+  selectedFile = file;
+  $("fileChip").classList.add("visible");
+  $("drop").classList.add("selected");
+  $("fileName").textContent = file.name;
+  $("fileMeta").textContent = `${formatBytes(file.size)} | ${file.type || "application/zip"} | ready for proxy upload`;
+  $("uploadBtn").disabled = file.size === 0;
+  if (file.size === 0) toast("Selected file is 0 B. Choose the real ZIP file before uploading.", "error");
+}
+function clearUpload() {
+  selectedFile = null;
+  $("fileInput").value = "";
+  $("fileChip").classList.remove("visible");
+  $("drop").classList.remove("selected");
+  $("generatorType").value = "";
+  $("notes").value = "";
+  $("uploadBtn").disabled = true;
+}
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+  $("pollBox").style.display = "none";
+}
+async function uploadFile() {
+  if (!selectedFile) return;
+  if (selectedFile.size === 0) {
+    toast("Cannot upload a 0 B file. Select the actual SCORM ZIP.", "error");
+    return;
+  }
+  stopPolling();
+  $("uploadBtn").disabled = true;
+  $("uploadBtn").textContent = "Uploading...";
+  $("progress").style.display = "block";
+  $("progressFill").style.width = "35%";
+  const form = new FormData();
+  form.append("file", selectedFile);
+  form.append("test_category", $("category").value);
+  form.append("generator_type", $("generatorType").value);
+  form.append("notes", $("notes").value);
+  try {
+    const res = await fetch(apiPath("/api/upload"), { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok || !data.job_id) throw new Error(data.error || "Upload did not return a job_id");
+    $("progressFill").style.width = "70%";
+    toast(`Uploaded. Job ${data.job_id.slice(0, 8)} is polling.`, "success");
+    pollStatus(data.job_id, data.snapshot_id);
+    loadHistory();
+  } catch (err) {
+    toast(err.message, "error");
+    $("uploadBtn").disabled = false;
+    $("uploadBtn").textContent = "Upload and poll";
+    $("progress").style.display = "none";
+  }
+}
+function pollStatus(jobID, snapshotID) {
+  $("pollBox").style.display = "flex";
+  let count = 0;
+  pollTimer = setInterval(async () => {
+    count++;
+    try {
+      const res = await fetch(apiPath(`/api/status/${encodeURIComponent(jobID)}?snapshot_id=${encodeURIComponent(snapshotID)}`));
+      const data = await res.json();
+      $("pollText").textContent = `Attempt ${count}: ${data.status || "unknown"} ${data.step ? "| " + data.step : ""}`;
+      if (["complete", "error", "failed"].includes(data.status)) {
+        stopPolling();
+        $("progressFill").style.width = "100%";
+        setTimeout(() => $("progress").style.display = "none", 500);
+        $("uploadBtn").disabled = false;
+        $("uploadBtn").textContent = "Upload and poll";
+        currentResult = data;
+        renderResult(data);
+        loadHistory();
+        toast(data.status === "complete" ? "Extraction complete." : `Job ended: ${data.error || data.status}`, data.status === "complete" ? "success" : "error");
+      }
+    } catch (err) {
+      $("pollText").textContent = `Poll error: ${err.message}`;
+    }
+  }, 2000);
+}
+function renderResult(data) {
+  const summary = data.summary || {};
+  $("metrics").innerHTML = [
+    ["Status", `<span class="badge ${escapeHTML(data.status || "")}">${escapeHTML(data.status || "-")}</span>`],
+    ["Coverage", data.coverage_percent == null ? "-" : `${Number(data.coverage_percent).toFixed(0)}%`],
+    ["Markdowns", summary.total_markdowns ?? (data.markdown ? 1 : 0)],
+    ["Audio", summary.total_audio_files ?? 0],
+    ["Elapsed", data.elapsed_seconds == null ? "-" : `${Number(data.elapsed_seconds).toFixed(1)}s`]
+  ].map(([k,v]) => `<div class="metric"><span>${k}</span><strong>${v}</strong></div>`).join("");
+  const titles = summary.markdown_titles || [];
+  const links = data.external_links || [];
+  $("tabVisual").innerHTML = `
+    <div class="info-grid">
+      ${kv("Job ID", data.job_id || "-")}
+      ${kv("Language", data.language || "-")}
+      ${kv("Mode", data.mode || "-")}
+      ${kv("Authoring tool", (data.authoring_tools_detected || []).join(", ") || "-")}
+      ${data.error ? kv("Error", data.error) : ""}
+    </div>
+    ${titles.length ? `<h3>Markdown sections</h3>${titles.map(t => `<div class="kv">${escapeHTML(t)}</div>`).join("")}` : ""}
+    ${links.length ? `<h3>External links</h3>${links.map(l => `<div class="kv"><a href="${escapeHTML(l)}" target="_blank">${escapeHTML(l)}</a></div>`).join("")}` : ""}
+  `;
+  markdownItems = [];
+  (data.markdown_list || []).forEach(item => { if (item && typeof item === "object" && (item.content || item.title)) markdownItems.push(item); });
+  if (!markdownItems.length && data.markdown) markdownItems.push({ title: "Markdown", content: data.markdown });
+  $("tabMarkdown").innerHTML = markdownItems.length
+    ? markdownItems.map((item, i) => `<div class="panel"><div class="panel-head"><strong>${i + 1}. ${escapeHTML(item.title || "Untitled")}</strong></div><div class="panel-body markdown">${miniMarkdown(item.content || "")}</div></div>`).join("")
+    : `<div class="empty">No markdown content returned.</div>`;
+  $("jsonView").textContent = JSON.stringify(data, null, 2);
+  renderDetails(data);
+}
+function kv(label, value) {
+  return `<div class="kv"><label>${escapeHTML(label)}</label><div class="mono">${escapeHTML(value)}</div></div>`;
+}
+function renderDetails(data, snap) {
+  $("selectedTitle").textContent = snap ? snap.filename : (data?.job_id ? `Job ${data.job_id.slice(0, 8)}` : "Current run");
+  $("selectedHint").textContent = snap?.notes || "Latest response from the scraper service.";
+  $("detailsGrid").innerHTML = [
+    kv("Snapshot", snap?.id || "-"),
+    kv("File", snap?.filename || "-"),
+    kv("Job", snap?.job_id || data?.job_id || "-"),
+    kv("Category", snap?.test_category || "-"),
+    kv("Uploaded", snap?.uploaded_at ? new Date(snap.uploaded_at).toLocaleString() : "-"),
+    kv("Generator", snap?.generator_type || "-")
+  ].join("");
+}
+async function loadGenerators() {
+  try {
+    const res = await fetch(apiPath("/api/generate/list"));
+    generators = await res.json();
+    $("healthDot").className = "dot ok";
+    $("healthText").textContent = "Proxy ready";
+    renderGenerators();
+  } catch {
+    $("healthDot").className = "dot bad";
+    $("healthText").textContent = "Proxy offline";
+  }
+}
+function renderGenerators() {
+  const filter = $("genFilter").value;
+  const list = generators.filter(g => filter === "all" || g.category === filter);
+  $("genList").innerHTML = list.map(g => `
+    <button class="gen-card" data-type="${escapeHTML(g.type)}">
+      <span class="badge ${escapeHTML(g.category)}">${escapeHTML(g.category)}</span>
+      <div class="gen-name">${escapeHTML(g.name)}</div>
+      <div class="gen-desc">${escapeHTML(g.description)}</div>
+      <div class="gen-desc" style="margin-top:6px;color:var(--blue)">${escapeHTML(g.expected)}</div>
+    </button>`).join("") || `<div class="empty">No generators in this filter.</div>`;
+  document.querySelectorAll(".gen-card").forEach(btn => btn.addEventListener("click", () => prepareGenerated(btn.dataset.type)));
+}
+async function prepareGenerated(type) {
+  const meta = generators.find(g => g.type === type);
+  try {
+    const res = await fetch(apiPath(`/api/generate/${encodeURIComponent(type)}`));
+    if (!res.ok) throw new Error("Generator failed");
+    const blob = await res.blob();
+    setFile(new File([blob], meta.filename, { type: "application/zip" }));
+    $("category").value = meta.category;
+    $("generatorType").value = meta.type;
+    $("notes").value = `Generated test case: ${meta.name}. Expected: ${meta.expected}`;
+    toast(`${meta.filename} is ready to upload.`, "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+async function loadHistory() {
+  try {
+    const res = await fetch(apiPath("/api/snapshots"));
+    snapshots = await res.json();
+    renderHistory();
+  } catch {
+    $("history").innerHTML = `<div class="empty">Could not load db.json history.</div>`;
+  }
+}
+function renderHistory() {
+  const filter = $("historyFilter").value;
+  const list = snapshots.filter(s => filter === "all" || s.test_category === filter || s.status === filter);
+  if (!list.length) { $("history").innerHTML = `<div class="empty">No snapshots match this filter.</div>`; return; }
+  $("history").innerHTML = `<table><thead><tr><th>File</th><th>Job</th><th>Type</th><th>Status</th><th>Coverage</th><th>Uploaded</th><th></th></tr></thead><tbody>
+    ${list.map(s => `<tr data-id="${escapeHTML(s.id)}">
+      <td class="td-file" title="${escapeHTML(s.filename)}">${escapeHTML(s.filename)}</td>
+      <td class="mono">${escapeHTML((s.job_id || "-").slice(0, 12))}</td>
+      <td><span class="badge ${escapeHTML(s.test_category || "valid")}">${escapeHTML(s.test_category || "valid")}</span></td>
+      <td><span class="badge ${escapeHTML(s.status || "uploaded")}">${escapeHTML(s.status || "uploaded")}</span></td>
+      <td>${s.status_response?.coverage_percent == null ? "-" : Number(s.status_response.coverage_percent).toFixed(0) + "%"}</td>
+      <td>${new Date(s.uploaded_at).toLocaleString()}</td>
+      <td><button class="btn icon danger" data-delete="${escapeHTML(s.id)}">x</button></td>
+    </tr>`).join("")}</tbody></table>`;
+  document.querySelectorAll("tr[data-id]").forEach(row => row.addEventListener("click", () => selectSnapshot(row.dataset.id)));
+  document.querySelectorAll("[data-delete]").forEach(btn => btn.addEventListener("click", e => { e.stopPropagation(); deleteSnapshot(btn.dataset.delete); }));
+}
+function selectSnapshot(id) {
+  const snap = snapshots.find(s => s.id === id);
+  if (!snap) return;
+  renderDetails(snap.status_response || {}, snap);
+  if (snap.status_response) {
+    currentResult = snap.status_response;
+    renderResult(currentResult);
+  } else {
+    toast("This snapshot has upload data but no final status response yet.", "info");
+  }
+}
+async function deleteSnapshot(id) {
+  await fetch(apiPath(`/api/snapshots/${encodeURIComponent(id)}`), { method: "DELETE" });
+  snapshots = snapshots.filter(s => s.id !== id);
+  renderHistory();
+  toast("Snapshot deleted.");
+}
+async function clearHistory() {
+  if (!confirm("Delete all local snapshots from db.json?")) return;
+  for (const snap of [...snapshots]) await fetch(apiPath(`/api/snapshots/${encodeURIComponent(snap.id)}`), { method: "DELETE" });
+  snapshots = [];
+  renderHistory();
+  toast("Snapshot history cleared.");
+}
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  $("tabVisual").style.display = name === "visual" ? "block" : "none";
+  $("tabMarkdown").style.display = name === "markdown" ? "block" : "none";
+  $("tabJson").style.display = name === "json" ? "block" : "none";
+}
+$("fileInput").addEventListener("change", e => e.target.files[0] && setFile(e.target.files[0]));
+$("drop").addEventListener("dragover", e => { e.preventDefault(); $("drop").classList.add("hot"); });
+$("drop").addEventListener("dragleave", () => $("drop").classList.remove("hot"));
+$("drop").addEventListener("drop", e => { e.preventDefault(); $("drop").classList.remove("hot"); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+$("uploadBtn").addEventListener("click", uploadFile);
+$("clearBtn").addEventListener("click", clearUpload);
+$("refreshBtn").addEventListener("click", () => { loadGenerators(); loadHistory(); });
+$("genFilter").addEventListener("change", renderGenerators);
+$("historyFilter").addEventListener("change", renderHistory);
+$("clearHistoryBtn").addEventListener("click", clearHistory);
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+loadGenerators();
+loadHistory();
+</script>
+</body>
+</html>
