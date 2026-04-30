@@ -1,6 +1,421 @@
 {
   "snapshots": [
     {
+      "id": "16c4f94b-d5a7-4266-8bb7-56853bcf9a01",
+      "filename": "subdirectory_layout.zip",
+      "file_size": 1159,
+      "job_id": "f99a5594-14e1-4550-acf2-192d41fe129d",
+      "generator_type": "subdirectory-layout",
+      "test_category": "valid",
+      "notes": "Generated: Subdirectory Layout. Expected: Paths resolved correctly, content extracted",
+      "uploaded_at": "2026-04-30T08:48:48.5119491Z",
+      "completed_at": "2026-04-30T08:48:54.7920969Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "f99a5594-14e1-4550-acf2-192d41fe129d"
+      },
+      "status_response": {
+        "elapsed_seconds": 5.396124,
+        "error": null,
+        "external_links": null,
+        "job_id": "f99a5594-14e1-4550-acf2-192d41fe129d",
+        "markdown": "# Subdirectory Layout Test — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# Subdirectory Layout Test — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Subdirectory Layout Test — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Subdirectory Layout Test — Course Index\n\n## Contents\n\n- **Module 1: Testing Subdirectory Paths**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Subdirectory Layout Test — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "6c3e5b9b-e5f9-4022-970f-7d6d8dfd2fdf",
+      "filename": "multilingual_es.zip",
+      "file_size": 1288,
+      "job_id": "149a117e-4e42-417a-855c-51dc1b828f9c",
+      "generator_type": "multilingual-es",
+      "test_category": "valid",
+      "notes": "Generated: Spanish Content (es-ES). Expected: language:es-ES detected",
+      "uploaded_at": "2026-04-30T08:32:20.4067879Z",
+      "completed_at": "2026-04-30T08:32:27.1657211Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "149a117e-4e42-417a-855c-51dc1b828f9c"
+      },
+      "status_response": {
+        "elapsed_seconds": 5.296186,
+        "error": null,
+        "external_links": null,
+        "job_id": "149a117e-4e42-417a-855c-51dc1b828f9c",
+        "markdown": "# Habilidades basicas de computacion — Course Summary\n\n## Capitulo 1: Introduccion a la alfabetizacion digital\n\nThis lesson introduces the concept of digital literacy, explaining that it involves using computers, mobile devices, and the internet to learn, communicate, and solve problems. It emphasizes understanding what digital literacy means. The content highlights that digital skills are essential for working with information, collaborating online, and protecting personal data. The lesson sets the foundation for learners to grasp the importance and scope of digital literacy in everyday and professional contexts.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# Habilidades basicas de computacion — Course Summary\n\n## Capitulo 1: Introduccion a la alfabetizacion digital\n\nThis lesson introduces the concept of digital literacy, explaining that it involves using computers, mobile devices, and the internet to learn, communicate, and solve problems. It emphasizes understanding what digital literacy means. The content highlights that digital skills are essential for working with information, collaborating online, and protecting personal data. The lesson sets the foundation for learners to grasp the importance and scope of digital literacy in everyday and professional contexts.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Habilidades basicas de computacion — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Habilidades basicas de computacion — Course Index\n\n## Contents\n\n- **Capitulo 1: Introduccion a la alfabetizacion digital**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Habilidades basicas de computacion — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# Capitulo 1: Introduccion a la alfabetizacion digital\n\n\n---\n\nCapitulo 1: Introduccion a la alfabetizacion digital\n\nLa alfabetizacion digital permite usar computadoras, dispositivos moviles e internet para aprender, comunicarse y resolver problemas.\n\nLearning objectives\nComprender que significa la alfabetizacion digital\nSummary: Las habilidades digitales ayudan a trabajar con informacion, colaborar en linea y proteger datos personales.",
+            "org_node_id": "7918c410-6a02-41f3-959b-4f03695dd160",
+            "source_file_path": "index.html",
+            "title": "Capitulo 1: Introduccion a la alfabetizacion digital"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "286cf950-d705-46a8-8b3c-74ae6a93f47e",
+      "filename": "multilingual_ja.zip",
+      "file_size": 1426,
+      "job_id": "614c7547-a079-47b0-8168-723b718fe368",
+      "generator_type": "multilingual-ja",
+      "test_category": "valid",
+      "notes": "Generated: Japanese Content (ja-JP). Expected: language:ja-JP detected",
+      "uploaded_at": "2026-04-30T08:32:13.9551878Z",
+      "completed_at": "2026-04-30T08:32:18.1536765Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "614c7547-a079-47b0-8168-723b718fe368"
+      },
+      "status_response": {
+        "elapsed_seconds": 4.212907,
+        "error": null,
+        "external_links": null,
+        "job_id": "614c7547-a079-47b0-8168-723b718fe368",
+        "markdown": "# Computer Basic Skills — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# Computer Basic Skills — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Computer Basic Skills — Course Index\n\n## Contents\n\n- **Chapter 1: Japanese Digital Literacy Test**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "c414a011-cc2d-45d6-9955-792c262d5758",
+      "filename": "multilingual_ja.zip",
+      "file_size": 1426,
+      "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab",
+      "generator_type": "multilingual-ja",
+      "test_category": "valid",
+      "notes": "Generated: Japanese Content (ja-JP). Expected: language:ja-JP detected",
+      "uploaded_at": "2026-04-30T08:31:57.1839182Z",
+      "completed_at": "2026-04-30T08:32:03.4075172Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab"
+      },
+      "status_response": {
+        "elapsed_seconds": 4.303819,
+        "error": null,
+        "external_links": null,
+        "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab",
+        "markdown": "# Computer Basic Skills — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# Computer Basic Skills — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Computer Basic Skills — Course Index\n\n## Contents\n\n- **Chapter 1: Japanese Digital Literacy Test**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "bd06e171-9df9-400e-9e61-0dd8aec77141",
+      "filename": "multilingual_it.zip",
+      "file_size": 1283,
+      "job_id": "d6de8195-0a93-42a2-8aa4-de0d00e757d1",
+      "generator_type": "multilingual-it",
+      "test_category": "valid",
+      "notes": "Generated: Italian Content (it-IT). Expected: language:it-IT detected",
+      "uploaded_at": "2026-04-30T08:31:30.0123164Z",
+      "completed_at": "2026-04-30T08:31:38.2215194Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "d6de8195-0a93-42a2-8aa4-de0d00e757d1"
+      },
+      "status_response": {
+        "elapsed_seconds": 6.815696,
+        "error": null,
+        "external_links": null,
+        "job_id": "d6de8195-0a93-42a2-8aa4-de0d00e757d1",
+        "markdown": "# Competenze informatiche di base — Course Summary\n\n## Capitolo 1: Introduzione alla competenza digitale\n\nThis lesson introduces the concept of digital competence, emphasizing the ability to use computers, mobile devices, and the internet safely and effectively for communication, learning, and work. It highlights the importance of understanding what digital competence means. The content explains that digital skills help in managing information, collaborating online, and protecting personal data. The lesson sets the foundation for learners to appreciate the role of digital literacy in everyday and professional contexts. It also outlines the learning objective to comprehend the meaning of digital competence.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# Competenze informatiche di base — Course Summary\n\n## Capitolo 1: Introduzione alla competenza digitale\n\nThis lesson introduces the concept of digital competence, emphasizing the ability to use computers, mobile devices, and the internet safely and effectively for communication, learning, and work. It highlights the importance of understanding what digital competence means. The content explains that digital skills help in managing information, collaborating online, and protecting personal data. The lesson sets the foundation for learners to appreciate the role of digital literacy in everyday and professional contexts. It also outlines the learning objective to comprehend the meaning of digital competence.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Competenze informatiche di base — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Competenze informatiche di base — Course Index\n\n## Contents\n\n- **Capitolo 1: Introduzione alla competenza digitale**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Competenze informatiche di base — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# Capitolo 1: Introduzione alla competenza digitale\n\n\n---\n\nCapitolo 1: Introduzione alla competenza digitale\n\nLa competenza digitale permette di usare computer, dispositivi mobili e internet in modo sicuro ed efficace per comunicare, imparare e lavorare.\n\nLearning objectives\nComprendere il significato di competenza digitale\nSummary: Le competenze digitali aiutano a gestire informazioni, collaborare online e proteggere i dati personali.",
+            "org_node_id": "c9566bef-8658-496d-87c3-b0201016eb95",
+            "source_file_path": "index.html",
+            "title": "Capitolo 1: Introduzione alla competenza digitale"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "3d008473-7fae-43ad-9eb2-44d665875156",
+      "filename": "multilingual_ar.zip",
+      "file_size": 1292,
+      "job_id": "0ce75990-7421-405c-a729-fe2c08a48850",
+      "generator_type": "multilingual-ar",
+      "test_category": "valid",
+      "notes": "Generated: Arabic RTL (ar-SA). Expected: language:ar-SA detected",
+      "uploaded_at": "2026-04-30T08:31:21.5391548Z",
+      "completed_at": "2026-04-30T08:31:27.7748368Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "0ce75990-7421-405c-a729-fe2c08a48850"
+      },
+      "status_response": {
+        "elapsed_seconds": 5.965682,
+        "error": null,
+        "external_links": null,
+        "job_id": "0ce75990-7421-405c-a729-fe2c08a48850",
+        "markdown": "# مهارات الحاسوب الأساسية — Course Summary\n\n## الفصل الأول: مقدمة في محو الأمية الرقمية\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet for communication, learning, work, and problem-solving. It provides a foundational understanding of what digital literacy entails, setting the stage for further exploration of the topic.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# مهارات الحاسوب الأساسية — Course Summary\n\n## الفصل الأول: مقدمة في محو الأمية الرقمية\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet for communication, learning, work, and problem-solving. It provides a foundational understanding of what digital literacy entails, setting the stage for further exploration of the topic.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "مهارات الحاسوب الأساسية — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# مهارات الحاسوب الأساسية — Course Index\n\n## Contents\n\n- **الفصل الأول: مقدمة في محو الأمية الرقمية**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "مهارات الحاسوب الأساسية — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# الفصل الأول: مقدمة في محو الأمية الرقمية\n\n\n---\n\nالفصل الأول: مقدمة في محو الأمية الرقمية\n\nتشير محو الأمية الرقمية إلى القدرة على استخدام أجهزة الكمبيوتر والأجهزة الرقمية والإنترنت بشكل فعّال للتواصل والتعلم والعمل وحل المشكلات.",
+            "org_node_id": "4317c9e3-6201-409a-899f-3bc30e8050cb",
+            "source_file_path": "index.html",
+            "title": "الفصل الأول: مقدمة في محو الأمية الرقمية"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "cbe8aa07-7ccf-406a-9482-2fc19d920959",
+      "filename": "multilingual_ur.zip",
+      "file_size": 1294,
+      "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b",
+      "generator_type": "multilingual-ur",
+      "test_category": "valid",
+      "notes": "Generated: Urdu Content (ur-IN). Expected: language:ur-IN detected",
+      "uploaded_at": "2026-04-30T08:30:45.890385Z",
+      "completed_at": "2026-04-30T08:30:48.1503766Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b"
+      },
+      "status_response": {
+        "elapsed_seconds": 7.43007,
+        "error": null,
+        "external_links": null,
+        "job_id": "2ecab081-9654-4334-a3c4-7f4e0e5b271b",
+        "markdown": "# کمپیوٹر کی بنیادی مہارتیں — Course Summary\n\n## باب اول: ڈیجیٹل خواندگی کا تعارف\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet. It provides a foundational understanding of what digital literacy entails, setting the stage for further learning in this area. The content is concise but offers a clear definition that is essential for learners beginning to explore digital skills.\n",
+        "markdown_list": [
+          3,
+          {
+            "category": "course_summary",
+            "content": "# کمپیوٹر کی بنیادی مہارتیں — Course Summary\n\n## باب اول: ڈیجیٹل خواندگی کا تعارف\n\nThis lesson introduces the concept of digital literacy, defining it as the ability to effectively use computers, digital devices, and the internet. It provides a foundational understanding of what digital literacy entails, setting the stage for further learning in this area. The content is concise but offers a clear definition that is essential for learners beginning to explore digital skills.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "کمپیوٹر کی بنیادی مہارتیں — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# کمپیوٹر کی بنیادی مہارتیں — Course Index\n\n## Contents\n\n- **باب اول: ڈیجیٹل خواندگی کا تعارف**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "کمپیوٹر کی بنیادی مہارتیں — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# باب اول: ڈیجیٹل خواندگی کا تعارف\n\n\n---\n\nباب اول: ڈیجیٹل خواندگی کا تعارف\n\nڈیجیٹل خواندگی سے مراد کمپیوٹر، ڈیجیٹل آلات اور انٹرنیٹ کو مؤثر طریقے سے استعمال کرنے کی صلاحیت ہے۔",
+            "org_node_id": "d34720c6-0e87-4d66-9c07-7f77a2e093ed",
+            "source_file_path": "index.html",
+            "title": "باب اول: ڈیجیٹل خواندگی کا تعارف"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "1791cf83-d5df-419a-acd6-cefa2bff21b3",
+      "filename": "xxe_injection.zip",
+      "file_size": 1280,
+      "job_id": "e0f0baa4-872b-4c71-9f17-69e753432938",
+      "generator_type": "xxe-injection",
+      "test_category": "break",
+      "notes": "Generated: XML External Entity (XXE) Attack. Expected: Parser should reject or ignore the entity; response must not contain filesystem contents",
+      "uploaded_at": "2026-04-30T08:28:42.1913498Z",
+      "completed_at": "2026-04-30T08:28:44.4441317Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "e0f0baa4-872b-4c71-9f17-69e753432938"
+      },
+      "status_response": {
+        "elapsed_seconds": 3.214814,
+        "error": null,
+        "external_links": null,
+        "job_id": "e0f0baa4-872b-4c71-9f17-69e753432938",
+        "markdown": "# Course — Course Index\n\n## Contents\n\n- **index**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+        "markdown_list": [
+          2,
+          {
+            "category": "index",
+            "content": "# Course — Course Index\n\n## Contents\n\n- **index**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Course — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# index\n\n\n---\n\nXXE Injection Test\n\nThe imsmanifest.xml for this package declares external XML entities that reference file:///etc/passwd, file:///C:/Windows/win.ini, and the AWS metadata SSRF endpoint. If the XML parser expands these entities, filesystem or cloud-credential data will leak into the title fields.",
+            "org_node_id": "13fdd865-13ea-49a8-856e-fee553a541d4",
+            "source_file_path": "index.html",
+            "title": "index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "15058e4e-1f92-4f8a-b9bd-8be2c6f4ff8b",
+      "filename": "unicode_bidi.zip",
+      "file_size": 1474,
+      "job_id": "1e87122a-40e1-4578-858a-da33ce4ae486",
+      "generator_type": "unicode-bidi-override",
+      "test_category": "break",
+      "notes": "Generated: Unicode BiDi Override Attack. Expected: Text appears visually reversed or spoofed in UI — check that raw codepoints are preserved in JSON, not normalized away",
+      "uploaded_at": "2026-04-30T08:27:24.9803345Z",
+      "completed_at": "2026-04-30T08:28:25.2063251Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "1e87122a-40e1-4578-858a-da33ce4ae486"
+      },
+      "status_response": {
+        "elapsed_seconds": 6.503993,
+        "error": null,
+        "external_links": null,
+        "job_id": "1e87122a-40e1-4578-858a-da33ce4ae486",
+        "markdown": "# ‮esruoC tseT ediB‬ Аdmin — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# ‮esruoC tseT ediB‬ Аdmin — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "‮esruoC tseT ediB‬ Аdmin — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# ‮esruoC tseT ediB‬ Аdmin — Course Index\n\n## Contents\n\n- **‮retpahC‬ 1: ‍Unicode‍ BiDi Override**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "‮esruoC tseT ediB‬ Аdmin — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
       "id": "6c20595e-09cb-4803-b89e-74806214009d",
       "filename": "multilingual_ur.zip",
       "file_size": 1294,

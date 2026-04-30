@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, DragEvent, ChangeEvent } from 'react';
 import type { GenMeta, Snapshot } from '../types';
 import s from './ScormPanel.module.css';
+import { useError } from '../ErrorToast';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ interface ScrapeResult {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ScormPanel() {
+  const { showError } = useError();
   const [generators, setGenerators]     = useState<GenMeta[]>([]);
   const [genFilter, setGenFilter]       = useState('all');
   const [snapshots, setSnapshots]       = useState<Snapshot[]>([]);
@@ -63,17 +65,19 @@ export function ScormPanel() {
   async function loadGenerators() {
     try {
       const res = await fetch('/api/scorm/generate/list');
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data: GenMeta[] = await res.json();
       setGenerators(data);
-    } catch { /* proxy offline */ }
+    } catch (err) { showError(`Failed to load generators: ${(err as Error).message}`); }
   }
 
   async function loadHistory() {
     try {
       const res = await fetch('/api/scorm/snapshots');
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data: Snapshot[] = await res.json();
       setSnapshots(data);
-    } catch { setSnapshots([]); }
+    } catch (err) { showError(`Failed to load history: ${(err as Error).message}`); setSnapshots([]); }
   }
 
   // ── File handling ──────────────────────────────────────────────────────────
@@ -115,7 +119,7 @@ export function ScormPanel() {
       setGenType(gen.type);
       setNotes(`Generated: ${gen.name}. Expected: ${gen.expected}`);
     } catch (err) {
-      console.error(err);
+      showError(`Failed to generate SCORM package: ${(err as Error).message}`);
     }
   }
 
@@ -143,7 +147,7 @@ export function ScormPanel() {
       startPolling(data.job_id, data.snapshot_id);
       loadHistory();
     } catch (err) {
-      console.error(err);
+      showError(`Upload failed: ${(err as Error).message}`);
       setUploading(false);
       setProgress(0);
     }

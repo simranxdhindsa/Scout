@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import s from './ControlPanel.module.css';
+import { useError } from '../ErrorToast';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ const AUTH_LABELS: Record<string, string> = {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function ControlPanel() {
+  const { showError } = useError();
   // Run state
   const [runStatus, setRunStatus]     = useState<RunOutput['status']>('idle');
   const [runProduct, setRunProduct]   = useState('');
@@ -122,12 +124,13 @@ export function ControlPanel() {
       });
 
       if (res.status === 409) {
-        alert('A test run is already in progress. Please wait for it to finish.');
+        showError('A test run is already in progress. Please wait for it to finish.');
         setRunStatus('idle');
         return;
       }
       if (!res.ok) {
         const text = await res.text();
+        showError(`Failed to start run: ${res.status} ${res.statusText}${text ? ' — ' + text : ''}`);
         setLogLines([`Error starting run: ${text}`]);
         setRunStatus('failed');
         return;
@@ -135,6 +138,7 @@ export function ControlPanel() {
 
       startPolling();
     } catch (err) {
+      showError(`Network error starting run: ${(err as Error).message}`);
       setLogLines([`Network error: ${err}`]);
       setRunStatus('failed');
     }
@@ -153,6 +157,7 @@ export function ControlPanel() {
 
       if (!res.ok) {
         const text = await res.text();
+        showError(`Codegen failed: ${res.status} ${res.statusText}${text ? ' — ' + text : ''}`);
         setCodegenMsg(`Error: ${text}`);
       } else {
         setCodegenMsg(
@@ -162,6 +167,7 @@ export function ControlPanel() {
         );
       }
     } catch (err) {
+      showError(`Codegen network error: ${(err as Error).message}`);
       setCodegenMsg(`Network error: ${err}`);
     }
   }
