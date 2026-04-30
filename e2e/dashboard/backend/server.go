@@ -42,12 +42,14 @@ var (
 
 type activeRun struct {
 	Product   string    `json:"product"`
-	Status    string    `json:"status"` // "running" | "done" | "failed"
+	Status    string    `json:"status"` // "running" | "done" | "failed" | "stopped"
 	ExitCode  int       `json:"exitCode"`
 	StartedAt time.Time `json:"startedAt"`
 
-	lines []string
-	mu    sync.Mutex
+	cmd     *exec.Cmd
+	stopped bool // set by handleStopRun to prevent Wait() overwriting status
+	lines   []string
+	mu      sync.Mutex
 }
 
 var (
@@ -77,6 +79,7 @@ func main() {
 
 	// ── Control panel API ─────────────────────────────────────────────────
 	mux.HandleFunc("POST /api/run", handleStartRun)
+	mux.HandleFunc("DELETE /api/run", handleStopRun)
 	mux.HandleFunc("GET /api/run/output", handleRunOutput)
 	mux.HandleFunc("POST /api/codegen", handleCodegen)
 	mux.HandleFunc("GET /api/auth/status", handleAuthStatus)
@@ -284,6 +287,10 @@ func handleStartRun(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		cmd := npmRunCmd(scriptName)
 		cmd.Dir = repoRoot
+		// Own process group so we can kill the whole tree (npm → node → playwright → browsers)
+		if runtime.GOOS != "windows" {
+			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		}
 
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
@@ -295,6 +302,9 @@ func handleStartRun(w http.ResponseWriter, r *http.Request) {
 			run.mu.Unlock()
 			return
 		}
+		run.mu.Lock()
+		run.cmd = cmd
+		run.mu.Unlock()
 
 		// Read stdout and stderr concurrently to avoid pipe deadlock
 		var wg sync.WaitGroup
@@ -316,16 +326,18 @@ func handleStartRun(w http.ResponseWriter, r *http.Request) {
 
 		err := cmd.Wait()
 		run.mu.Lock()
-		if err != nil {
-			run.Status = "failed"
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				run.ExitCode = exitErr.ExitCode()
+		if !run.stopped { // don't overwrite status set by handleStopRun
+			if err != nil {
+				run.Status = "failed"
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					run.ExitCode = exitErr.ExitCode()
+				} else {
+					run.ExitCode = 1
+				}
 			} else {
-				run.ExitCode = 1
+				run.Status = "done"
+				run.ExitCode = 0
 			}
-		} else {
-			run.Status = "done"
-			run.ExitCode = 0
 		}
 		run.mu.Unlock()
 	}()
@@ -384,6 +396,54 @@ func handleRunOutput(w http.ResponseWriter, r *http.Request) {
 		"totalLines": total,
 		"exitCode":   exitCode,
 	})
+}
+
+// ── DELETE /api/run ────────────────────────────────────────────────────────
+// Kills the currently running test process.
+
+func handleStopRun(w http.ResponseWriter, r *http.Request) {
+	currentRunMu.Lock()
+	run := currentRun
+	currentRunMu.Unlock()
+
+	if run == nil {
+		http.Error(w, "no run in progress", http.StatusConflict)
+		return
+	}
+
+	run.mu.Lock()
+	status := run.Status
+	cmd := run.cmd
+	run.mu.Unlock()
+
+	if status != "running" {
+		http.Error(w, "run is not active", http.StatusConflict)
+		return
+	}
+	if cmd == nil || cmd.Process == nil {
+		http.Error(w, "process not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Kill the entire process group so npm, node, playwright, and browser children all die.
+	var killErr error
+	if runtime.GOOS != "windows" {
+		killErr = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	} else {
+		killErr = cmd.Process.Kill()
+	}
+	if killErr != nil {
+		http.Error(w, "failed to kill process: "+killErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	run.mu.Lock()
+	run.stopped = true
+	run.Status = "stopped"
+	run.lines = append(run.lines, "--- run stopped by user ---")
+	run.mu.Unlock()
+
+	writeJSON(w, map[string]string{"status": "stopped"})
 }
 
 // ── POST /api/codegen ──────────────────────────────────────────────────────

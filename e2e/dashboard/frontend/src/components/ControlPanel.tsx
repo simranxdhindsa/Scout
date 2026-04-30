@@ -4,7 +4,7 @@ import s from './ControlPanel.module.css';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface RunOutput {
-  status: 'idle' | 'running' | 'done' | 'failed';
+  status: 'idle' | 'running' | 'done' | 'failed' | 'stopped';
   product: string;
   lines: string[];
   totalLines: number;
@@ -227,7 +227,9 @@ export function ControlPanel() {
                   ? `Running ${PRODUCT_LABELS[runProduct] ?? runProduct}…`
                   : runStatus === 'done'
                     ? `✅ Finished — ${PRODUCT_LABELS[runProduct] ?? runProduct}`
-                    : `❌ Failed — ${PRODUCT_LABELS[runProduct] ?? runProduct}`}
+                    : runStatus === 'stopped'
+                      ? `⏹ Stopped — ${PRODUCT_LABELS[runProduct] ?? runProduct}`
+                      : `❌ Failed — ${PRODUCT_LABELS[runProduct] ?? runProduct}`}
               </span>
               {!isRunning && (
                 <button

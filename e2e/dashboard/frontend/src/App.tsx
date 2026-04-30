@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RunMeta } from './types';
 import { RunList } from './components/RunList';
 import { RunDetail } from './components/RunDetail';
@@ -6,6 +6,7 @@ import { ControlPanel } from './components/ControlPanel';
 import s from './App.module.css';
 
 type Tab = 'reports' | 'control';
+type RunStatus = 'idle' | 'running' | 'done' | 'failed' | 'stopped';
 
 export function App() {
   const [tab, setTab]         = useState<Tab>('control');
@@ -13,6 +14,9 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter]   = useState('all');
   const [loading, setLoading] = useState(true);
+  const [runStatus, setRunStatus] = useState<RunStatus>('idle');
+  const [stopping, setStopping]   = useState(false);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetch('/api/runs')
@@ -24,6 +28,31 @@ export function App() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // Lightweight poll just for the run status — drives the header Stop button.
+  useEffect(() => {
+    const poll = () => {
+      fetch('/api/run/output?offset=0')
+        .then(r => r.json())
+        .then((data: { status: RunStatus }) => setRunStatus(data.status))
+        .catch(() => {});
+    };
+    poll();
+    statusPollRef.current = setInterval(poll, 2000);
+    return () => { if (statusPollRef.current) clearInterval(statusPollRef.current); };
+  }, []);
+
+  async function handleStop() {
+    setStopping(true);
+    try {
+      await fetch('/api/run', { method: 'DELETE' });
+      setRunStatus('stopped');
+    } catch {
+      // next poll will correct the state
+    } finally {
+      setStopping(false);
+    }
+  }
 
   // Refresh run list when switching to Reports tab
   function handleTabChange(next: Tab) {
@@ -67,6 +96,16 @@ export function App() {
             📋 Reports {runs.length > 0 && <span className={s.tabBadge}>{runs.length}</span>}
           </button>
         </nav>
+
+        {/* Stop button — always visible; disabled when no run is active */}
+        <button
+          className={`${s.stopBtn} ${runStatus === 'running' ? s.stopBtnActive : ''}`}
+          onClick={handleStop}
+          disabled={runStatus !== 'running' || stopping}
+          title={runStatus === 'running' ? 'Kill the running Playwright process' : 'No tests currently running'}
+        >
+          {stopping ? 'Stopping…' : '⏹ Stop Tests'}
+        </button>
 
         {loading && tab === 'reports' && (
           <div className={s.headerRight}>

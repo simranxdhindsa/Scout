@@ -223,6 +223,23 @@ html, body, #root { height: 100%; }
 
 .open-report-btn:hover { background: #7c73ff; }
 
+.stop-run-btn {
+  margin-left: auto;
+  background: var(--fail);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.stop-run-btn:hover:not(:disabled) { background: #d32f2f; }
+.stop-run-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
 /* ── Spec groups ─────────────────────────────────────────────────────────── */
 .spec-group {
   margin-bottom: 10px;

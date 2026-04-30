@@ -6,9 +6,9 @@ export class SummaryPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    // "Complete", "Finish", "Start", "Get started" — pick up whichever the app uses
+    // "Validate & Start Learning" (EN) / "Continue in Dashboard" / fallback variants
     this.completeBtn = page.getByRole('button', {
-      name: /complete|finish|start|get started|terminer|commencer/i,
+      name: /validate|start learning|continue in dashboard|complete|finish|terminer|commencer/i,
     });
   }
 

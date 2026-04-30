@@ -10,7 +10,7 @@ export class TourPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    this.nextBtn           = page.getByRole('button', { name: /next|continue|suivant/i });
+    this.nextBtn           = page.getByRole('button', { name: /next|continue|take a tour|suivant|prendre le tour/i });
     this.skipBtn           = page.getByRole('button', { name: /skip|passer/i });
     this.interestsSubmitBtn = page.getByRole('button', { name: /next|continue|done|suivant|terminer/i });
   }
@@ -77,10 +77,12 @@ export class TourPage extends BasePage {
       await this.page.waitForLoadState('domcontentloaded').catch(() => {});
     }
 
-    // Interests step
+    // Interests step — select optionally, but always submit to proceed
     const onInterests = this.page.url().includes('/tour/interests');
-    if (onInterests && interestTexts.length > 0) {
-      await this.selectInterestsByText(interestTexts);
+    if (onInterests) {
+      if (interestTexts.length > 0) {
+        await this.selectInterestsByText(interestTexts);
+      }
       await this.submitInterests();
     }
   }
