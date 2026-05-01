@@ -1,0 +1,25 @@
+
+# Node
+node_modules/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Auth session cache — never commit credentials
+/.auth/
+
+# Archived run snapshots (can be large)
+/reports/runs/
+
+# Latest run output (overwritten each run, not worth tracking)
+/reports/results.json
+/reports/html/
+
+# Environment — copy .env.e2e.example → .env.e2e and fill in values
+.env.e2e
+
+# Go build artifacts
+dashboard/backend/backend

@@ -1,0 +1,23 @@
+{
+  "name": "ardoise-testing-platform",
+  "version": "1.0.0",
+  "description": "Playwright E2E test platform with Go dashboard backend",
+  "main": "index.js",
+  "scripts": {
+    "pw:test": "playwright test && node scripts/save-report.js",
+    "pw:test:example": "playwright test --project=example && node scripts/save-report.js",
+    "dashboard:backend": "cd dashboard/backend && go run .",
+    "dashboard:frontend": "cd dashboard/frontend && pnpm run dev",
+    "dashboard": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,magenta\" \"pnpm run dashboard:backend\" \"pnpm run dashboard:frontend\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.29.1",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
+    "concurrently": "^9.2.1",
+    "dotenv": "^16.6.1"
+  }
+}
