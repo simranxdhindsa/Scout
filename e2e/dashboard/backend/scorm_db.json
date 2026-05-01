@@ -1,6 +1,234 @@
 {
   "snapshots": [
     {
+      "id": "f00d54c4-5671-426d-83a8-1a053daef3bd",
+      "filename": "Cybersecurity_Fundamentals_JP_SCORM.zip",
+      "file_size": 18777,
+      "job_id": "6e6d9024-cdb0-4c24-81a0-f7fb439e1862",
+      "generator_type": "multilingual-ja",
+      "test_category": "valid",
+      "notes": "Generated: Japanese Content (ja-JP). Expected: language:ja-JP detected",
+      "uploaded_at": "2026-04-30T12:34:39.7315202Z",
+      "completed_at": "2026-04-30T12:34:42.1107682Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "6e6d9024-cdb0-4c24-81a0-f7fb439e1862"
+      },
+      "status_response": {
+        "elapsed_seconds": 18.149616,
+        "error": null,
+        "external_links": null,
+        "job_id": "6e6d9024-cdb0-4c24-81a0-f7fb439e1862",
+        "markdown": "# サイバーセキュリティ入門 — Course Summary\n\n## 第1章：情報セキュリティとは何か\n\nThis chapter introduces the fundamental concepts of information security, emphasizing its importance in protecting valuable information assets in the digital society. It defines information security as technical and organizational efforts to protect information assets from threats, including digital data, paper documents, conversations, and knowledge. The chapter explains the CIA triad—Confidentiality, Integrity, and Availability—as the three core elements of information security, providing examples of violations for each. It discusses the relationship between information assets and risks, highlighting that risks arise from the combination of threats, vulnerabilities, and impact. The chapter also covers the consequences of security breaches, such as economic loss, reputational damage, legal sanctions, and operational disruption, with reference to Japanese laws like the Personal Information Protection Act. Finally, it stresses that security measures should be viewed as an investment rather than a cost.\n\n## 第2章：サイバー脅威の種類\n\nThis chapter details various types of cyber threats, focusing on malware and social engineering attacks. It defines malware and describes its main types, including viruses, worms, trojans, spyware, ransomware, and keyloggers, along with their typical impacts. The chapter outlines the typical stages of a ransomware attack and explains why paying ransom is discouraged. It introduces social engineering and phishing attacks, explaining how attackers exploit human psychology to steal information, and provides tips for identifying phishing emails. Spear phishing is described as a targeted, sophisticated form of phishing. The chapter also addresses insider threats, distinguishing between malicious insiders, careless insiders, and third-party risks, and emphasizes the principle of least privilege to mitigate these risks.\n\n## 第3章：パスワードと認証\n\nThis chapter focuses on passwords and authentication as critical components of cybersecurity. It explains why passwords are targeted by attackers and describes common password attack methods such as brute force, dictionary attacks, password spraying, credential stuffing, and phishing, along with corresponding countermeasures. The chapter outlines the characteristics of strong passwords based on current guidelines, recommending length, complexity, unpredictability, and uniqueness. It introduces passphrases as a user-friendly method to create strong passwords. Multi-factor authentication (MFA) is explained, detailing the three types of authentication factors and various MFA implementations, highlighting the relative security of each. The chapter also discusses the use of password managers to securely generate, store, and autofill passwords, enhancing security and usability.\n\n## 確認テスト\n\nThis document presents a comprehensive quiz covering key concepts from the previous chapters on cybersecurity. It includes questions about the CIA triad, ransomware, spear phishing, the principle of least privilege, credential stuffing, multi-factor authentication, password managers, malware types, SMS authentication risks, and risk calculation formulas. Each question tests understanding of important cybersecurity principles, attack methods, and defense strategies, reinforcing the learner's knowledge and application of the course material.\n",
+        "markdown_list": [
+          6,
+          {
+            "category": "course_summary",
+            "content": "# サイバーセキュリティ入門 — Course Summary\n\n## 第1章：情報セキュリティとは何か\n\nThis chapter introduces the fundamental concepts of information security, emphasizing its importance in protecting valuable information assets in the digital society. It defines information security as technical and organizational efforts to protect information assets from threats, including digital data, paper documents, conversations, and knowledge. The chapter explains the CIA triad—Confidentiality, Integrity, and Availability—as the three core elements of information security, providing examples of violations for each. It discusses the relationship between information assets and risks, highlighting that risks arise from the combination of threats, vulnerabilities, and impact. The chapter also covers the consequences of security breaches, such as economic loss, reputational damage, legal sanctions, and operational disruption, with reference to Japanese laws like the Personal Information Protection Act. Finally, it stresses that security measures should be viewed as an investment rather than a cost.\n\n## 第2章：サイバー脅威の種類\n\nThis chapter details various types of cyber threats, focusing on malware and social engineering attacks. It defines malware and describes its main types, including viruses, worms, trojans, spyware, ransomware, and keyloggers, along with their typical impacts. The chapter outlines the typical stages of a ransomware attack and explains why paying ransom is discouraged. It introduces social engineering and phishing attacks, explaining how attackers exploit human psychology to steal information, and provides tips for identifying phishing emails. Spear phishing is described as a targeted, sophisticated form of phishing. The chapter also addresses insider threats, distinguishing between malicious insiders, careless insiders, and third-party risks, and emphasizes the principle of least privilege to mitigate these risks.\n\n## 第3章：パスワードと認証\n\nThis chapter focuses on passwords and authentication as critical components of cybersecurity. It explains why passwords are targeted by attackers and describes common password attack methods such as brute force, dictionary attacks, password spraying, credential stuffing, and phishing, along with corresponding countermeasures. The chapter outlines the characteristics of strong passwords based on current guidelines, recommending length, complexity, unpredictability, and uniqueness. It introduces passphrases as a user-friendly method to create strong passwords. Multi-factor authentication (MFA) is explained, detailing the three types of authentication factors and various MFA implementations, highlighting the relative security of each. The chapter also discusses the use of password managers to securely generate, store, and autofill passwords, enhancing security and usability.\n\n## 確認テスト\n\nThis document presents a comprehensive quiz covering key concepts from the previous chapters on cybersecurity. It includes questions about the CIA triad, ransomware, spear phishing, the principle of least privilege, credential stuffing, multi-factor authentication, password managers, malware types, SMS authentication risks, and risk calculation formulas. Each question tests understanding of important cybersecurity principles, attack methods, and defense strategies, reinforcing the learner's knowledge and application of the course material.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "サイバーセキュリティ入門 — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# サイバーセキュリティ入門 — Course Index\n\n## Contents\n\n- **第1章：情報セキュリティとは何か**\n- **第2章：サイバー脅威の種類**\n- **第3章：パスワードと認証**\n- **確認テスト**\n\n## Coverage Report\n\n- **Structured content:** 4 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 3 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "サイバーセキュリティ入門 — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# 第1章：情報セキュリティとは何か\n\n\n---\n\n第1章 / 全3章\nサイバーセキュリティ入門\n進捗：25%\n第1章\n情報セキュリティとは何か\n\nデジタル社会において、情報を守ることは個人にとっても組織にとっても最優先事項です。この章では、情報セキュリティの基本概念と、なぜそれが重要なのかを学びます。\n\n学習目標\n情報セキュリティの定義とCIAトライアドを説明できる\n情報資産とリスクの関係を理解する\nセキュリティ侵害が組織に与える影響を把握する\n日常業務における情報セキュリティの重要性を認識する\n情報セキュリティの定義\n\n情報セキュリティ（Information Security）とは、情報資産を脅威から保護し、その価値を維持するための技術的・組織的な取り組みの総称です。単純に言えば、「大切なデータを守ること」ですが、その対象はデジタルデータだけでなく、紙の書類、会話内容、知識なども含まれます。\n\n現代の企業では、顧客データ、財務情報、設計図、従業員の個人情報など、無数の情報資産が存在します。これらが流出・改ざん・消失した場合、企業は法的責任を問われ、社会的信用を失い、場合によっては事業継続が困難になることもあります。\n\nCIAトライアド\n\n情報セキュリティの3つの基本要素は CIAトライアド と呼ばれます。\n\n要素\t英語名\t意味\t侵害の例\n機密性\tConfidentiality\t許可された者だけが情報にアクセスできる状態を保つ\t不正アクセスによる顧客データの漏洩\n完全性\tIntegrity\t情報が正確で改ざんされていない状態を保つ\t攻撃者による財務データの書き換え\n可用性\tAvailability\t必要なときに情報やシステムを利用できる状態を保つ\tDDoS攻撃によるサービス停止\n💡 覚え方のポイント\n\nCIAトライアドは「誰でも使えるが誰でもいじれるわけではなく、常に使える」という状態が理想です。機密性・完全性・可用性のバランスが情報セキュリティの核心です。\n\n情報資産とリスク\n\n情報資産とは、組織が価値を認める情報やそれを処理するシステムのことです。情報資産には以下のようなものが含まれます。\n\n顧客の個人情報（氏名、住所、クレジットカード番号など）\n従業員の人事・給与情報\n製品の設計データや知的財産\n業務システムやデータベース\nネットワーク設備やサーバー\n\nリスクは「脅威 × 脆弱性 × 影響度」で考えます。脅威だけでは被害は発生しません。組織に脆弱性（弱点）があり、そこを脅威が突いて初めてインシデントが起きます。\n\nセキュリティ侵害の影響\n\n情報セキュリティ上のインシデントが発生した場合、組織はさまざまな損害を受けます。\n\n影響の種類\t具体例\n経済的損失\t損害賠償、システム復旧費用、業務停止による機会損失\n信頼・評判の失墜\t顧客離れ、取引先からの契約解除、株価下落\n法的制裁\t個人情報保護法違反による行政処分・罰則\n業務継続への影響\tシステム障害による業務停止、データ消失\n⚠ 日本の法律との関係\n\n日本では個人情報保護法（個情法）により、個人データの漏洩が発生した場合、個人情報保護委員会への報告と本人への通知が義務付けられています（2022年改正）。違反した場合は1億円以下の罰金が科される可能性があります。\n\nセキュリティは「コスト」ではなく「投資」\n\n情報セキュリティ対策を単なるコストと捉える組織はまだ多くあります。しかし、セキュリティインシデントの平均損害額は対策コストを大きく上回ることがほとんどです。セキュリティ対策は、リスクを事前に低減するための経営上の投資として位置づけることが重要です。\n\nまとめ\n情報セキュリティとは情報資産を脅威から守る取り組みの総称\nCIAトライアド（機密性・完全性・可用性）が3つの基本要素\nリスクは「脅威 × 脆弱性 × 影響度」の組み合わせで生じる\nセキュリティ侵害は経済的損失・信頼失墜・法的制裁をもたらす\nセキュリティ対策はコストではなく経営上の投資として捉える\n確認問題\nQ1. CIAトライアドの3要素を答えてください。\nヒント：機密性・〇〇性・〇〇性\nQ2. DDoS攻撃はCIAトライアドのどの要素を侵害しますか？\nヒント：サービスが使えなくなる状態を考えてみてください\nQ3. 情報セキュリティインシデントが発生した場合、企業が受ける影響を2つ挙げてください。\nヒント：お金の面と信用の面から考えてみましょう\n← 前の章\n第1章 / 全3章\n次の章 →",
+            "org_node_id": "c7cc41d1-8bc4-4ef2-a9f2-4e7e541730b5",
+            "source_file_path": "content/chapter01/index.html",
+            "title": "第1章：情報セキュリティとは何か"
+          },
+          {
+            "category": "structured",
+            "content": "# 第2章：サイバー脅威の種類\n\n\n---\n\n第2章 / 全3章\nサイバーセキュリティ入門\n進捗：50%\n第2章\nサイバー脅威の種類\n\n攻撃者はさまざまな手口で組織や個人を狙います。代表的なサイバー脅威のパターンを知ることが、適切な防御策を講じるための第一歩です。\n\n学習目標\nマルウェアの主な種類と特徴を説明できる\nソーシャルエンジニアリングとフィッシングの仕組みを理解する\nランサムウェア攻撃の流れと影響を把握する\n内部脅威（インサイダーリスク）の危険性を認識する\nマルウェア（悪意のあるソフトウェア）\n\nマルウェア（Malware）は「Malicious Software」の略で、悪意を持って作られたソフトウェアの総称です。マルウェアには以下のような種類があります。\n\n種類\t説明\t主な被害\nウイルス\t他のプログラムに寄生して増殖する\tファイルの破壊・システムの不安定化\nワーム\t自己増殖してネットワーク経由で拡散する\tネットワーク帯域の消費・大規模感染\nトロイの木馬\t正規ソフトに見せかけた悪意のあるプログラム\tバックドアの設置・情報窃取\nスパイウェア\tユーザーの行動を密かに監視・記録する\tパスワード・個人情報の窃取\nランサムウェア\tファイルを暗号化して身代金を要求する\t業務停止・データ消失・金銭被害\nキーロガー\tキーボード入力を記録して攻撃者に送信する\tIDとパスワードの窃取\nランサムウェア攻撃の流れ\n\nランサムウェアは近年最も深刻なサイバー脅威の一つです。2023年だけでも、日本国内の医療機関・自治体・製造業が被害を受けた事例が相次ぎました。典型的な攻撃の流れは以下のとおりです。\n\n侵入：フィッシングメールの添付ファイルを開く、またはVPN機器の脆弱性を突かれてネットワークに侵入される\n潜伏：攻撃者はすぐに動かず、数日〜数週間かけてネットワーク内を調査する\n権限昇格：管理者権限を取得してシステム全体を掌握する\nデータ窃取：重要データを攻撃者のサーバーに送信する（二重脅迫の準備）\n暗号化：ファイルサーバーやバックアップを含む重要データを暗号化する\n身代金要求：復号キーと引き換えに暗号通貨での支払いを要求する\n🚨 重要\n\n身代金を支払っても、復号キーが提供される保証はありません。また、支払いが犯罪組織の資金源となり、さらなる攻撃を助長することになります。日本政府もIPAも、身代金の支払いを推奨していません。\n\nソーシャルエンジニアリングとフィッシング\n\nソーシャルエンジニアリングとは、技術的な手段ではなく、人間の心理や行動パターンを悪用して情報を騙し取る攻撃手法です。\n\nフィッシング（Phishing）\n\n実在する組織（銀行、宅配業者、ECサイトなど）を装ったメールやSMSを送り、偽のサイトに誘導してIDやパスワード、クレジットカード情報を入力させます。\n\n⚠ フィッシングメールの見分け方\n\n①送信元メールアドレスのドメインを確認する（公式ドメインと一致しているか）\n②URLをクリックする前にマウスオーバーで実際の遷移先を確認する\n③「緊急」「アカウントが停止されます」など、焦りを煽る表現に注意する\n④日本語の不自然さ、誤字脱字がないかを確認する\n\nスピアフィッシング（Spear Phishing）\n\n特定の個人・組織を標的にした高度なフィッシング攻撃です。標的の名前、役職、業務内容などを調査した上で、信憑性の高いメールを送ります。「〇〇部長、先日の件の続きです」のように具体的な情報を含むため、一般のフィッシングより見破りにくい点が特徴です。\n\n内部脅威（インサイダーリスク）\n\nサイバー攻撃は外部からだけとは限りません。現従業員、退職者、取引先スタッフなど、内部の人間が引き起こすリスクを内部脅威といいます。\n\n悪意のある内部者：不満を持つ従業員が意図的にデータを持ち出したり、システムを破壊したりする\n不注意による内部者：メールの誤送信、USBメモリの紛失、フィッシングに引っかかるなど、悪意はないが被害を引き起こす\n権限を悪用する取引先：外部委託先が過剰なアクセス権限を使って情報を持ち出す\n💡 最小権限の原則\n\n内部脅威を軽減するための基本原則が最小権限の原則（Principle of Least Privilege）です。従業員には、業務遂行に必要な最低限のアクセス権限のみを付与します。管理者権限を全員に与えることは、セキュリティ上の大きなリスクです。\n\nまとめ\nマルウェアにはウイルス・ワーム・トロイの木馬・ランサムウェアなど多くの種類がある\nランサムウェアは侵入から暗号化まで段階的に進行し、身代金支払いは推奨されない\nフィッシングは人間の心理を突く攻撃で、送信元・URLの確認が重要\nスピアフィッシングは標的を絞った高度な攻撃で見破りにくい\n内部脅威には悪意のあるケースと不注意によるケースの両方がある\n最小権限の原則を徹底することで内部脅威を軽減できる\n確認問題\nQ1. ランサムウェア攻撃で身代金を支払うべきでない理由を2つ答えてください。\nヒント：復号の保証と攻撃組織への影響を考えてみましょう\nQ2. スピアフィッシングが通常のフィッシングより危険な理由は何ですか？\nヒント：標的についての情報量の違いを考えてみましょう\nQ3. 最小権限の原則とは何ですか？\nヒント：アクセス権限の範囲について考えてみましょう\n← 第1章\n第2章 / 全3章\n次の章 →",
+            "org_node_id": "35480b88-645a-43fb-8bf6-12088fff6297",
+            "source_file_path": "content/chapter02/index.html",
+            "title": "第2章：サイバー脅威の種類"
+          },
+          {
+            "category": "structured",
+            "content": "# 第3章：パスワードと認証\n\n\n---\n\n第3章 / 全3章\nサイバーセキュリティ入門\n進捗：75%\n第3章\nパスワードと認証\n\nパスワードは最も基本的な認証手段でありながら、最も多くの侵害が発生するポイントでもあります。強固なパスワード管理と多要素認証の実践が、アカウント保護の鍵です。\n\n学習目標\n強いパスワードと弱いパスワードの違いを説明できる\nパスワード攻撃の主な手法を理解する\n多要素認証（MFA）の仕組みと重要性を把握する\nパスワードマネージャーの適切な活用方法を学ぶ\nなぜパスワードが狙われるのか\n\n攻撃者にとって、パスワードを手に入れることは正規ユーザーとして堂々とシステムにアクセスできることを意味します。不正アクセスの痕跡を残しにくく、検知を逃れやすいため、パスワード攻撃はサイバー犯罪の常套手段となっています。\n\nパスワード攻撃の手法\n攻撃手法\t説明\t対策\n総当たり攻撃（Brute Force）\t考えられる全てのパスワードの組み合わせを試す\t長いパスワード・ログイン試行回数制限\n辞書攻撃（Dictionary Attack）\tよく使われる単語や過去の漏洩パスワードリストを使って試す\t推測されにくいランダムなパスワード\nパスワードスプレー\t少数のよくあるパスワードを多数のアカウントに試す\t一般的なパスワードの禁止・MFA\nクレデンシャルスタッフィング\t漏洩した他サービスのID・パスワードをそのまま試す\tパスワードの使い回しをしない\nフィッシング\t偽サイトに誘導してパスワードを入力させる\tURLの確認・MFA・パスキー\n強いパスワードの条件\n\n現在のIPAガイドラインおよびNIST（米国国立標準技術研究所）の推奨に基づく、強いパスワードの条件は以下のとおりです。\n\n長さ：最低12文字以上（理想は16文字以上）\n複雑性：大文字・小文字・数字・記号を組み合わせる\n予測不可能性：名前、誕生日、よく知られた単語を使わない\n一意性：サービスごとに異なるパスワードを使う（使い回し厳禁）\n💡 パスフレーズの活用\n\n「Sakura_Fuji_2024_Niji!」のように、複数の単語を組み合わせたパスフレーズは、長くて記憶しやすく、推測されにくいパスワードの作り方として推奨されています。ランダムな文字列より覚えやすい点がメリットです。\n\n多要素認証（MFA）\n\n多要素認証（Multi-Factor Authentication / MFA）は、パスワード（知識情報）に加えて、もう一つ以上の認証要素を組み合わせる仕組みです。仮にパスワードが漏洩しても、第二の認証要素がなければログインできません。\n\n認証要素の種類\t説明\t例\n知識情報（Something you know）\t本人だけが知っている情報\tパスワード、暗証番号、秘密の質問\n所持情報（Something you have）\t本人だけが持っているもの\tスマートフォン、ICカード、ハードウェアトークン\n生体情報（Something you are）\t本人の生体的特徴\t指紋、顔認証、虹彩認証\nMFAの種類\nTOTP（時間ベースワンタイムパスワード）：Google AuthenticatorやAuthyなどのアプリが30秒ごとに生成するコード\nSMS認証：携帯電話のSMSで届くコード（SIMスワッピング攻撃のリスクがあるため、TOTPより安全性は低い）\nプッシュ通知：スマートフォンアプリへの「承認」リクエスト\nハードウェアキー：YubiKeyなど物理的なデバイス（最も安全性が高い）\n⚠ SMS認証の注意点\n\nSMS認証はMFAの中では比較的リスクが高い方法です。SIMスワッピング（攻撃者が電話番号を乗っ取る）やSMSの傍受によって突破される可能性があります。重要なアカウントにはTOTPまたはハードウェアキーの使用を推奨します。\n\nパスワードマネージャーの活用\n\n人間が多数のサービスに対してそれぞれ強いパスワードを設定・記憶することは現実的ではありません。パスワードマネージャーは、全てのパスワードを暗号化して安全に保存するツールです。\n\nサービスごとにランダムで長いパスワードを自動生成できる\nログインフォームへの自動入力でフィッシングサイトへの誤入力を防げる（URLが一致しないと自動入力されない）\nマスターパスワード1つで全パスワードを管理できる\n代表的なツール：1Password、Bitwarden（オープンソース）、Dashlane\nまとめ\nパスワード攻撃には総当たり・辞書攻撃・クレデンシャルスタッフィングなどがある\n強いパスワードは12文字以上・複雑・予測不可能・サービスごとに一意\nMFAは知識・所持・生体の3要素を組み合わせてアカウントを保護する\nSMS認証より TOTPやハードウェアキーの方が安全性が高い\nパスワードマネージャーの使用が現実的かつ効果的なパスワード管理の方法\n確認問題\nQ1. クレデンシャルスタッフィング攻撃を防ぐための最も効果的な対策は何ですか？\nヒント：この攻撃は他サービスで漏洩したパスワードを使います\nQ2. MFAの「所持情報」に該当するものを2つ答えてください。\nヒント：物理的に持っているものを考えてみましょう\nQ3. パスワードマネージャーがフィッシング対策に有効な理由を説明してください。\nヒント：自動入力の仕組みを思い出してみましょう\n← 第2章\n第3章 / 全3章\n確認テスト →",
+            "org_node_id": "d9b061a0-b761-42bb-ab59-279a5673373b",
+            "source_file_path": "content/chapter03/index.html",
+            "title": "第3章：パスワードと認証"
+          },
+          {
+            "category": "structured",
+            "content": "# 確認テスト\n\n\n---\n\n確認テスト\nサイバーセキュリティ入門\nコース終了\n確認テスト\n\n全3章の内容から10問出題します。各問題につき1つの正解を選んでください。\n7問以上正解で合格です。全問回答後に「回答を送信する」ボタンを押してください。\n\n問題 1\nCIAトライアドの「完全性（Integrity）」が侵害された事例として最も適切なものはどれですか？\nDDoS攻撃によりウェブサービスが24時間停止した\n攻撃者が財務データベースの数値を書き換えた\n不正アクセスにより顧客の個人情報が外部に流出した\nフィッシングにより従業員のパスワードが盗まれた\n問題 2\nランサムウェア攻撃において、身代金の支払いが推奨されない理由として正しいものはどれですか？\n支払い金額が高額すぎるから\n支払いに使う仮想通貨の取得が難しいから\n復号キーが提供される保証がなく、犯罪組織の資金源となるから\n法律で支払いが禁止されているから\n問題 3\nスピアフィッシングが通常のフィッシングより危険とされる主な理由はどれですか？\nメールの送信数が多いから\n悪意のある添付ファイルが含まれているから\nフィルタリングで検知されにくいから\n標的の個人情報を調査した上で信憑性の高いメールを送るから\n問題 4\n最小権限の原則（Principle of Least Privilege）の説明として正しいものはどれですか？\n従業員には業務に必要な最低限のアクセス権限のみを付与する\n管理者権限は最も経験の少ない従業員に付与する\n全従業員に同じ権限を付与して公平性を保つ\nパスワードを最小限の文字数にする\n問題 5\nクレデンシャルスタッフィング攻撃の最も効果的な対策はどれですか？\nパスワードの文字数を8文字以上にする\nサービスごとに異なるパスワードを使用する\nパスワードを定期的に変更する\nパスワードに特殊文字を含める\n問題 6\n多要素認証（MFA）における「所持情報（Something you have）」に該当するものはどれですか？\n指紋認証\n暗証番号\nハードウェアセキュリティキー（YubiKeyなど）\n秘密の質問への回答\n問題 7\nパスワードマネージャーがフィッシング対策に有効な理由として正しいものはどれですか？\nパスワードを複数回変更してくれるから\nフィッシングサイトのURLをブロックするから\nウイルスを検出して削除してくれるから\n登録したサイトのURLと一致しない場合、自動入力が機能しないから\n問題 8\nマルウェアのうち、正規ソフトウェアに見せかけて配布されるものを何と呼びますか？\nトロイの木馬\nワーム\nキーロガー\nスパイウェア\n問題 9\nSMS認証がTOTP（時間ベースワンタイムパスワード）より安全性が低いとされる主な理由はどれですか？\nSMSコードは数字のみで推測しやすいから\nSIMスワッピングやSMS傍受によって突破される可能性があるから\nSMSは届くまでに時間がかかり、有効期限が切れやすいから\nスマートフォンを持っていない人が使えないから\n問題 10\n情報セキュリティのリスクを表す式として正しいものはどれですか？\nリスク ＝ 脅威 ＋ コスト\nリスク ＝ 脆弱性 ÷ 対策\nリスク ＝ 脅威 × 脆弱性 × 影響度\nリスク ＝ 資産 − セキュリティ対策\n回答を送信する\n← 第3章\nコース終了",
+            "org_node_id": "fe3f722c-f2ed-4118-a482-68e05b625d7d",
+            "source_file_path": "content/quiz/index.html",
+            "title": "確認テスト"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "7663c145-0ab3-4ded-a0ff-3868427df5d5",
+      "filename": "Cybersecurity_Fundamentals_JP_SCORM.zip",
+      "file_size": 18777,
+      "job_id": "6e6d9024-cdb0-4c24-81a0-f7fb439e1862",
+      "generator_type": "multilingual-ja",
+      "test_category": "valid",
+      "notes": "Generated: Japanese Content (ja-JP). Expected: language:ja-JP detected",
+      "uploaded_at": "2026-04-30T12:30:34.3798296Z",
+      "completed_at": "2026-04-30T12:30:52.7718503Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": false,
+        "job_id": "6e6d9024-cdb0-4c24-81a0-f7fb439e1862"
+      },
+      "status_response": {
+        "elapsed_seconds": 18.149616,
+        "error": null,
+        "external_links": null,
+        "job_id": "6e6d9024-cdb0-4c24-81a0-f7fb439e1862",
+        "markdown": "# サイバーセキュリティ入門 — Course Summary\n\n## 第1章：情報セキュリティとは何か\n\nThis chapter introduces the fundamental concepts of information security, emphasizing its importance in protecting valuable information assets in the digital society. It defines information security as technical and organizational efforts to protect information assets from threats, including digital data, paper documents, conversations, and knowledge. The chapter explains the CIA triad—Confidentiality, Integrity, and Availability—as the three core elements of information security, providing examples of violations for each. It discusses the relationship between information assets and risks, highlighting that risks arise from the combination of threats, vulnerabilities, and impact. The chapter also covers the consequences of security breaches, such as economic loss, reputational damage, legal sanctions, and operational disruption, with reference to Japanese laws like the Personal Information Protection Act. Finally, it stresses that security measures should be viewed as an investment rather than a cost.\n\n## 第2章：サイバー脅威の種類\n\nThis chapter details various types of cyber threats, focusing on malware and social engineering attacks. It defines malware and describes its main types, including viruses, worms, trojans, spyware, ransomware, and keyloggers, along with their typical impacts. The chapter outlines the typical stages of a ransomware attack and explains why paying ransom is discouraged. It introduces social engineering and phishing attacks, explaining how attackers exploit human psychology to steal information, and provides tips for identifying phishing emails. Spear phishing is described as a targeted, sophisticated form of phishing. The chapter also addresses insider threats, distinguishing between malicious insiders, careless insiders, and third-party risks, and emphasizes the principle of least privilege to mitigate these risks.\n\n## 第3章：パスワードと認証\n\nThis chapter focuses on passwords and authentication as critical components of cybersecurity. It explains why passwords are targeted by attackers and describes common password attack methods such as brute force, dictionary attacks, password spraying, credential stuffing, and phishing, along with corresponding countermeasures. The chapter outlines the characteristics of strong passwords based on current guidelines, recommending length, complexity, unpredictability, and uniqueness. It introduces passphrases as a user-friendly method to create strong passwords. Multi-factor authentication (MFA) is explained, detailing the three types of authentication factors and various MFA implementations, highlighting the relative security of each. The chapter also discusses the use of password managers to securely generate, store, and autofill passwords, enhancing security and usability.\n\n## 確認テスト\n\nThis document presents a comprehensive quiz covering key concepts from the previous chapters on cybersecurity. It includes questions about the CIA triad, ransomware, spear phishing, the principle of least privilege, credential stuffing, multi-factor authentication, password managers, malware types, SMS authentication risks, and risk calculation formulas. Each question tests understanding of important cybersecurity principles, attack methods, and defense strategies, reinforcing the learner's knowledge and application of the course material.\n",
+        "markdown_list": [
+          6,
+          {
+            "category": "course_summary",
+            "content": "# サイバーセキュリティ入門 — Course Summary\n\n## 第1章：情報セキュリティとは何か\n\nThis chapter introduces the fundamental concepts of information security, emphasizing its importance in protecting valuable information assets in the digital society. It defines information security as technical and organizational efforts to protect information assets from threats, including digital data, paper documents, conversations, and knowledge. The chapter explains the CIA triad—Confidentiality, Integrity, and Availability—as the three core elements of information security, providing examples of violations for each. It discusses the relationship between information assets and risks, highlighting that risks arise from the combination of threats, vulnerabilities, and impact. The chapter also covers the consequences of security breaches, such as economic loss, reputational damage, legal sanctions, and operational disruption, with reference to Japanese laws like the Personal Information Protection Act. Finally, it stresses that security measures should be viewed as an investment rather than a cost.\n\n## 第2章：サイバー脅威の種類\n\nThis chapter details various types of cyber threats, focusing on malware and social engineering attacks. It defines malware and describes its main types, including viruses, worms, trojans, spyware, ransomware, and keyloggers, along with their typical impacts. The chapter outlines the typical stages of a ransomware attack and explains why paying ransom is discouraged. It introduces social engineering and phishing attacks, explaining how attackers exploit human psychology to steal information, and provides tips for identifying phishing emails. Spear phishing is described as a targeted, sophisticated form of phishing. The chapter also addresses insider threats, distinguishing between malicious insiders, careless insiders, and third-party risks, and emphasizes the principle of least privilege to mitigate these risks.\n\n## 第3章：パスワードと認証\n\nThis chapter focuses on passwords and authentication as critical components of cybersecurity. It explains why passwords are targeted by attackers and describes common password attack methods such as brute force, dictionary attacks, password spraying, credential stuffing, and phishing, along with corresponding countermeasures. The chapter outlines the characteristics of strong passwords based on current guidelines, recommending length, complexity, unpredictability, and uniqueness. It introduces passphrases as a user-friendly method to create strong passwords. Multi-factor authentication (MFA) is explained, detailing the three types of authentication factors and various MFA implementations, highlighting the relative security of each. The chapter also discusses the use of password managers to securely generate, store, and autofill passwords, enhancing security and usability.\n\n## 確認テスト\n\nThis document presents a comprehensive quiz covering key concepts from the previous chapters on cybersecurity. It includes questions about the CIA triad, ransomware, spear phishing, the principle of least privilege, credential stuffing, multi-factor authentication, password managers, malware types, SMS authentication risks, and risk calculation formulas. Each question tests understanding of important cybersecurity principles, attack methods, and defense strategies, reinforcing the learner's knowledge and application of the course material.\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "サイバーセキュリティ入門 — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# サイバーセキュリティ入門 — Course Index\n\n## Contents\n\n- **第1章：情報セキュリティとは何か**\n- **第2章：サイバー脅威の種類**\n- **第3章：パスワードと認証**\n- **確認テスト**\n\n## Coverage Report\n\n- **Structured content:** 4 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 3 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "サイバーセキュリティ入門 — Index"
+          },
+          {
+            "category": "structured",
+            "content": "# 第1章：情報セキュリティとは何か\n\n\n---\n\n第1章 / 全3章\nサイバーセキュリティ入門\n進捗：25%\n第1章\n情報セキュリティとは何か\n\nデジタル社会において、情報を守ることは個人にとっても組織にとっても最優先事項です。この章では、情報セキュリティの基本概念と、なぜそれが重要なのかを学びます。\n\n学習目標\n情報セキュリティの定義とCIAトライアドを説明できる\n情報資産とリスクの関係を理解する\nセキュリティ侵害が組織に与える影響を把握する\n日常業務における情報セキュリティの重要性を認識する\n情報セキュリティの定義\n\n情報セキュリティ（Information Security）とは、情報資産を脅威から保護し、その価値を維持するための技術的・組織的な取り組みの総称です。単純に言えば、「大切なデータを守ること」ですが、その対象はデジタルデータだけでなく、紙の書類、会話内容、知識なども含まれます。\n\n現代の企業では、顧客データ、財務情報、設計図、従業員の個人情報など、無数の情報資産が存在します。これらが流出・改ざん・消失した場合、企業は法的責任を問われ、社会的信用を失い、場合によっては事業継続が困難になることもあります。\n\nCIAトライアド\n\n情報セキュリティの3つの基本要素は CIAトライアド と呼ばれます。\n\n要素\t英語名\t意味\t侵害の例\n機密性\tConfidentiality\t許可された者だけが情報にアクセスできる状態を保つ\t不正アクセスによる顧客データの漏洩\n完全性\tIntegrity\t情報が正確で改ざんされていない状態を保つ\t攻撃者による財務データの書き換え\n可用性\tAvailability\t必要なときに情報やシステムを利用できる状態を保つ\tDDoS攻撃によるサービス停止\n💡 覚え方のポイント\n\nCIAトライアドは「誰でも使えるが誰でもいじれるわけではなく、常に使える」という状態が理想です。機密性・完全性・可用性のバランスが情報セキュリティの核心です。\n\n情報資産とリスク\n\n情報資産とは、組織が価値を認める情報やそれを処理するシステムのことです。情報資産には以下のようなものが含まれます。\n\n顧客の個人情報（氏名、住所、クレジットカード番号など）\n従業員の人事・給与情報\n製品の設計データや知的財産\n業務システムやデータベース\nネットワーク設備やサーバー\n\nリスクは「脅威 × 脆弱性 × 影響度」で考えます。脅威だけでは被害は発生しません。組織に脆弱性（弱点）があり、そこを脅威が突いて初めてインシデントが起きます。\n\nセキュリティ侵害の影響\n\n情報セキュリティ上のインシデントが発生した場合、組織はさまざまな損害を受けます。\n\n影響の種類\t具体例\n経済的損失\t損害賠償、システム復旧費用、業務停止による機会損失\n信頼・評判の失墜\t顧客離れ、取引先からの契約解除、株価下落\n法的制裁\t個人情報保護法違反による行政処分・罰則\n業務継続への影響\tシステム障害による業務停止、データ消失\n⚠ 日本の法律との関係\n\n日本では個人情報保護法（個情法）により、個人データの漏洩が発生した場合、個人情報保護委員会への報告と本人への通知が義務付けられています（2022年改正）。違反した場合は1億円以下の罰金が科される可能性があります。\n\nセキュリティは「コスト」ではなく「投資」\n\n情報セキュリティ対策を単なるコストと捉える組織はまだ多くあります。しかし、セキュリティインシデントの平均損害額は対策コストを大きく上回ることがほとんどです。セキュリティ対策は、リスクを事前に低減するための経営上の投資として位置づけることが重要です。\n\nまとめ\n情報セキュリティとは情報資産を脅威から守る取り組みの総称\nCIAトライアド（機密性・完全性・可用性）が3つの基本要素\nリスクは「脅威 × 脆弱性 × 影響度」の組み合わせで生じる\nセキュリティ侵害は経済的損失・信頼失墜・法的制裁をもたらす\nセキュリティ対策はコストではなく経営上の投資として捉える\n確認問題\nQ1. CIAトライアドの3要素を答えてください。\nヒント：機密性・〇〇性・〇〇性\nQ2. DDoS攻撃はCIAトライアドのどの要素を侵害しますか？\nヒント：サービスが使えなくなる状態を考えてみてください\nQ3. 情報セキュリティインシデントが発生した場合、企業が受ける影響を2つ挙げてください。\nヒント：お金の面と信用の面から考えてみましょう\n← 前の章\n第1章 / 全3章\n次の章 →",
+            "org_node_id": "c7cc41d1-8bc4-4ef2-a9f2-4e7e541730b5",
+            "source_file_path": "content/chapter01/index.html",
+            "title": "第1章：情報セキュリティとは何か"
+          },
+          {
+            "category": "structured",
+            "content": "# 第2章：サイバー脅威の種類\n\n\n---\n\n第2章 / 全3章\nサイバーセキュリティ入門\n進捗：50%\n第2章\nサイバー脅威の種類\n\n攻撃者はさまざまな手口で組織や個人を狙います。代表的なサイバー脅威のパターンを知ることが、適切な防御策を講じるための第一歩です。\n\n学習目標\nマルウェアの主な種類と特徴を説明できる\nソーシャルエンジニアリングとフィッシングの仕組みを理解する\nランサムウェア攻撃の流れと影響を把握する\n内部脅威（インサイダーリスク）の危険性を認識する\nマルウェア（悪意のあるソフトウェア）\n\nマルウェア（Malware）は「Malicious Software」の略で、悪意を持って作られたソフトウェアの総称です。マルウェアには以下のような種類があります。\n\n種類\t説明\t主な被害\nウイルス\t他のプログラムに寄生して増殖する\tファイルの破壊・システムの不安定化\nワーム\t自己増殖してネットワーク経由で拡散する\tネットワーク帯域の消費・大規模感染\nトロイの木馬\t正規ソフトに見せかけた悪意のあるプログラム\tバックドアの設置・情報窃取\nスパイウェア\tユーザーの行動を密かに監視・記録する\tパスワード・個人情報の窃取\nランサムウェア\tファイルを暗号化して身代金を要求する\t業務停止・データ消失・金銭被害\nキーロガー\tキーボード入力を記録して攻撃者に送信する\tIDとパスワードの窃取\nランサムウェア攻撃の流れ\n\nランサムウェアは近年最も深刻なサイバー脅威の一つです。2023年だけでも、日本国内の医療機関・自治体・製造業が被害を受けた事例が相次ぎました。典型的な攻撃の流れは以下のとおりです。\n\n侵入：フィッシングメールの添付ファイルを開く、またはVPN機器の脆弱性を突かれてネットワークに侵入される\n潜伏：攻撃者はすぐに動かず、数日〜数週間かけてネットワーク内を調査する\n権限昇格：管理者権限を取得してシステム全体を掌握する\nデータ窃取：重要データを攻撃者のサーバーに送信する（二重脅迫の準備）\n暗号化：ファイルサーバーやバックアップを含む重要データを暗号化する\n身代金要求：復号キーと引き換えに暗号通貨での支払いを要求する\n🚨 重要\n\n身代金を支払っても、復号キーが提供される保証はありません。また、支払いが犯罪組織の資金源となり、さらなる攻撃を助長することになります。日本政府もIPAも、身代金の支払いを推奨していません。\n\nソーシャルエンジニアリングとフィッシング\n\nソーシャルエンジニアリングとは、技術的な手段ではなく、人間の心理や行動パターンを悪用して情報を騙し取る攻撃手法です。\n\nフィッシング（Phishing）\n\n実在する組織（銀行、宅配業者、ECサイトなど）を装ったメールやSMSを送り、偽のサイトに誘導してIDやパスワード、クレジットカード情報を入力させます。\n\n⚠ フィッシングメールの見分け方\n\n①送信元メールアドレスのドメインを確認する（公式ドメインと一致しているか）\n②URLをクリックする前にマウスオーバーで実際の遷移先を確認する\n③「緊急」「アカウントが停止されます」など、焦りを煽る表現に注意する\n④日本語の不自然さ、誤字脱字がないかを確認する\n\nスピアフィッシング（Spear Phishing）\n\n特定の個人・組織を標的にした高度なフィッシング攻撃です。標的の名前、役職、業務内容などを調査した上で、信憑性の高いメールを送ります。「〇〇部長、先日の件の続きです」のように具体的な情報を含むため、一般のフィッシングより見破りにくい点が特徴です。\n\n内部脅威（インサイダーリスク）\n\nサイバー攻撃は外部からだけとは限りません。現従業員、退職者、取引先スタッフなど、内部の人間が引き起こすリスクを内部脅威といいます。\n\n悪意のある内部者：不満を持つ従業員が意図的にデータを持ち出したり、システムを破壊したりする\n不注意による内部者：メールの誤送信、USBメモリの紛失、フィッシングに引っかかるなど、悪意はないが被害を引き起こす\n権限を悪用する取引先：外部委託先が過剰なアクセス権限を使って情報を持ち出す\n💡 最小権限の原則\n\n内部脅威を軽減するための基本原則が最小権限の原則（Principle of Least Privilege）です。従業員には、業務遂行に必要な最低限のアクセス権限のみを付与します。管理者権限を全員に与えることは、セキュリティ上の大きなリスクです。\n\nまとめ\nマルウェアにはウイルス・ワーム・トロイの木馬・ランサムウェアなど多くの種類がある\nランサムウェアは侵入から暗号化まで段階的に進行し、身代金支払いは推奨されない\nフィッシングは人間の心理を突く攻撃で、送信元・URLの確認が重要\nスピアフィッシングは標的を絞った高度な攻撃で見破りにくい\n内部脅威には悪意のあるケースと不注意によるケースの両方がある\n最小権限の原則を徹底することで内部脅威を軽減できる\n確認問題\nQ1. ランサムウェア攻撃で身代金を支払うべきでない理由を2つ答えてください。\nヒント：復号の保証と攻撃組織への影響を考えてみましょう\nQ2. スピアフィッシングが通常のフィッシングより危険な理由は何ですか？\nヒント：標的についての情報量の違いを考えてみましょう\nQ3. 最小権限の原則とは何ですか？\nヒント：アクセス権限の範囲について考えてみましょう\n← 第1章\n第2章 / 全3章\n次の章 →",
+            "org_node_id": "35480b88-645a-43fb-8bf6-12088fff6297",
+            "source_file_path": "content/chapter02/index.html",
+            "title": "第2章：サイバー脅威の種類"
+          },
+          {
+            "category": "structured",
+            "content": "# 第3章：パスワードと認証\n\n\n---\n\n第3章 / 全3章\nサイバーセキュリティ入門\n進捗：75%\n第3章\nパスワードと認証\n\nパスワードは最も基本的な認証手段でありながら、最も多くの侵害が発生するポイントでもあります。強固なパスワード管理と多要素認証の実践が、アカウント保護の鍵です。\n\n学習目標\n強いパスワードと弱いパスワードの違いを説明できる\nパスワード攻撃の主な手法を理解する\n多要素認証（MFA）の仕組みと重要性を把握する\nパスワードマネージャーの適切な活用方法を学ぶ\nなぜパスワードが狙われるのか\n\n攻撃者にとって、パスワードを手に入れることは正規ユーザーとして堂々とシステムにアクセスできることを意味します。不正アクセスの痕跡を残しにくく、検知を逃れやすいため、パスワード攻撃はサイバー犯罪の常套手段となっています。\n\nパスワード攻撃の手法\n攻撃手法\t説明\t対策\n総当たり攻撃（Brute Force）\t考えられる全てのパスワードの組み合わせを試す\t長いパスワード・ログイン試行回数制限\n辞書攻撃（Dictionary Attack）\tよく使われる単語や過去の漏洩パスワードリストを使って試す\t推測されにくいランダムなパスワード\nパスワードスプレー\t少数のよくあるパスワードを多数のアカウントに試す\t一般的なパスワードの禁止・MFA\nクレデンシャルスタッフィング\t漏洩した他サービスのID・パスワードをそのまま試す\tパスワードの使い回しをしない\nフィッシング\t偽サイトに誘導してパスワードを入力させる\tURLの確認・MFA・パスキー\n強いパスワードの条件\n\n現在のIPAガイドラインおよびNIST（米国国立標準技術研究所）の推奨に基づく、強いパスワードの条件は以下のとおりです。\n\n長さ：最低12文字以上（理想は16文字以上）\n複雑性：大文字・小文字・数字・記号を組み合わせる\n予測不可能性：名前、誕生日、よく知られた単語を使わない\n一意性：サービスごとに異なるパスワードを使う（使い回し厳禁）\n💡 パスフレーズの活用\n\n「Sakura_Fuji_2024_Niji!」のように、複数の単語を組み合わせたパスフレーズは、長くて記憶しやすく、推測されにくいパスワードの作り方として推奨されています。ランダムな文字列より覚えやすい点がメリットです。\n\n多要素認証（MFA）\n\n多要素認証（Multi-Factor Authentication / MFA）は、パスワード（知識情報）に加えて、もう一つ以上の認証要素を組み合わせる仕組みです。仮にパスワードが漏洩しても、第二の認証要素がなければログインできません。\n\n認証要素の種類\t説明\t例\n知識情報（Something you know）\t本人だけが知っている情報\tパスワード、暗証番号、秘密の質問\n所持情報（Something you have）\t本人だけが持っているもの\tスマートフォン、ICカード、ハードウェアトークン\n生体情報（Something you are）\t本人の生体的特徴\t指紋、顔認証、虹彩認証\nMFAの種類\nTOTP（時間ベースワンタイムパスワード）：Google AuthenticatorやAuthyなどのアプリが30秒ごとに生成するコード\nSMS認証：携帯電話のSMSで届くコード（SIMスワッピング攻撃のリスクがあるため、TOTPより安全性は低い）\nプッシュ通知：スマートフォンアプリへの「承認」リクエスト\nハードウェアキー：YubiKeyなど物理的なデバイス（最も安全性が高い）\n⚠ SMS認証の注意点\n\nSMS認証はMFAの中では比較的リスクが高い方法です。SIMスワッピング（攻撃者が電話番号を乗っ取る）やSMSの傍受によって突破される可能性があります。重要なアカウントにはTOTPまたはハードウェアキーの使用を推奨します。\n\nパスワードマネージャーの活用\n\n人間が多数のサービスに対してそれぞれ強いパスワードを設定・記憶することは現実的ではありません。パスワードマネージャーは、全てのパスワードを暗号化して安全に保存するツールです。\n\nサービスごとにランダムで長いパスワードを自動生成できる\nログインフォームへの自動入力でフィッシングサイトへの誤入力を防げる（URLが一致しないと自動入力されない）\nマスターパスワード1つで全パスワードを管理できる\n代表的なツール：1Password、Bitwarden（オープンソース）、Dashlane\nまとめ\nパスワード攻撃には総当たり・辞書攻撃・クレデンシャルスタッフィングなどがある\n強いパスワードは12文字以上・複雑・予測不可能・サービスごとに一意\nMFAは知識・所持・生体の3要素を組み合わせてアカウントを保護する\nSMS認証より TOTPやハードウェアキーの方が安全性が高い\nパスワードマネージャーの使用が現実的かつ効果的なパスワード管理の方法\n確認問題\nQ1. クレデンシャルスタッフィング攻撃を防ぐための最も効果的な対策は何ですか？\nヒント：この攻撃は他サービスで漏洩したパスワードを使います\nQ2. MFAの「所持情報」に該当するものを2つ答えてください。\nヒント：物理的に持っているものを考えてみましょう\nQ3. パスワードマネージャーがフィッシング対策に有効な理由を説明してください。\nヒント：自動入力の仕組みを思い出してみましょう\n← 第2章\n第3章 / 全3章\n確認テスト →",
+            "org_node_id": "d9b061a0-b761-42bb-ab59-279a5673373b",
+            "source_file_path": "content/chapter03/index.html",
+            "title": "第3章：パスワードと認証"
+          },
+          {
+            "category": "structured",
+            "content": "# 確認テスト\n\n\n---\n\n確認テスト\nサイバーセキュリティ入門\nコース終了\n確認テスト\n\n全3章の内容から10問出題します。各問題につき1つの正解を選んでください。\n7問以上正解で合格です。全問回答後に「回答を送信する」ボタンを押してください。\n\n問題 1\nCIAトライアドの「完全性（Integrity）」が侵害された事例として最も適切なものはどれですか？\nDDoS攻撃によりウェブサービスが24時間停止した\n攻撃者が財務データベースの数値を書き換えた\n不正アクセスにより顧客の個人情報が外部に流出した\nフィッシングにより従業員のパスワードが盗まれた\n問題 2\nランサムウェア攻撃において、身代金の支払いが推奨されない理由として正しいものはどれですか？\n支払い金額が高額すぎるから\n支払いに使う仮想通貨の取得が難しいから\n復号キーが提供される保証がなく、犯罪組織の資金源となるから\n法律で支払いが禁止されているから\n問題 3\nスピアフィッシングが通常のフィッシングより危険とされる主な理由はどれですか？\nメールの送信数が多いから\n悪意のある添付ファイルが含まれているから\nフィルタリングで検知されにくいから\n標的の個人情報を調査した上で信憑性の高いメールを送るから\n問題 4\n最小権限の原則（Principle of Least Privilege）の説明として正しいものはどれですか？\n従業員には業務に必要な最低限のアクセス権限のみを付与する\n管理者権限は最も経験の少ない従業員に付与する\n全従業員に同じ権限を付与して公平性を保つ\nパスワードを最小限の文字数にする\n問題 5\nクレデンシャルスタッフィング攻撃の最も効果的な対策はどれですか？\nパスワードの文字数を8文字以上にする\nサービスごとに異なるパスワードを使用する\nパスワードを定期的に変更する\nパスワードに特殊文字を含める\n問題 6\n多要素認証（MFA）における「所持情報（Something you have）」に該当するものはどれですか？\n指紋認証\n暗証番号\nハードウェアセキュリティキー（YubiKeyなど）\n秘密の質問への回答\n問題 7\nパスワードマネージャーがフィッシング対策に有効な理由として正しいものはどれですか？\nパスワードを複数回変更してくれるから\nフィッシングサイトのURLをブロックするから\nウイルスを検出して削除してくれるから\n登録したサイトのURLと一致しない場合、自動入力が機能しないから\n問題 8\nマルウェアのうち、正規ソフトウェアに見せかけて配布されるものを何と呼びますか？\nトロイの木馬\nワーム\nキーロガー\nスパイウェア\n問題 9\nSMS認証がTOTP（時間ベースワンタイムパスワード）より安全性が低いとされる主な理由はどれですか？\nSMSコードは数字のみで推測しやすいから\nSIMスワッピングやSMS傍受によって突破される可能性があるから\nSMSは届くまでに時間がかかり、有効期限が切れやすいから\nスマートフォンを持っていない人が使えないから\n問題 10\n情報セキュリティのリスクを表す式として正しいものはどれですか？\nリスク ＝ 脅威 ＋ コスト\nリスク ＝ 脆弱性 ÷ 対策\nリスク ＝ 脅威 × 脆弱性 × 影響度\nリスク ＝ 資産 − セキュリティ対策\n回答を送信する\n← 第3章\nコース終了",
+            "org_node_id": "fe3f722c-f2ed-4118-a482-68e05b625d7d",
+            "source_file_path": "content/quiz/index.html",
+            "title": "確認テスト"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "9a1936c7-f55e-4bb4-98e2-208d70d37f6c",
+      "filename": "multilingual_ja.zip",
+      "file_size": 1426,
+      "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab",
+      "generator_type": "multilingual-ja",
+      "test_category": "valid",
+      "notes": "Generated: Japanese Content (ja-JP). Expected: language:ja-JP detected",
+      "uploaded_at": "2026-04-30T12:14:04.9119779Z",
+      "completed_at": "2026-04-30T12:14:07.1383806Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab"
+      },
+      "status_response": {
+        "elapsed_seconds": 4.303819,
+        "error": null,
+        "external_links": null,
+        "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab",
+        "markdown": "# Computer Basic Skills — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# Computer Basic Skills — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Computer Basic Skills — Course Index\n\n## Contents\n\n- **Chapter 1: Japanese Digital Literacy Test**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
+      "id": "a44848c8-9aec-4406-aa1d-00ebc75cdfc4",
+      "filename": "multilingual_ja.zip",
+      "file_size": 1426,
+      "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab",
+      "generator_type": "multilingual-ja",
+      "test_category": "valid",
+      "notes": "Generated: Japanese Content (ja-JP). Expected: language:ja-JP detected",
+      "uploaded_at": "2026-04-30T12:13:42.6613799Z",
+      "completed_at": "2026-04-30T12:13:44.8803317Z",
+      "status": "complete",
+      "upload_response": {
+        "cached": true,
+        "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab"
+      },
+      "status_response": {
+        "elapsed_seconds": 4.303819,
+        "error": null,
+        "external_links": null,
+        "job_id": "880e6fca-5bd9-4273-9fe3-31ed395004ab",
+        "markdown": "# Computer Basic Skills — Course Summary\n",
+        "markdown_list": [
+          2,
+          {
+            "category": "course_summary",
+            "content": "# Computer Basic Skills — Course Summary\n",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Course Summary"
+          },
+          {
+            "category": "index",
+            "content": "# Computer Basic Skills — Course Index\n\n## Contents\n\n- **Chapter 1: Japanese Digital Literacy Test**\n\n## Coverage Report\n\n- **Structured content:** 1 file(s)\n- **Unclassified content:** 0 file(s)\n- **Infrastructure (excluded):** 1 file(s)\n- **Broken manifest refs:** 0\n- **Coverage:** 100.0%",
+            "org_node_id": null,
+            "source_file_path": null,
+            "title": "Computer Basic Skills — Index"
+          }
+        ],
+        "mode": "single",
+        "status": "complete",
+        "step": null
+      }
+    },
+    {
       "id": "4e8f7d75-abad-4fac-b19e-9bfe0bce13af",
       "filename": "multilingual_ja.zip",
       "file_size": 1426,
