@@ -16,6 +16,14 @@ Bots Configuration/
 
 # Dependencies
 node_modules/
+**/node_modules/
+
+# Build output
+e2e/dashboard/frontend/.next/
+
+# Local extras and archives
+0extras/
+e2e.zip
 
 # Environment variables
 .env
