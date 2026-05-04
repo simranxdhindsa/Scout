@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -15,30 +15,32 @@ const queryClient = new QueryClient({
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthGate>
-        {children}
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            duration: 3500,
-            style: {
-              fontSize: '13px',
-              borderRadius: '10px',
-              background: '#12121f',
-              color: '#ededf5',
-              border: '1px solid #2a2a40',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-              fontFamily: 'Inter, system-ui, sans-serif',
-            },
-            success: {
-              iconTheme: { primary: '#34d399', secondary: '#042f1e' },
-            },
-            error: {
-              iconTheme: { primary: '#f87171', secondary: '#2d0a0a' },
-            },
-          }}
-        />
-      </AuthGate>
+      <Suspense>
+        <AuthGate>
+          {children}
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              duration: 3500,
+              style: {
+                fontSize: '13px',
+                borderRadius: '10px',
+                background: '#12121f',
+                color: '#ededf5',
+                border: '1px solid #2a2a40',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                fontFamily: 'Inter, system-ui, sans-serif',
+              },
+              success: {
+                iconTheme: { primary: '#34d399', secondary: '#042f1e' },
+              },
+              error: {
+                iconTheme: { primary: '#f87171', secondary: '#2d0a0a' },
+              },
+            }}
+          />
+        </AuthGate>
+      </Suspense>
     </QueryClientProvider>
   )
 }

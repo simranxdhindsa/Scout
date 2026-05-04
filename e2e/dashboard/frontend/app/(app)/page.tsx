@@ -1,14 +1,13 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/auth'
 
-export default function RootPage() {
+function RootRedirect() {
   const router = useRouter()
   const { orgs, isLoading, isPlatformAdmin } = useAuthStore()
-
-  const noOrg = !isLoading && !isPlatformAdmin && orgs.length === 0
 
   useEffect(() => {
     if (isLoading) return
@@ -21,24 +20,21 @@ export default function RootPage() {
     }
   }, [orgs, isLoading, isPlatformAdmin, router])
 
+  const noOrg = !isLoading && !isPlatformAdmin && orgs.length === 0
+
   if (noOrg) {
     return (
-      <div style={{
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#07070f',
-        fontFamily: 'Inter, system-ui, sans-serif',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 15, color: '#ededf5', marginBottom: 8 }}>No organization found</p>
-          <p style={{ fontSize: 13, color: '#3a3a52' }}>Ask a platform admin to add you to an org.</p>
-        </div>
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ fontSize: 15, color: '#ededf5', marginBottom: 8 }}>No organization found</p>
+        <p style={{ fontSize: 13, color: '#3a3a52' }}>Ask a platform admin to add you to an org.</p>
       </div>
     )
   }
 
+  return null
+}
+
+export default function RootPage() {
   return (
     <div style={{
       display: 'flex',
@@ -46,6 +42,7 @@ export default function RootPage() {
       alignItems: 'center',
       justifyContent: 'center',
       background: '#07070f',
+      fontFamily: 'Inter, system-ui, sans-serif',
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <div style={{
@@ -58,6 +55,9 @@ export default function RootPage() {
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <p style={{ fontSize: 12, color: '#3a3a52', fontFamily: 'Inter, sans-serif' }}>Loading Scout…</p>
+        <Suspense>
+          <RootRedirect />
+        </Suspense>
       </div>
     </div>
   )

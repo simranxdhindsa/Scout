@@ -357,7 +357,7 @@ func (q *RunQueries) GetTrend(ctx context.Context, orgID uuid.UUID, days int) ([
 		FROM test_runs tr
 		LEFT JOIN run_reports rr ON rr.run_id = tr.id
 		WHERE tr.org_id = $1
-		  AND tr.created_at >= NOW() - ($2 || ' days')::INTERVAL
+		  AND tr.created_at >= NOW() - ($2::TEXT || ' days')::INTERVAL
 		  AND tr.status IN ('done', 'failed')
 		GROUP BY DATE(tr.created_at)
 		ORDER BY DATE(tr.created_at) ASC

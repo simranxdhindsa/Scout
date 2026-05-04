@@ -35,7 +35,7 @@ var forbiddenPatterns = []struct {
 		message: "hardcoded credential detected — use process.env variables instead",
 	},
 	{
-		re:      regexp.MustCompile(`https?://[a-z0-9\-]+\.(dev|stage|prod|staging|local)[^'"]*`),
+		re:      regexp.MustCompile(`https?://[a-z0-9\-]+\.(stage|staging|local)\b`),
 		message: "hardcoded environment URL detected — use process.env.TESTDECK_BASE_URL",
 	},
 	{

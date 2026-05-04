@@ -91,6 +91,8 @@ export const subProjectsApi = {
     api.put(`/api/v1/orgs/${orgId}/products/${productId}/subprojects/${spId}`, data),
   delete: (orgId: string, productId: string, spId: string) =>
     api.delete(`/api/v1/orgs/${orgId}/products/${productId}/subprojects/${spId}`),
+  rootFolder: (spId: string) =>
+    api.get(`/api/v1/subprojects/${spId}/root-folder`),
 }
 
 // ── Environments ──────────────────────────────────────────────────────────────

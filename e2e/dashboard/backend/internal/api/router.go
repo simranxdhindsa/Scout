@@ -90,6 +90,8 @@ func RegisterRoutes(svc Services) http.Handler {
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
 	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/products/{productId}/subprojects/{spId}", chain(spH.Delete,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+	mux.HandleFunc("GET /api/v1/subprojects/{spId}/root-folder", chain(spH.RootFolder,
+		svc.Auth.Authenticate))
 
 	// ── Environments ──────────────────────────────────────────────────────
 	envH := newEnvironmentHandler(svc)

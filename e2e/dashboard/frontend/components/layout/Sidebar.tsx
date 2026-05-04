@@ -5,9 +5,11 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, PlayCircle, GitBranch,
   PackageSearch, Bot, Settings, ChevronDown,
-  ChevronRight, Building2, LogOut, FileCode2,
+  ChevronRight, Building2, LogOut, FileCode2, Plus,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { productsApi, subProjectsApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/auth'
 import s from './Sidebar.module.css'
 
@@ -27,10 +29,10 @@ export function Sidebar({ orgSlug }: SidebarProps) {
   const base = `/${orgSlug}`
 
   const workspaceItems: NavItem[] = [
-    { label: 'Overview',     href: base,                  icon: <LayoutDashboard size={15} />, exact: true },
-    { label: 'Runs',         href: `${base}/runs`,        icon: <PlayCircle size={15} /> },
-    { label: 'Pipelines',    href: `${base}/pipelines`,   icon: <GitBranch size={15} /> },
-    { label: 'AI Assistant', href: `${base}/ai`,          icon: <Bot size={15} /> },
+    { label: 'Overview',     href: base,                   icon: <LayoutDashboard size={15} />, exact: true },
+    { label: 'Runs',         href: `${base}/runs`,         icon: <PlayCircle size={15} /> },
+    { label: 'Pipelines',    href: `${base}/pipelines`,    icon: <GitBranch size={15} /> },
+    { label: 'AI Assistant', href: `${base}/ai`,           icon: <Bot size={15} /> },
   ]
 
   const toolItems: NavItem[] = [
@@ -82,6 +84,14 @@ export function Sidebar({ orgSlug }: SidebarProps) {
               })}
             </ul>
           </div>
+        </div>
+
+        <div className={s.divider} />
+
+        {/* Products nav */}
+        <div className={s.section}>
+          <div className={s.sectionLabel}>Products</div>
+          <ProductsSection orgSlug={orgSlug} orgId={orgs.find(o => o.slug === orgSlug)?.id ?? ''} pathname={pathname} s={s} />
         </div>
 
         <div className={s.divider} />
@@ -231,5 +241,106 @@ function NavItemRow({ item, pathname, s }: { item: NavItem; pathname: string; s:
         {item.label}
       </Link>
     </li>
+  )
+}
+
+function ProductsSection({ orgSlug, orgId, pathname, s }: { orgSlug: string; orgId: string; pathname: string; s: Record<string, string> }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const base = `/${orgSlug}`
+
+  const { data } = useQuery({
+    queryKey: ['products', orgId],
+    queryFn: () => productsApi.list(orgId).then((r) => r.data),
+    enabled: !!orgId,
+    staleTime: 30_000,
+  })
+
+  const products = data?.products ?? []
+
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  return (
+    <ul className={s.nav}>
+      {products.map((product: any) => (
+        <ProductNavItem
+          key={product.id}
+          product={product}
+          orgSlug={orgSlug}
+          orgId={orgId}
+          pathname={pathname}
+          isExpanded={expanded.has(product.id)}
+          onToggle={() => toggle(product.id)}
+          s={s}
+        />
+      ))}
+      <li>
+        <Link
+          href={`${base}/products`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none',
+            padding: '6px 8px', borderRadius: 'var(--radius-sm)',
+            width: '100%',
+          }}
+        >
+          <Plus size={12} /> Add Product
+        </Link>
+      </li>
+    </ul>
+  )
+}
+
+function ProductNavItem({ product, orgSlug, orgId, pathname, isExpanded, onToggle, s }: {
+  product: any; orgSlug: string; orgId: string; pathname: string;
+  isExpanded: boolean; onToggle: () => void; s: Record<string, string>
+}) {
+  const { data } = useQuery({
+    queryKey: ['subprojects', orgId, product.id],
+    queryFn: () => subProjectsApi.list(orgId, product.id).then((r) => r.data),
+    enabled: isExpanded,
+    staleTime: 30_000,
+  })
+
+  const subProjects: any[] = data?.sub_projects ?? []
+
+  return (
+    <>
+      <li>
+        <button
+          onClick={onToggle}
+          className={s.navItem}
+          style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+          {isExpanded
+            ? <ChevronDown size={10} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            : <ChevronRight size={10} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          }
+          <FileCode2 size={14} style={{ flexShrink: 0 }} />
+          <span>{product.name}</span>
+        </button>
+      </li>
+      {isExpanded && subProjects.map((sp: any) => {
+        const href = `/${orgSlug}/products/${product.slug}/${sp.slug}`
+        const active = pathname.startsWith(href)
+        return (
+          <li key={sp.id}>
+            <Link
+              href={href}
+              className={`${s.navItem} ${s.subItem} ${active ? s.navItemActive : ''}`}
+            >
+              <span style={{ width: 10, flexShrink: 0 }} />
+              <span>{sp.name}</span>
+            </Link>
+          </li>
+        )
+      })}
+    </>
   )
 }

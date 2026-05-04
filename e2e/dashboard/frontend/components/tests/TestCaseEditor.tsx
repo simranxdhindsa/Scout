@@ -22,10 +22,12 @@ interface TestCase {
 
 interface TestCaseEditorProps {
   testId: string
+  headless?: boolean
   onRun?: (testId: string, name: string) => void
+  onTestLoaded?: (tc: { file_name: string; version: number; name: string; updated_at: string }) => void
 }
 
-export function TestCaseEditor({ testId, onRun }: TestCaseEditorProps) {
+export function TestCaseEditor({ testId, headless, onRun, onTestLoaded }: TestCaseEditorProps) {
   const qc = useQueryClient()
   const [content, setContent] = useState('')
   const [name, setName] = useState('')
@@ -45,6 +47,7 @@ export function TestCaseEditor({ testId, onRun }: TestCaseEditorProps) {
       setName(tc.name)
       setDescription(tc.description)
       setIsDirty(false)
+      onTestLoaded?.({ file_name: tc.file_name, version: tc.version, name: tc.name, updated_at: tc.updated_at })
     }
   }, [tc])
 
@@ -82,69 +85,71 @@ export function TestCaseEditor({ testId, onRun }: TestCaseEditorProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', padding: '8px 16px', flexShrink: 0 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <input
-            value={name}
-            onChange={(e) => { setName(e.target.value); setIsDirty(true) }}
-            style={{ width: '100%', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', background: 'none', border: 'none', outline: 'none' }}
-            placeholder="Test name"
-          />
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{tc.file_name} · v{tc.version}</p>
-        </div>
+      {!headless && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)', padding: '8px 16px', flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <input
+              value={name}
+              onChange={(e) => { setName(e.target.value); setIsDirty(true) }}
+              style={{ width: '100%', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', background: 'none', border: 'none', outline: 'none' }}
+              placeholder="Test name"
+            />
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{tc.file_name} · v{tc.version}</p>
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {isDirty && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--skipped)' }}>
-              <AlertCircle size={11} />
-              Unsaved
-            </span>
-          )}
-
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px',
-              fontSize: 12, borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-              background: showHistory ? 'var(--accent-subtle)' : 'transparent',
-              border: showHistory ? '1px solid var(--accent-border)' : '1px solid transparent',
-              color: showHistory ? 'var(--accent-light)' : 'var(--text-muted)',
-            }}
-          >
-            <History size={13} />
-            History
-          </button>
-
-          <button
-            onClick={() => onRun?.(testId, tc.name)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 12px', fontSize: 12, fontWeight: 500, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--passed)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
-          >
-            <Play size={12} /> Run
-          </button>
-
-          <button
-            onClick={() => save.mutate()}
-            disabled={!isDirty || save.isPending}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 12px',
-              fontSize: 12, fontWeight: 500, borderRadius: 'var(--radius-sm)', cursor: (!isDirty || save.isPending) ? 'not-allowed' : 'pointer',
-              background: (isDirty && !save.isPending) ? 'linear-gradient(135deg, #6366f1, #7c3aed)' : 'rgba(255,255,255,0.04)',
-              border: (isDirty && !save.isPending) ? '1px solid rgba(99,102,241,0.40)' : '1px solid var(--border)',
-              color: (isDirty && !save.isPending) ? 'white' : 'var(--text-muted)',
-              opacity: (!isDirty || save.isPending) ? 0.6 : 1,
-            }}
-          >
-            {save.isPending ? (
-              <RefreshCw size={12} style={{ animation: 'spin 0.7s linear infinite' }} />
-            ) : save.isSuccess ? (
-              <CheckCircle2 size={12} />
-            ) : (
-              <Save size={12} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isDirty && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--skipped)' }}>
+                <AlertCircle size={11} />
+                Unsaved
+              </span>
             )}
-            Save
-          </button>
+
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px',
+                fontSize: 12, borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                background: showHistory ? 'var(--accent-subtle)' : 'transparent',
+                border: showHistory ? '1px solid var(--accent-border)' : '1px solid transparent',
+                color: showHistory ? 'var(--accent-light)' : 'var(--text-muted)',
+              }}
+            >
+              <History size={13} />
+              History
+            </button>
+
+            <button
+              onClick={() => onRun?.(testId, tc.name)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 12px', fontSize: 12, fontWeight: 500, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)', color: 'var(--passed)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
+            >
+              <Play size={12} /> Run
+            </button>
+
+            <button
+              onClick={() => save.mutate()}
+              disabled={!isDirty || save.isPending}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 12px',
+                fontSize: 12, fontWeight: 500, borderRadius: 'var(--radius-sm)', cursor: (!isDirty || save.isPending) ? 'not-allowed' : 'pointer',
+                background: (isDirty && !save.isPending) ? 'linear-gradient(135deg, #6366f1, #7c3aed)' : 'rgba(255,255,255,0.04)',
+                border: (isDirty && !save.isPending) ? '1px solid rgba(99,102,241,0.40)' : '1px solid var(--border)',
+                color: (isDirty && !save.isPending) ? 'white' : 'var(--text-muted)',
+                opacity: (!isDirty || save.isPending) ? 0.6 : 1,
+              }}
+            >
+              {save.isPending ? (
+                <RefreshCw size={12} style={{ animation: 'spin 0.7s linear infinite' }} />
+              ) : save.isSuccess ? (
+                <CheckCircle2 size={12} />
+              ) : (
+                <Save size={12} />
+              )}
+              Save
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Code editor */}

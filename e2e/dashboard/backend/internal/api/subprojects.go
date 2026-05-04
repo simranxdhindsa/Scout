@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/apyhub/scout/internal/auth"
+	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/google/uuid"
 )
 
@@ -82,6 +84,8 @@ func (h *subProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		body.AuthType = "credentials"
 	}
 
+	claims := auth.ClaimsFromContext(r.Context())
+
 	var sp SubProject
 	err = h.svc.DB.QueryRow(r.Context(), `
 		INSERT INTO sub_projects (product_id, name, slug, auth_type)
@@ -94,7 +98,44 @@ func (h *subProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "failed to create sub-project (slug may be taken)", http.StatusConflict)
 		return
 	}
+
+	// Auto-create root folder so tests can be uploaded immediately
+	folderQ := queries.NewFolderQueries(h.svc.DB)
+	folderQ.Create(r.Context(), sp.ID, nil, "root", claims.UserID)
+
 	writeJSON(w, http.StatusCreated, sp)
+}
+
+// RootFolder handles GET /api/v1/subprojects/:spId/root-folder
+// Returns (or lazily creates) the root folder for a sub-project.
+func (h *subProjectHandler) RootFolder(w http.ResponseWriter, r *http.Request) {
+	spID, err := uuid.Parse(r.PathValue("spId"))
+	if err != nil {
+		writeError(w, "invalid spId", http.StatusBadRequest)
+		return
+	}
+
+	claims := auth.ClaimsFromContext(r.Context())
+	folderQ := queries.NewFolderQueries(h.svc.DB)
+
+	// Look for existing root folder (parent_id IS NULL)
+	var rootID uuid.UUID
+	err = h.svc.DB.QueryRow(r.Context(),
+		`SELECT id FROM test_folders WHERE sub_project_id = $1 AND parent_id IS NULL ORDER BY created_at ASC LIMIT 1`,
+		spID,
+	).Scan(&rootID)
+
+	if err != nil {
+		// None exists — create one now
+		folder, cerr := folderQ.Create(r.Context(), spID, nil, "root", claims.UserID)
+		if cerr != nil {
+			writeError(w, "failed to create root folder", http.StatusInternalServerError)
+			return
+		}
+		rootID = folder.ID
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"folder_id": rootID.String()})
 }
 
 // Update handles PUT /api/v1/orgs/:orgId/products/:productId/subprojects/:spId

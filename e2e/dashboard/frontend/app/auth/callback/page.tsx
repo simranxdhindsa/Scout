@@ -1,10 +1,11 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { setAuthCookie } from '@/lib/auth'
 
-export default function AuthCallbackPage() {
+function CallbackInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -25,6 +26,10 @@ export default function AuthCallbackPage() {
     }
   }, [router, searchParams])
 
+  return null
+}
+
+export default function AuthCallbackPage() {
   return (
     <div style={{
       display: 'flex',
@@ -46,6 +51,9 @@ export default function AuthCallbackPage() {
         <p style={{ fontSize: 13, color: '#3a3a52', fontFamily: 'Inter, sans-serif' }}>
           Signing you in…
         </p>
+        <Suspense>
+          <CallbackInner />
+        </Suspense>
       </div>
     </div>
   )
