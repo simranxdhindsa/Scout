@@ -15,7 +15,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { user } = useAuthStore()
+  const { user, orgs } = useAuthStore()
+  const appHref = orgs.length > 0 ? `/${orgs[0].slug}` : null
 
   const navItems = [
     { href: '/admin/orgs',  label: 'Organizations', icon: <Building2 size={15} /> },
@@ -51,9 +52,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user?.email}
           </p>
-          <Link href="/" className={s.backLink}>
-            <ArrowLeft size={11} /> Back to app
-          </Link>
+          {appHref && (
+            <Link href={appHref} className={s.backLink}>
+              <ArrowLeft size={11} /> Back to app
+            </Link>
+          )}
         </div>
       </aside>
 

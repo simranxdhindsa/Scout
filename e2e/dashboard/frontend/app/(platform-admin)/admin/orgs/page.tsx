@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { adminApi } from '@/lib/api'
+import { useAuthStore } from '@/lib/auth'
 import { Topbar } from '@/components/layout/Topbar'
-import { Plus, Pencil, Check, X, Building2 } from 'lucide-react'
+import { Plus, Pencil, Check, X, Building2, ExternalLink, UserPlus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import s from '../Admin.module.css'
@@ -32,6 +34,10 @@ const inputStyle: React.CSSProperties = {
 
 export default function AdminOrgsPage() {
   const qc = useQueryClient()
+  const router = useRouter()
+  const { orgs: myOrgs, loadMe } = useAuthStore()
+  const myOrgIds = new Set(myOrgs.map((o) => o.id))
+
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [newSlug, setNewSlug] = useState('')
@@ -68,6 +74,16 @@ export default function AdminOrgsPage() {
       setEditId(null)
     },
     onError: () => toast.error('Update failed'),
+  })
+
+  const joinOrg = useMutation({
+    mutationFn: (org: Org) => adminApi.joinOrg(org.id).then(() => org),
+    onSuccess: async (org) => {
+      await loadMe()
+      toast.success(`Joined ${org.name}`)
+      router.push(`/${org.slug}`)
+    },
+    onError: () => toast.error('Failed to join org'),
   })
 
   return (
@@ -120,7 +136,7 @@ export default function AdminOrgsPage() {
                   <th>Slug</th>
                   <th>Status</th>
                   <th>Created</th>
-                  <th></th>
+                  <th style={{ width: 140 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -172,13 +188,35 @@ export default function AdminOrgsPage() {
                           {formatDistanceToNow(new Date(org.created_at), { addSuffix: true })}
                         </td>
                         <td>
-                          <button
-                            onClick={() => { setEditId(org.id); setEditName(org.name); setEditSlug(org.slug); setEditActive(org.is_active) }}
-                            className={s.btnSecondary}
-                            style={{ height: 26, padding: '0 8px' }}
-                          >
-                            <Pencil size={12} />
-                          </button>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {myOrgIds.has(org.id) ? (
+                              <button
+                                onClick={() => router.push(`/${org.slug}`)}
+                                className={s.btnApprove}
+                                style={{ height: 26, padding: '0 8px', gap: 4 }}
+                                title="Open org"
+                              >
+                                <ExternalLink size={12} /> Open
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => joinOrg.mutate(org)}
+                                disabled={joinOrg.isPending}
+                                className={s.btnSecondary}
+                                style={{ height: 26, padding: '0 8px', gap: 4 }}
+                                title="Join as admin"
+                              >
+                                <UserPlus size={12} /> Join
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { setEditId(org.id); setEditName(org.name); setEditSlug(org.slug); setEditActive(org.is_active) }}
+                              className={s.btnSecondary}
+                              style={{ height: 26, padding: '0 8px' }}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          </div>
                         </td>
                       </>
                     )}

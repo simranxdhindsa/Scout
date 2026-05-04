@@ -226,5 +226,6 @@ export const adminApi = {
   listOrgs: () => api.get('/api/v1/admin/orgs'),
   createOrg: (data: object) => api.post('/api/v1/admin/orgs', data),
   updateOrg: (orgId: string, data: object) => api.put(`/api/v1/admin/orgs/${orgId}`, data),
+  joinOrg: (orgId: string) => api.post(`/api/v1/admin/orgs/${orgId}/join`),
   listUsers: () => api.get('/api/v1/admin/users'),
 }

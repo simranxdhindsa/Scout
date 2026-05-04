@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/apyhub/scout/internal/auth"
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/google/uuid"
 )
@@ -40,13 +41,36 @@ func (h *adminHandler) CreateOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims := auth.ClaimsFromContext(r.Context())
 	orgQ := queries.NewOrgQueries(h.svc.DB)
 	org, err := orgQ.Create(r.Context(), body.Name, body.Slug)
 	if err != nil {
 		writeError(w, "failed to create org (slug may be taken)", http.StatusConflict)
 		return
 	}
+
+	// Auto-add creator as admin member
+	_, _ = orgQ.AddMember(r.Context(), org.ID, claims.UserID, "admin")
+
 	writeJSON(w, http.StatusCreated, org)
+}
+
+// JoinOrg handles POST /api/v1/admin/orgs/:orgId/join
+// Lets a platform admin add themselves to any org as admin.
+func (h *adminHandler) JoinOrg(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
+
+	claims := auth.ClaimsFromContext(r.Context())
+	orgQ := queries.NewOrgQueries(h.svc.DB)
+	if _, err := orgQ.AddMember(r.Context(), orgID, claims.UserID, "admin"); err != nil {
+		writeError(w, "failed to join org", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "joined"})
 }
 
 // UpdateOrg handles PUT /api/v1/admin/orgs/:orgId

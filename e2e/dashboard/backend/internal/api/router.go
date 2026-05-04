@@ -47,6 +47,8 @@ func RegisterRoutes(svc Services) http.Handler {
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 	mux.HandleFunc("PUT /api/v1/admin/orgs/{orgId}", chain(adminH.UpdateOrg,
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("POST /api/v1/admin/orgs/{orgId}/join", chain(adminH.JoinOrg,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 	mux.HandleFunc("GET /api/v1/admin/users", chain(adminH.ListUsers,
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 
