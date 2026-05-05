@@ -127,12 +127,52 @@ func (h *productHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.svc.DB.Exec(r.Context(),
-		`DELETE FROM products WHERE id = $1`, productID,
-	); err != nil {
+	ctx := r.Context()
+	tx, err := h.svc.DB.Begin(ctx)
+	if err != nil {
 		writeError(w, "failed to delete product", http.StatusInternalServerError)
 		return
 	}
+	defer tx.Rollback(ctx)
+
+	// NULL out run_items references to test cases inside this product
+	// (run_items.test_case_id has no ON DELETE CASCADE)
+	if _, err := tx.Exec(ctx, `
+		UPDATE run_items SET test_case_id = NULL
+		WHERE test_case_id IN (
+			SELECT tc.id FROM test_cases tc
+			JOIN test_folders tf ON tf.id = tc.folder_id
+			JOIN sub_projects sp ON sp.id = tf.sub_project_id
+			WHERE sp.product_id = $1
+		)
+	`, productID); err != nil {
+		writeError(w, "failed to delete product: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// NULL out pipeline_steps references to sub_projects inside this product
+	// (pipeline_steps.sub_project_id has no ON DELETE CASCADE)
+	if _, err := tx.Exec(ctx, `
+		UPDATE pipeline_steps SET sub_project_id = NULL
+		WHERE sub_project_id IN (
+			SELECT id FROM sub_projects WHERE product_id = $1
+		)
+	`, productID); err != nil {
+		writeError(w, "failed to delete product: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Now delete the product — cascades to sub_projects → folders → tests
+	if _, err := tx.Exec(ctx, `DELETE FROM products WHERE id = $1`, productID); err != nil {
+		writeError(w, "failed to delete product: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		writeError(w, "failed to delete product", http.StatusInternalServerError)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 

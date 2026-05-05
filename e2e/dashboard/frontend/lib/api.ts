@@ -222,6 +222,23 @@ export const scormApi = {
     `${BASE_URL}/api/v1/orgs/${orgId}/scorm/generate/${typeKey}`, // returns download URL
 }
 
+// ── GitLab Integrations ───────────────────────────────────────────────────────
+
+export const integrationsApi = {
+  listGitLab: (orgId: string) =>
+    api.get(`/api/v1/orgs/${orgId}/integrations/gitlab`),
+  connectUrl: (orgId: string, returnTo: string) =>
+    `${BASE_URL}/api/v1/orgs/${orgId}/integrations/gitlab/connect?return_to=${encodeURIComponent(returnTo)}`,
+  listRepos: (orgId: string, integrationId: string) =>
+    api.get(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}/repos`),
+  update: (orgId: string, integrationId: string, data: object) =>
+    api.put(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}`, data),
+  sync: (orgId: string, integrationId: string) =>
+    api.post(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}/sync`),
+  disconnect: (orgId: string, integrationId: string) =>
+    api.delete(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}`),
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export const adminApi = {

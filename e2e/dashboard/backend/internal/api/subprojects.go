@@ -179,11 +179,45 @@ func (h *subProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.svc.DB.Exec(r.Context(),
-		`DELETE FROM sub_projects WHERE id = $1`, spID,
-	); err != nil {
+	ctx := r.Context()
+	tx, err := h.svc.DB.Begin(ctx)
+	if err != nil {
 		writeError(w, "failed to delete sub-project", http.StatusInternalServerError)
 		return
 	}
+	defer tx.Rollback(ctx)
+
+	// NULL out run_items references to test cases inside this sub-project
+	if _, err := tx.Exec(ctx, `
+		UPDATE run_items SET test_case_id = NULL
+		WHERE test_case_id IN (
+			SELECT tc.id FROM test_cases tc
+			JOIN test_folders tf ON tf.id = tc.folder_id
+			WHERE tf.sub_project_id = $1
+		)
+	`, spID); err != nil {
+		writeError(w, "failed to delete sub-project: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// NULL out pipeline_steps references to this sub-project
+	if _, err := tx.Exec(ctx, `
+		UPDATE pipeline_steps SET sub_project_id = NULL WHERE sub_project_id = $1
+	`, spID); err != nil {
+		writeError(w, "failed to delete sub-project: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Delete the sub-project — cascades to folders → tests
+	if _, err := tx.Exec(ctx, `DELETE FROM sub_projects WHERE id = $1`, spID); err != nil {
+		writeError(w, "failed to delete sub-project: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		writeError(w, "failed to delete sub-project", http.StatusInternalServerError)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }

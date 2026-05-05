@@ -42,10 +42,11 @@ export function Sidebar({ orgSlug }: SidebarProps) {
   const settingsItem: NavItem = {
     label: 'Settings', href: `${base}/settings`, icon: <Settings size={15} />,
     children: [
-      { label: 'Environments', href: `${base}/settings/environments`, icon: null },
-      { label: 'Members',      href: `${base}/settings/members`,      icon: null },
-      { label: 'Archive Queue',href: `${base}/settings/archive-queue`,icon: null },
-      { label: 'AI Config',    href: `${base}/settings/ai-config`,    icon: null },
+      { label: 'Environments',  href: `${base}/settings/environments`,  icon: null },
+      { label: 'Members',       href: `${base}/settings/members`,       icon: null },
+      { label: 'Archive Queue', href: `${base}/settings/archive-queue`, icon: null },
+      { label: 'AI Config',     href: `${base}/settings/ai-config`,     icon: null },
+      { label: 'Integrations',  href: `${base}/settings/integrations`,  icon: null },
     ],
   }
 

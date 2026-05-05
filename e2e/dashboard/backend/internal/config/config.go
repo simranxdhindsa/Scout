@@ -63,6 +63,11 @@ type Config struct {
 	// AI
 	GroqAPIKey string
 
+	// GitLab OAuth
+	GitLabClientID     string
+	GitLabClientSecret string
+	GitLabBaseURL      string // default: "https://gitlab.com"
+
 	// SCORM / Phoenix
 	PhoenixBaseURL string // internal service URL, e.g. http://phoenix.internal
 
@@ -140,6 +145,11 @@ func Load() (*Config, error) {
 
 	// ── AI ────────────────────────────────────────────────────────────────
 	cfg.GroqAPIKey = required("GROQ_API_KEY")
+
+	// ── GitLab OAuth ──────────────────────────────────────────────────────
+	cfg.GitLabClientID = optional("GITLAB_CLIENT_ID", "")
+	cfg.GitLabClientSecret = optional("GITLAB_CLIENT_SECRET", "")
+	cfg.GitLabBaseURL = optional("GITLAB_BASE_URL", "https://gitlab.com")
 
 	// ── SCORM / Phoenix ───────────────────────────────────────────────────
 	cfg.PhoenixBaseURL = required("PHOENIX_BASE_URL")

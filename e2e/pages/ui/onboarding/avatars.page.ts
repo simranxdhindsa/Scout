@@ -11,7 +11,7 @@ export class AvatarsPage extends BasePage {
     super(page);
     this.skeleton = page.locator('.mantine-Skeleton-root');
     // Matches "Next", "Continue", "Suivant", etc. — broadened intentionally
-    this.nextBtn  = page.getByRole('button', { name: /next|continue|suivant/i });
+    this.nextBtn  = page.getByRole('button', { name: /next|Continue|suivant/i });
   }
 
   get path(): string { return '/onboarding/avatars'; }

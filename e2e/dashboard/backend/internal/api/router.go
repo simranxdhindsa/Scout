@@ -6,6 +6,7 @@ import (
 	"github.com/apyhub/scout/internal/ai"
 	"github.com/apyhub/scout/internal/auth"
 	"github.com/apyhub/scout/internal/config"
+	"github.com/apyhub/scout/internal/gitlab"
 	"github.com/apyhub/scout/internal/notifications"
 	"github.com/apyhub/scout/internal/runner"
 	"github.com/apyhub/scout/internal/scorm"
@@ -23,6 +24,7 @@ type Services struct {
 	AI            *ai.Service
 	SCORM         *scorm.Service
 	Notifications *notifications.Service
+	GitLab        *gitlab.Service
 }
 
 // RegisterRoutes wires all HTTP handlers to their routes and returns the root mux.
@@ -38,6 +40,21 @@ func RegisterRoutes(svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/google/callback", authH.Callback)
 	mux.HandleFunc("POST /api/v1/auth/logout", authH.Logout)
 	mux.HandleFunc("GET /api/v1/auth/me", chain(authH.Me, svc.Auth.Authenticate))
+
+	// ── GitLab OAuth callback (public) + org-scoped routes ────────────────
+	gitLabH := newGitLabHandler(svc)
+	mux.HandleFunc("GET /api/v1/auth/gitlab/callback", gitLabH.OAuthCallback)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab", chain(gitLabH.ListIntegrations,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/connect", gitLabH.InitiateOAuth) // public — just generates a redirect
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/repos", chain(gitLabH.ListRepos,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}", chain(gitLabH.UpdateIntegration,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/sync", chain(gitLabH.SyncIntegration,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}", chain(gitLabH.DeleteIntegration,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
 
 	// ── Platform admin ────────────────────────────────────────────────────
 	adminH := newAdminHandler(svc)

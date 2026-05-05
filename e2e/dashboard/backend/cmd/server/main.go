@@ -15,6 +15,7 @@ import (
 	"github.com/apyhub/scout/internal/config"
 	"github.com/apyhub/scout/internal/db"
 	"github.com/apyhub/scout/internal/db/queries"
+	"github.com/apyhub/scout/internal/gitlab"
 	"github.com/apyhub/scout/internal/notifications"
 	"github.com/apyhub/scout/internal/runner"
 	"github.com/apyhub/scout/internal/scorm"
@@ -83,6 +84,14 @@ func main() {
 	// ── 10. Initialize auth service ───────────────────────────────────────
 	authSvc := auth.NewService(cfg, pool)
 
+	// ── 10b. Initialize GitLab integration service ────────────────────────
+	gitLabSvc := gitlab.NewService(cfg, pool)
+	if gitLabSvc.IsConfigured() {
+		log.Println("[scout] gitlab integration enabled")
+	} else {
+		log.Println("[scout] gitlab integration disabled (GITLAB_CLIENT_ID not set)")
+	}
+
 	// ── 11. Register all HTTP routes ──────────────────────────────────────
 	mux := api.RegisterRoutes(api.Services{
 		Config:        cfg,
@@ -93,6 +102,7 @@ func main() {
 		AI:            aiSvc,
 		SCORM:         scormSvc,
 		Notifications: notifSvc,
+		GitLab:        gitLabSvc,
 	})
 	log.Println("[scout] routes registered")
 
