@@ -22,6 +22,7 @@ type Integration struct {
 	RepoName       string     `json:"repo_name"`
 	RepoURL        string     `json:"repo_url"`
 	Branch         string     `json:"branch"`
+	RepoPath       string     `json:"repo_path"`
 	LastSyncedAt   *time.Time `json:"last_synced_at"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
@@ -38,7 +39,7 @@ func newDB(db *pgxpool.Pool) *gitLabDB {
 func (q *gitLabDB) listByOrg(ctx context.Context, orgID uuid.UUID) ([]Integration, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		       access_token, repo_id, repo_name, repo_url, branch, last_synced_at,
+		       access_token, repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
 		       created_at, updated_at
 		FROM gitlab_integrations
 		WHERE org_id = $1
@@ -55,7 +56,7 @@ func (q *gitLabDB) listByOrg(ctx context.Context, orgID uuid.UUID) ([]Integratio
 		if err := rows.Scan(
 			&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
 			&i.GitLabAvatar, &i.AccessToken, &i.RepoID, &i.RepoName, &i.RepoURL,
-			&i.Branch, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
+			&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -68,13 +69,13 @@ func (q *gitLabDB) getByID(ctx context.Context, id uuid.UUID) (*Integration, err
 	var i Integration
 	err := q.db.QueryRow(ctx, `
 		SELECT id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		       access_token, repo_id, repo_name, repo_url, branch, last_synced_at,
+		       access_token, repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
 		       created_at, updated_at
 		FROM gitlab_integrations WHERE id = $1
 	`, id).Scan(
 		&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
 		&i.GitLabAvatar, &i.AccessToken, &i.RepoID, &i.RepoName, &i.RepoURL,
-		&i.Branch, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
+		&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get gitlab integration: %w", err)
@@ -99,12 +100,12 @@ func (q *gitLabDB) upsert(ctx context.Context, orgID uuid.UUID, userID, username
 		      branch          = EXCLUDED.branch,
 		      updated_at      = NOW()
 		RETURNING id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		          access_token, repo_id, repo_name, repo_url, branch, last_synced_at,
+		          access_token, repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
 		          created_at, updated_at
 	`, orgID, userID, username, avatar, accessToken, repoID, repoName, repoURL, branch).Scan(
 		&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
 		&i.GitLabAvatar, &i.AccessToken, &i.RepoID, &i.RepoName, &i.RepoURL,
-		&i.Branch, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
+		&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("upsert gitlab integration: %w", err)
@@ -121,13 +122,13 @@ func (q *gitLabDB) updateSettings(ctx context.Context, id uuid.UUID, subprojectI
 	return err
 }
 
-func (q *gitLabDB) updateRepo(ctx context.Context, id uuid.UUID, repoID int64, repoName, repoURL, branch string, subprojectID *uuid.UUID) error {
+func (q *gitLabDB) updateRepo(ctx context.Context, id uuid.UUID, repoID int64, repoName, repoURL, branch, repoPath string, subprojectID *uuid.UUID) error {
 	_, err := q.db.Exec(ctx, `
 		UPDATE gitlab_integrations
 		SET repo_id = $2, repo_name = $3, repo_url = $4, branch = $5,
-		    subproject_id = $6, updated_at = NOW()
+		    repo_path = $6, subproject_id = $7, updated_at = NOW()
 		WHERE id = $1
-	`, id, repoID, repoName, repoURL, branch, subprojectID)
+	`, id, repoID, repoName, repoURL, branch, repoPath, subprojectID)
 	return err
 }
 

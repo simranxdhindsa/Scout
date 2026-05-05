@@ -49,6 +49,8 @@ func RegisterRoutes(svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/connect", gitLabH.InitiateOAuth) // public — just generates a redirect
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/repos", chain(gitLabH.ListRepos,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/dirs", chain(gitLabH.ListDirs,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}", chain(gitLabH.UpdateIntegration,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
 	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/sync", chain(gitLabH.SyncIntegration,

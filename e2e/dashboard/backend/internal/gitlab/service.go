@@ -62,9 +62,10 @@ func (s *Service) AuthURL(orgID, returnTo string) string {
 	params.Set("redirect_uri", s.callbackURL())
 	params.Set("response_type", "code")
 	params.Set("state", state)
-	params.Set("scope", oauthScopes)
 
-	return s.baseURL() + "/oauth/authorize?" + params.Encode()
+	// Build URL manually so scopes are %20-separated (some GitLab instances reject + encoding)
+	base := s.baseURL() + "/oauth/authorize?" + params.Encode()
+	return base + "&scope=" + strings.ReplaceAll(url.QueryEscape(oauthScopes), "+", "%20")
 }
 
 // callbackURL returns the backend OAuth callback URL.
@@ -153,16 +154,17 @@ func (s *Service) ListUserRepos(ctx context.Context, integrationID uuid.UUID) ([
 	return all, nil
 }
 
-// UpdateSettings saves the chosen repo and branch for an integration.
-func (s *Service) UpdateSettings(ctx context.Context, id uuid.UUID, subprojectID *uuid.UUID, repoID int64, repoName, repoURL, branch string) error {
-	return s.glDB.updateRepo(ctx, id, repoID, repoName, repoURL, branch, subprojectID)
+// UpdateSettings saves the chosen repo, branch, subfolder path and subproject for an integration.
+func (s *Service) UpdateSettings(ctx context.Context, id uuid.UUID, subprojectID *uuid.UUID, repoID int64, repoName, repoURL, branch, repoPath string) error {
+	return s.glDB.updateRepo(ctx, id, repoID, repoName, repoURL, branch, repoPath, subprojectID)
 }
 
 // SyncResult holds the outcome of a repo sync.
 type SyncResult struct {
-	Added   int `json:"added"`
-	Updated int `json:"updated"`
-	Skipped int `json:"skipped"`
+	Added        int      `json:"added"`
+	Updated      int      `json:"updated"`
+	Skipped      int      `json:"skipped"`
+	SkipReasons  []string `json:"skip_reasons,omitempty"`
 }
 
 // SyncRepo pulls *.spec.ts files from the configured repo and imports them into Scout.
@@ -212,84 +214,93 @@ func (s *Service) SyncRepo(ctx context.Context, integrationID uuid.UUID) (*SyncR
 		folderCache[f.Path] = f.ID
 	}
 
+	skip := func(result *SyncResult, file, reason string) {
+		msg := fmt.Sprintf("%s: %s", file, reason)
+		log.Printf("[gitlab] skip %s", msg)
+		result.Skipped++
+		result.SkipReasons = append(result.SkipReasons, msg)
+	}
+
 	result := &SyncResult{}
 	for _, specPath := range specPaths {
 		// Fetch file content
 		content, err := s.fetchFileContent(ctx, integ, specPath)
 		if err != nil {
-			log.Printf("[gitlab] skip %s: fetch error: %v", specPath, err)
-			result.Skipped++
+			skip(result, specPath, fmt.Sprintf("fetch error: %v", err))
 			continue
 		}
 
-		// Only check that the file imports Playwright — skip forbidden-pattern
-		// rules that are meant for manual uploads (hardcoded URLs, baseURL, etc.)
+		// For GitLab-synced files only check size and file type — not import style,
+		// since repos commonly import from local fixtures instead of @playwright/test directly.
 		vr := runner.ValidateTestFile(content, filepath.Base(specPath))
 		if !vr.Valid {
-			// If it only fails forbidden-pattern checks (not the Playwright import
-			// check), still allow import — those rules are for manual uploads.
-			onlyForbidden := true
+			hasFatal := false
 			for _, e := range vr.Errors {
-				if strings.Contains(e.Message, "must import from") ||
-					strings.Contains(e.Message, "file is empty") ||
+				if strings.Contains(e.Message, "file too large") ||
 					strings.Contains(e.Message, "unsupported file type") ||
-					strings.Contains(e.Message, "file too large") {
-					onlyForbidden = false
+					strings.Contains(e.Message, "file is empty") {
+					hasFatal = true
 					break
 				}
 			}
-			if !onlyForbidden {
-				log.Printf("[gitlab] skip %s: %v", specPath, vr.Errors)
-				result.Skipped++
+			if hasFatal {
+				msgs := make([]string, len(vr.Errors))
+				for i, e := range vr.Errors { msgs[i] = e.Message }
+				skip(result, specPath, fmt.Sprintf("validation: %s", strings.Join(msgs, "; ")))
 				continue
 			}
-			log.Printf("[gitlab] import %s with warnings: %v", specPath, vr.Errors)
 		}
 
 		// Bundle
 		bundled, err := s.bundler.Bundle(content, filepath.Base(specPath))
 		if err != nil {
-			log.Printf("[gitlab] skip %s: bundle error: %v", specPath, err)
-			result.Skipped++
+			skip(result, specPath, fmt.Sprintf("bundle error: %v", err))
 			continue
 		}
 
-		// Ensure folder hierarchy exists
+		// Ensure folder hierarchy exists — strip the configured repo_path prefix
+		// so files sync into root (or a relative subdir) instead of the full repo path.
 		dir := path.Dir(specPath)
 		if dir == "." {
 			dir = ""
 		}
+		if basePath := strings.Trim(integ.RepoPath, "/"); basePath != "" {
+			dir = strings.TrimPrefix(dir, basePath)
+			dir = strings.Trim(dir, "/")
+		}
 		folderID, err := s.ensureFolderPath(ctx, folderQ, folderCache, *integ.SubProjectID, rootFolderID, dir)
 		if err != nil {
-			log.Printf("[gitlab] skip %s: folder error: %v", specPath, err)
-			result.Skipped++
+			skip(result, specPath, fmt.Sprintf("folder error: %v", err))
 			continue
 		}
 
-		// Check if test already exists in this folder with this filename
+		// Check if test already exists anywhere in this subproject with this filename
 		fileName := filepath.Base(specPath)
-		existing, err := s.findTestByFileName(ctx, folderID, fileName)
+		existing, err := s.findTestByFileNameInSubProject(ctx, *integ.SubProjectID, fileName)
 		if err != nil {
-			result.Skipped++
+			skip(result, specPath, fmt.Sprintf("db lookup error: %v", err))
 			continue
 		}
 
 		testName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
 		if existing != nil {
-			if existing.FileContent == content {
+			// Move to correct folder if it ended up somewhere else (e.g. prior sync before repo_path stripping)
+			if _, err := s.db.Exec(ctx, `UPDATE test_cases SET folder_id = $2 WHERE id = $1`, existing.ID, folderID); err != nil {
+				skip(result, specPath, fmt.Sprintf("move folder error: %v", err))
 				continue
 			}
+			if existing.FileContent == content {
+				continue // unchanged — not a skip, just no-op
+			}
 			if err := s.updateTestImported(ctx, existing.ID, existing.Name, existing.Description, content, bundled); err != nil {
-				log.Printf("[gitlab] update %s: %v", specPath, err)
-				result.Skipped++
+				skip(result, specPath, fmt.Sprintf("update error: %v", err))
 				continue
 			}
 			result.Updated++
 		} else {
 			if err := s.createTestImported(ctx, folderID, testName, fileName, content, bundled); err != nil {
-				log.Printf("[gitlab] create %s: %v", specPath, err)
-				result.Skipped++
+				skip(result, specPath, fmt.Sprintf("create error: %v", err))
 				continue
 			}
 			result.Added++
@@ -402,15 +413,19 @@ type repoTreeEntry struct {
 func (s *Service) listSpecFiles(ctx context.Context, integ *Integration) ([]string, error) {
 	var all []string
 	page := 1
+	basePath := strings.Trim(integ.RepoPath, "/")
 	for {
 		endpoint := fmt.Sprintf("/projects/%d/repository/tree?recursive=true&ref=%s&per_page=100&page=%d",
 			integ.RepoID, url.QueryEscape(integ.Branch), page)
+		if basePath != "" {
+			endpoint += "&path=" + url.QueryEscape(basePath)
+		}
 		var entries []repoTreeEntry
 		if err := s.gitlabGet(ctx, integ.AccessToken, endpoint, &entries); err != nil {
 			return nil, err
 		}
 		for _, e := range entries {
-			if e.Type == "blob" && strings.HasSuffix(e.Path, ".spec.ts") {
+			if e.Type == "blob" && (strings.HasSuffix(e.Path, ".spec.ts") || strings.HasSuffix(e.Path, ".spec.js")) {
 				all = append(all, e.Path)
 			}
 		}
@@ -420,6 +435,35 @@ func (s *Service) listSpecFiles(ctx context.Context, integ *Integration) ([]stri
 		page++
 	}
 	return all, nil
+}
+
+// ListRepoDirs returns the top-level and nested directories in a repo for the folder picker.
+func (s *Service) ListRepoDirs(ctx context.Context, integrationID uuid.UUID) ([]string, error) {
+	integ, err := s.glDB.getByID(ctx, integrationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var dirs []string
+	page := 1
+	for {
+		endpoint := fmt.Sprintf("/projects/%d/repository/tree?recursive=true&ref=%s&per_page=100&page=%d",
+			integ.RepoID, url.QueryEscape(integ.Branch), page)
+		var entries []repoTreeEntry
+		if err := s.gitlabGet(ctx, integ.AccessToken, endpoint, &entries); err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			if e.Type == "tree" {
+				dirs = append(dirs, e.Path)
+			}
+		}
+		if len(entries) < 100 {
+			break
+		}
+		page++
+	}
+	return dirs, nil
 }
 
 func (s *Service) fetchFileContent(ctx context.Context, integ *Integration, filePath string) (string, error) {
@@ -589,6 +633,25 @@ type existingTest struct {
 	Name        string
 	Description string
 	FileContent string
+}
+
+// findTestByFileNameInSubProject searches all folders in a subproject for a test by filename.
+func (s *Service) findTestByFileNameInSubProject(ctx context.Context, spID uuid.UUID, fileName string) (*existingTest, error) {
+	var t existingTest
+	err := s.db.QueryRow(ctx, `
+		SELECT tc.id, tc.name, COALESCE(tc.description,''), tc.file_content
+		FROM test_cases tc
+		JOIN test_folders tf ON tf.id = tc.folder_id
+		WHERE tf.sub_project_id = $1 AND tc.file_name = $2 AND tc.is_archived = FALSE
+		LIMIT 1
+	`, spID, fileName).Scan(&t.ID, &t.Name, &t.Description, &t.FileContent)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (s *Service) findTestByFileName(ctx context.Context, folderID uuid.UUID, fileName string) (*existingTest, error) {
