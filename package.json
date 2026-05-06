@@ -12,9 +12,11 @@
     "pw:ui": "playwright test --config=e2e/playwright.config.ts --ui",
     "pw:report": "playwright show-report e2e/reports/html",
     "pw:update-snapshots": "playwright test --config=e2e/playwright.config.ts --update-snapshots",
-    "pw:dashboard": "cd e2e/dashboard/backend && go run .",
-    "pw:dashboard:dev": "concurrently --kill-others --names \"go,vite\" --prefix-colors \"cyan,magenta\" \"cd e2e/dashboard/backend && go run .\" \"cd e2e/dashboard/frontend && npm run dev\"",
-    "pw:dashboard:build": "cd e2e/dashboard/frontend && npm install && npm run build && cd ../backend && go run .",
+    "pw:dashboard": "concurrently --kill-others --names \"go,next\" --prefix-colors \"cyan,magenta\" \"cd e2e/dashboard/backend && go run ./cmd/server/main.go\" \"cd e2e/dashboard/frontend && npm run dev\"",
+    "dev": "concurrently --kill-others --names \"go,next\" --prefix-colors \"cyan,magenta\" \"cd e2e/dashboard/backend && go run ./cmd/server/main.go\" \"cd e2e/dashboard/frontend && npm run dev\"",
+    "pw:dashboard:backend": "cd e2e/dashboard/backend && go run ./cmd/server/main.go",
+    "pw:dashboard:frontend": "cd e2e/dashboard/frontend && npm run dev",
+    "pw:dashboard:build": "cd e2e/dashboard/frontend && npm install && npm run build",
     "pw:codegen:mc": "dotenv -e .env.e2e -- playwright codegen --load-storage=e2e/.auth/mc-user.json --output=e2e/specs/recorded/recorded.spec.ts $PLAYWRIGHT_MC_URL",
     "pw:codegen:ui": "dotenv -e .env.e2e -- playwright codegen --load-storage=e2e/.auth/ui-user.json --output=e2e/specs/recorded/recorded.spec.ts $PLAYWRIGHT_UI_URL",
     "pw:codegen:sw": "dotenv -e .env.e2e -- playwright codegen --load-storage=e2e/.auth/sw-user.json --output=e2e/specs/recorded/recorded.spec.ts $PLAYWRIGHT_SW_URL"
@@ -27,6 +29,7 @@
     "concurrently": "^9.2.1",
     "dotenv": "^16.0.0",
     "dotenv-cli": "^11.0.0",
+    "shadcn": "^4.6.0",
     "typescript": "^5.9.3"
   }
 }

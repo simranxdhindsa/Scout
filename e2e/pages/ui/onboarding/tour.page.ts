@@ -4,6 +4,7 @@ import { BasePage } from '../../shared/base.page';
 export class TourPage extends BasePage {
   readonly nextBtn: Locator;
   readonly skipBtn: Locator;
+  readonly doItLaterBtn: Locator;
 
   // Interests sub-page
   readonly interestsSubmitBtn: Locator;
@@ -11,7 +12,8 @@ export class TourPage extends BasePage {
   constructor(page: Page) {
     super(page);
     this.nextBtn           = page.getByRole('button', { name: /next|continue|take a tour|suivant|prendre le tour/i });
-    this.skipBtn           = page.getByRole('button', { name: /skip|passer/i });
+    this.skipBtn           = page.getByRole('button', { name: /skip|passer|do it later/i });
+    this.doItLaterBtn      = page.getByText(/do it later/i);
     this.interestsSubmitBtn = page.getByRole('button', { name: /next|continue|done|suivant|terminer/i });
   }
 
@@ -22,13 +24,15 @@ export class TourPage extends BasePage {
     return this.page.locator('main, [role="main"], section').first();
   }
 
-  // Interests are rendered as Mantine Chip components (checkbox-backed toggles)
+  // Interests are rendered as buttons (observed) or Mantine Chip components depending on environment
   get allInterestChips(): Locator {
-    return this.page.locator('.mantine-Chip-root, .mantine-Badge-root[role="button"]');
+    return this.page.locator('.mantine-Chip-root, .mantine-Badge-root[role="button"]')
+      .or(this.page.getByRole('button', { name: /Science|Travel|Food|Fitness|Music|Technology|Business|Nature/i }));
   }
 
   interestByText(text: string | RegExp): Locator {
-    return this.allInterestChips.filter({ hasText: text });
+    return this.page.getByRole('button', { name: text })
+      .or(this.page.locator('.mantine-Chip-root, .mantine-Badge-root[role="button"]').filter({ hasText: text }));
   }
 
   async waitForContainerReady(): Promise<void> {
