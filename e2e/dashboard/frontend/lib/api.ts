@@ -231,6 +231,8 @@ export const integrationsApi = {
     `${BASE_URL}/api/v1/orgs/${orgId}/integrations/gitlab/connect?return_to=${encodeURIComponent(returnTo)}`,
   listRepos: (orgId: string, integrationId: string) =>
     api.get(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}/repos`),
+  listDirs: (orgId: string, integrationId: string) =>
+    api.get(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}/dirs`),
   update: (orgId: string, integrationId: string, data: object) =>
     api.put(`/api/v1/orgs/${orgId}/integrations/gitlab/${integrationId}`, data),
   sync: (orgId: string, integrationId: string) =>

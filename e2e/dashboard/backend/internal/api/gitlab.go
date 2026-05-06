@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -18,10 +19,20 @@ func newGitLabHandler(svc Services) *gitLabHandler {
 // InitiateOAuth redirects the user to GitLab's OAuth consent page.
 // GET /api/v1/orgs/{orgId}/integrations/gitlab/connect
 func (h *gitLabHandler) InitiateOAuth(w http.ResponseWriter, r *http.Request) {
+	clientID := h.svc.Config.GitLabClientID
+	clientSecret := h.svc.Config.GitLabClientSecret
+	baseURL := h.svc.Config.GitLabBaseURL
+
+	log.Printf("[gitlab] connect clicked — GITLAB_CLIENT_ID=%q (len=%d) GITLAB_CLIENT_SECRET len=%d GITLAB_BASE_URL=%q",
+		clientID, len(clientID), len(clientSecret), baseURL)
+
 	if !h.svc.GitLab.IsConfigured() {
+		log.Printf("[gitlab] IsConfigured=false — client_id or client_secret is empty, aborting")
 		writeError(w, "GitLab OAuth is not configured on this server", http.StatusNotImplemented)
 		return
 	}
+
+	log.Printf("[gitlab] IsConfigured=true — proceeding with OAuth redirect")
 
 	orgID := r.PathValue("orgId")
 	returnTo := r.URL.Query().Get("return_to")
@@ -30,6 +41,7 @@ func (h *gitLabHandler) InitiateOAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	authURL := h.svc.GitLab.AuthURL(orgID, returnTo)
+	log.Printf("[gitlab] redirecting to: %s", authURL)
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -120,6 +132,7 @@ func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request
 		RepoName     string `json:"repo_name"`
 		RepoURL      string `json:"repo_url"`
 		Branch       string `json:"branch"`
+		RepoPath     string `json:"repo_path"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, "invalid request body", http.StatusBadRequest)
@@ -139,7 +152,7 @@ func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request
 		subprojectID = &id
 	}
 
-	if err := h.svc.GitLab.UpdateSettings(r.Context(), integrationID, subprojectID, body.RepoID, body.RepoName, body.RepoURL, body.Branch); err != nil {
+	if err := h.svc.GitLab.UpdateSettings(r.Context(), integrationID, subprojectID, body.RepoID, body.RepoName, body.RepoURL, body.Branch, body.RepoPath); err != nil {
 		writeError(w, "update failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -151,6 +164,27 @@ func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, integ)
+}
+
+// ListDirs returns all directories in a repo for the folder picker.
+// GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/dirs
+func (h *gitLabHandler) ListDirs(w http.ResponseWriter, r *http.Request) {
+	integrationID, err := uuid.Parse(r.PathValue("integrationId"))
+	if err != nil {
+		writeError(w, "invalid integration id", http.StatusBadRequest)
+		return
+	}
+
+	dirs, err := h.svc.GitLab.ListRepoDirs(r.Context(), integrationID)
+	if err != nil {
+		writeError(w, "failed to list dirs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if dirs == nil {
+		dirs = []string{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"dirs": dirs})
 }
 
 // SyncIntegration pulls spec files from the configured repo and imports them.

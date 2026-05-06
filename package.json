@@ -13,6 +13,7 @@
     "pw:report": "playwright show-report e2e/reports/html",
     "pw:update-snapshots": "playwright test --config=e2e/playwright.config.ts --update-snapshots",
     "pw:dashboard": "concurrently --kill-others --names \"go,next\" --prefix-colors \"cyan,magenta\" \"cd e2e/dashboard/backend && go run ./cmd/server/main.go\" \"cd e2e/dashboard/frontend && npm run dev\"",
+    "dev": "concurrently --kill-others --names \"go,next\" --prefix-colors \"cyan,magenta\" \"cd e2e/dashboard/backend && go run ./cmd/server/main.go\" \"cd e2e/dashboard/frontend && npm run dev\"",
     "pw:dashboard:backend": "cd e2e/dashboard/backend && go run ./cmd/server/main.go",
     "pw:dashboard:frontend": "cd e2e/dashboard/frontend && npm run dev",
     "pw:dashboard:build": "cd e2e/dashboard/frontend && npm install && npm run build",
