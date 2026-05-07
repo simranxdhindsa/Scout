@@ -34,6 +34,11 @@ func RegisterRoutes(svc Services) http.Handler {
 	// Apply global middleware stack: CORS → rate limit → request logging
 	mid := newMiddlewareChain(svc.Config)
 
+	// ── Health (public, no auth) ──────────────────────────────────────────
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// ── Auth (public) ─────────────────────────────────────────────────────
 	authH := newAuthHandler(svc)
 	mux.HandleFunc("GET /api/v1/auth/google", authH.RedirectToGoogle)

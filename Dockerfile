@@ -89,7 +89,7 @@ EXPOSE 8080
 
 # Healthcheck (adjust if needed)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -sf http://localhost:8080/api/v1/auth/me || exit 1
+    CMD curl -sf http://localhost:8080/health || exit 1
 
 # Run ONLY Go backend (clean single process)
 CMD ["/app/scout"]

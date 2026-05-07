@@ -78,6 +78,6 @@ EXPOSE 8080
 
 # Health check — hits the auth/me endpoint which requires no body
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -sf http://localhost:8080/api/v1/auth/me || exit 1
+    CMD curl -sf http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["/app/scout"]
