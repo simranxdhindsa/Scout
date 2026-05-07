@@ -1,11 +1,22 @@
 #!/bin/sh
 set -e
 
-# Start Next.js frontend on port 3000 (PORT env is 8080 for the Go backend — override here)
+# Gracefully stop background processes when the container receives SIGTERM/SIGINT
+shutdown() {
+    echo "[entrypoint] shutting down..."
+    kill "$NEXT_PID" "$NGINX_PID" 2>/dev/null
+    wait "$NEXT_PID" "$NGINX_PID" 2>/dev/null
+    exit 0
+}
+trap shutdown TERM INT
+
+# Next.js standalone server — must override PORT since Go backend owns $PORT (8081)
 PORT=3000 HOSTNAME=0.0.0.0 node /app/frontend/server.js &
+NEXT_PID=$!
 
-# Start nginx reverse proxy on port 80
+# nginx reverse proxy — listens on 8080, routes /api/* → 8081, /* → 3000
 nginx -g "daemon off;" &
+NGINX_PID=$!
 
-# Run Go backend in foreground — container lives as long as this does
+# Go backend in foreground — container exits when this process exits
 exec /app/scout

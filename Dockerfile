@@ -32,15 +32,15 @@ RUN npm ci
 
 COPY frontend/ .
 
-ENV DOCKER_BUILD=true
-ENV NEXT_PUBLIC_API_URL=http://localhost:8080
-ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV DOCKER_BUILD=true \
+    NEXT_PUBLIC_API_URL=http://localhost:8080 \
+    NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
 RUN npm run build
 
 
 # ─────────────────────────────────────────────────────────────
-# Stage 3: Playwright (optional runtime assets)
+# Stage 3: Playwright runtime browsers
 # ─────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/playwright:v1.44.0-jammy AS playwright
 
@@ -50,19 +50,17 @@ FROM mcr.microsoft.com/playwright:v1.44.0-jammy AS playwright
 # ─────────────────────────────────────────────────────────────
 FROM ubuntu:22.04
 
+# Install all system deps in one layer to keep image size down
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     tzdata \
     nginx \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Node.js (for Next.js standalone server)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    rm -rf /var/lib/apt/lists/*
-
-# Playwright runtime browsers
+# Playwright browsers
 COPY --from=playwright /ms-playwright /ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
@@ -72,28 +70,27 @@ RUN mkdir -p /app/data
 
 # Go backend binary
 COPY --from=go-builder /app/scout /app/scout
-RUN chmod +x /app/scout
 
 # Next.js standalone output
 COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend
-COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
-COPY --from=frontend-builder /app/frontend/public /app/frontend/public
+COPY --from=frontend-builder /app/frontend/.next/static     /app/frontend/.next/static
+COPY --from=frontend-builder /app/frontend/public           /app/frontend/public
 
-# nginx config + entrypoint
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY entrypoint.sh /app/entrypoint.sh
+# nginx config and entrypoint
+COPY nginx.conf      /etc/nginx/nginx.conf
+COPY entrypoint.sh   /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Environment
-ENV PORT=8080 \
+ENV PORT=8081 \
     ENVIRONMENT=production \
     STORAGE_DRIVER=local \
     STORAGE_LOCAL_DIR=/app/data \
     MAX_CONCURRENT_RUNS=3
 
-EXPOSE 80
+EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -sf http://localhost:8080/health || exit 1
+# Health check hits the Go backend directly, bypassing nginx
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -sf http://localhost:8081/health || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
