@@ -54,6 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     tzdata \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js (for Next.js standalone server)
@@ -65,24 +66,23 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
 COPY --from=playwright /ms-playwright /ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Non-root user for security
-RUN groupadd -r scout && useradd -r -g scout -d /app scout
-
 WORKDIR /app
 
-RUN mkdir -p /app/data && chown -R scout:scout /app
+RUN mkdir -p /app/data
 
 # Go backend binary
 COPY --from=go-builder /app/scout /app/scout
-RUN chown scout:scout /app/scout && chmod +x /app/scout
+RUN chmod +x /app/scout
 
 # Next.js standalone output
 COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend
 COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
-RUN chown -R scout:scout /app/frontend
 
-USER scout
+# nginx config + entrypoint
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Environment
 ENV PORT=8080 \
@@ -91,9 +91,9 @@ ENV PORT=8080 \
     STORAGE_LOCAL_DIR=/app/data \
     MAX_CONCURRENT_RUNS=3
 
-EXPOSE 8080
+EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -sf http://localhost:8080/health || exit 1
 
-CMD ["/app/scout"]
+ENTRYPOINT ["/app/entrypoint.sh"]
