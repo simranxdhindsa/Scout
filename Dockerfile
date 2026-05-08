@@ -26,6 +26,7 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 ARG NEXT_PUBLIC_WS_URL=ws://localhost
+ARG NEXT_PUBLIC_API_URL=
 
 COPY frontend/package*.json ./
 RUN npm ci
@@ -33,7 +34,7 @@ RUN npm ci
 COPY frontend/ .
 
 ENV DOCKER_BUILD=true \
-    NEXT_PUBLIC_API_URL=http://localhost:8080 \
+    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
 RUN npm run build
