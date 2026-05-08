@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
 
 // ── API client singleton ──────────────────────────────────────────────────────
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 function createClient(): AxiosInstance {
   const client = axios.create({
