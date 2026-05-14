@@ -5,8 +5,8 @@ set -e
 PORT=3000 HOSTNAME=0.0.0.0 node /app/frontend/server.js &
 NEXT_PID=$!
 
-# Start Go backend
-/app/scout &
+# Start Go backend — pin to 8081 so it never conflicts with nginx (8080)
+PORT=8081 /app/scout &
 SCOUT_PID=$!
 
 # Wait for both upstreams to be ready before starting nginx
