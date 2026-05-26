@@ -9,9 +9,11 @@ test-cases/
 │   ├── pages/           Page Object Models (POM) per product
 │   ├── fixtures/        Playwright fixtures (auth, mocks, accessibility, network logger)
 │   ├── utils/           Shared helpers (api-helpers, test-data, wait-helpers)
-│   ├── dashboard/       Scout dashboard app (Go backend + Next.js 14 frontend)
+│   ├── dashboard/       Scout dashboard app (Go backend + Vite/React frontend)
 │   │   ├── backend/     Go API server — port 8080
-│   │   └── frontend/    Next.js 14 app — port 3000
+│   │   └── frontend/    Vite + React 19 SPA — dev port 5173
+│   ├── docs/            Internal docs
+│   ├── scripts/         Helper scripts (e.g. save-report.js)
 │   ├── .auth/           Saved auth state (mc-user.json, ui-user.json, sw-user.json)
 │   ├── reports/         HTML + JSON test reports (+ timestamped run archives)
 │   ├── snapshots/       Visual regression baselines
@@ -44,16 +46,19 @@ the backend endpoint with a dashboard UI control in the same change.
 
 | Script | Purpose |
 |--------|---------|
-| `pw:dashboard` | Start both Go backend + Next.js frontend concurrently |
+| `dev` / `pw:dashboard` | Start both Go backend + Vite frontend concurrently |
 | `pw:dashboard:backend` | Go backend only (`go run ./cmd/server/main.go`) — port 8080 |
-| `pw:dashboard:frontend` | Next.js frontend only (`next dev`) — port 3000 |
+| `pw:dashboard:frontend` | Vite frontend only (`npm run dev`) — port 5173 |
+| `pw:dashboard:build` | Install + production build of the frontend (`tsc -b && vite build`) |
 | `pw:test` | Run all Playwright specs + save report |
 | `pw:test:ui` | Run `ui` project only |
 | `pw:test:mc` | Run `mission-control` project only |
 | `pw:test:sw` | Run `studio-web` project only |
+| `pw:test:headed` / `pw:test:debug` / `pw:ui` | Headed / debug / Playwright UI mode |
 | `pw:report` | Open HTML report at `e2e/reports/html` |
 | `pw:codegen:ui/mc/sw` | Codegen for each product (auto-loads auth state) |
 | `pw:update-snapshots` | Refresh visual regression baselines |
+| `pw:install` | Install Chromium for Playwright |
 
 ---
 
@@ -87,21 +92,23 @@ Three test projects, each scoped to one Ardoise product. URLs come from `.env.e2
   - `internal/notifications/` — in-app notification service
   - `internal/gitlab/` — GitLab OAuth + repo/dir sync for importing specs from GitLab projects
 
-### Frontend (`e2e/dashboard/frontend/` — Next.js 14, Tailwind, Recharts)
+### Frontend (`e2e/dashboard/frontend/` — Vite + React 19 + TypeScript)
 
-- **Port**: 3000
-- **Auth**: Google OAuth via `/auth/callback`, JWT stored in `localStorage`
-- **Key routes**:
-  - `[orgSlug]/` — org dashboard overview
-  - `[orgSlug]/products/[productSlug]/[spSlug]` — test tree for a sub-project
-  - `[orgSlug]/runs/[runId]` — live run output + report
-  - `[orgSlug]/pipelines/` — scheduled pipeline builder
-  - `[orgSlug]/scorm/` — SCORM snapshots + generator grid
-  - `[orgSlug]/ai/` — AI chat + run analysis
-  - `[orgSlug]/settings/` — members, environments, archive queue, AI config
-  - `admin/orgs`, `admin/users` — platform-admin panel
-- **Key components**: `components/runs/LiveOutput.tsx` (WS stream), `components/tests/TestCaseEditor.tsx`, `components/scorm/`, `components/ai/ChatBot.tsx`
-- **API layer**: `lib/api.ts` (axios wrapper), `lib/ws.ts` (WebSocket), `lib/auth.ts`
+See `e2e/dashboard/frontend/CLAUDE.md` for the in-depth frontend guide (theming, shadcn/ui, axios client, auth store, polling/dialog patterns, TS config gotchas).
+
+- **Dev port**: 5173 (Vite default)
+- **Stack**: React 19, react-router-dom v7, Tailwind v4 via `@tailwindcss/vite`, shadcn/ui (style `radix-sera`, base color `neutral`), Zustand, Axios, Radix UI, lucide-react
+- **Entry**: `src/main.tsx` → `ThemeProvider` → `TooltipProvider` → `AuthBootstrap` → `<RouterProvider />`. Routes defined in `src/router.tsx` via `createBrowserRouter`.
+- **Auth**: Google OAuth full-page redirect (`GET /api/v1/auth/google`) → `/auth/callback?token=…`. JWT stored in the `scout_token` **cookie** (path `/`, `SameSite=Lax`, 7-day expiry, `Secure` on HTTPS) — *not* `localStorage`. Helpers in `src/lib/auth.ts`; auth state in the Zustand `useAuthStore`. Route guards `RequireAuth` / `RedirectIfAuthed` live in `src/components/require-auth.tsx`.
+- **Routes** (flat, not org-slug scoped):
+  - `/login`, `/auth/callback`
+  - `/` — home
+  - `/dashboard` (inside `DashboardLayout`) — index, `runs`, `pipeline`, `ai-assistant`, `settings/{environments,members,archive-queue,ai-config,integrations,organisations}`
+  - `/projects` — list; `/projects/:slug` — project detail
+  - `/runs/:runId` — live run output + report
+- **Layout**: `src/pages/dashboard-layout.tsx` owns sidebar + header (`SidebarTrigger`, breadcrumb resolved from `pathname` via `resolveTitle`, `<NotificationsBell />`, `<ModeToggle />`). Sidebar nav is a static `data` blob in `src/components/app-sidebar.tsx`.
+- **API layer**: single axios client `src/lib/api.ts` (baseURL `${VITE_SCOUT_API_URL || http://localhost:8080}/api/v1`, bearer interceptor, 401 → clears cookie + redirects `/login`). Typed wrappers per backend area in `src/lib/scout-api.ts` (`authApi`, `runsApi`, `pipelinesApi`, `overviewApi`, `environmentsApi`, `membersApi`, `archiveApi`, `aiConfigApi`, `gitlabApi`, `notificationsApi`, plus `streamChat` SSE helper). Add new endpoints as typed wrappers there, not inline.
+- **Path alias**: `@/* → ./src/*` configured in `tsconfig.json`, `tsconfig.app.json`, and `vite.config.ts` — keep all three in sync.
 
 ### Backend API (base `/api/v1/`)
 

@@ -15,6 +15,7 @@
       "Bash(npx playwright:*)",
       "Bash(npx:*)",
       "Bash(node:*)",
+      "Bash(go build *)",
       "Bash(ls:*)",
       "Bash(mkdir:*)",
       "Bash(cp:*)",
