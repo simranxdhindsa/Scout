@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/apyhub/scout/internal/auth"
 	"github.com/apyhub/scout/internal/db/queries"
@@ -90,7 +91,6 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 	h.svc.Runner.Enqueue(&runner.RunJob{
 		RunID: run.ID,
 		OrgID: orgID,
-		Ctx:   r.Context(),
 	})
 
 	writeJSON(w, http.StatusCreated, map[string]any{
@@ -149,9 +149,12 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 		items = []queries.RunItem{}
 	}
 
+	report, _ := runQ.GetReport(r.Context(), runID)
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"run":   run,
-		"items": items,
+		"run":    run,
+		"items":  items,
+		"report": report,
 	})
 }
 
@@ -238,12 +241,9 @@ func parseIntQ(r *http.Request, key string, fallback int) int {
 	if v == "" {
 		return fallback
 	}
-	n := 0
-	for _, c := range v {
-		if c < '0' || c > '9' {
-			return fallback
-		}
-		n = n*10 + int(c-'0')
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return fallback
 	}
 	return n
 }

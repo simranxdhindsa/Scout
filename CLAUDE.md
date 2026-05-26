@@ -85,6 +85,7 @@ Three test projects, each scoped to one Ardoise product. URLs come from `.env.e2
   - `internal/scorm/` — SCORM upload, generation, Phoenix poller
   - `internal/ai/` — Groq LLM, RAG/vector store, test generator, run analyzer
   - `internal/notifications/` — in-app notification service
+  - `internal/gitlab/` — GitLab OAuth + repo/dir sync for importing specs from GitLab projects
 
 ### Frontend (`e2e/dashboard/frontend/` — Next.js 14, Tailwind, Recharts)
 
@@ -118,7 +119,8 @@ Pipelines: `GET/POST /orgs/{orgId}/pipelines`; `PUT/DELETE/run` on `/{pipelineId
 Archive queue: `GET/approve/reject` under `/orgs/{orgId}/archive-queue`  
 AI: `GET/PUT /orgs/{orgId}/ai/config`; `POST /ai/chat`, `/ai/analyze/{runId}`, `/ai/generate-test`  
 Notifications: `GET/read-all/read` under `/me/notifications`  
-SCORM: upload, status, snapshots, generators under `/orgs/{orgId}/scorm/`
+SCORM: upload, status, snapshots, generators under `/orgs/{orgId}/scorm/`  
+GitLab: `GET /auth/gitlab/callback`; `GET /orgs/{orgId}/integrations/gitlab` (list); `GET .../connect` (OAuth init); `GET .../{integrationId}/repos|dirs`; `PUT/DELETE /{integrationId}`; `POST /{integrationId}/sync`
 
 ---
 

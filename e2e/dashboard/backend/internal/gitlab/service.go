@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/apyhub/scout/internal/config"
 	"github.com/apyhub/scout/internal/db/queries"
@@ -69,10 +70,10 @@ func (s *Service) AuthURL(orgID, returnTo string) string {
 }
 
 // callbackURL returns the backend OAuth callback URL.
+// Must point at the backend's own externally-reachable host, not the frontend's,
+// because GitLab calls this URL server-to-server during the code exchange.
 func (s *Service) callbackURL() string {
-	// Derive from frontend URL — replace port 3000 with 8080, or use env-configured backend URL
-	backendURL := strings.Replace(s.cfg.FrontendURL, ":3000", ":8080", 1)
-	return backendURL + "/api/v1/auth/gitlab/callback"
+	return strings.TrimRight(s.cfg.BackendURL, "/") + "/api/v1/auth/gitlab/callback"
 }
 
 // DecodeState extracts orgID and returnTo from the OAuth state parameter.
@@ -92,12 +93,12 @@ func (s *Service) DecodeState(state string) (orgID, returnTo string, err error) 
 // record (no repo yet), and returns it. The caller should prompt the user to
 // pick a repo before the integration is fully useful.
 func (s *Service) ExchangeCode(ctx context.Context, code string, orgID uuid.UUID) (*Integration, error) {
-	token, err := s.exchangeToken(ctx, code)
+	tok, err := s.exchangeToken(ctx, code)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := s.fetchGitLabUser(ctx, token)
+	user, err := s.fetchGitLabUser(ctx, tok.AccessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +107,8 @@ func (s *Service) ExchangeCode(ctx context.Context, code string, orgID uuid.UUID
 	// We use upsert with repo_id=0 as a sentinel for "connected but no repo chosen".
 	integ, err := s.glDB.upsert(ctx, orgID,
 		fmt.Sprintf("%d", user.ID), user.Username, user.AvatarURL,
-		token, 0, "", "", "main",
+		tok.AccessToken, tok.RefreshToken, tok.ExpiresAt,
+		0, "", "", "main",
 	)
 	if err != nil {
 		return nil, err
@@ -142,7 +144,7 @@ func (s *Service) ListUserRepos(ctx context.Context, integrationID uuid.UUID) ([
 		params.Set("order_by", "last_activity_at")
 
 		var projects []GitLabProject
-		if err := s.gitlabGet(ctx, integ.AccessToken, "/projects?"+params.Encode(), &projects); err != nil {
+		if err := s.authedGet(ctx, integ, "/projects?"+params.Encode(), &projects); err != nil {
 			return nil, err
 		}
 		all = append(all, projects...)
@@ -164,6 +166,7 @@ type SyncResult struct {
 	Added        int      `json:"added"`
 	Updated      int      `json:"updated"`
 	Skipped      int      `json:"skipped"`
+	Deleted      int      `json:"deleted"`
 	SkipReasons  []string `json:"skip_reasons,omitempty"`
 }
 
@@ -209,10 +212,32 @@ func (s *Service) SyncRepo(ctx context.Context, integrationID uuid.UUID) (*SyncR
 	if rootFolderID == (uuid.UUID{}) {
 		return nil, fmt.Errorf("subproject has no root folder")
 	}
-	// Pre-populate folder cache from existing folders
+	// Pre-populate folder cache by reconstructing each folder's dir-string path
+	// ("auth/login") from the parent chain so existing folders are reused on
+	// re-sync instead of duplicated.
+	folderByID := make(map[uuid.UUID]queries.TestFolder, len(allFolders))
 	for _, f := range allFolders {
-		folderCache[f.Path] = f.ID
+		folderByID[f.ID] = f
 	}
+	for _, f := range allFolders {
+		if f.ParentID == nil {
+			continue
+		}
+		parts := []string{f.Name}
+		cur := f
+		for cur.ParentID != nil {
+			p, ok := folderByID[*cur.ParentID]
+			if !ok || p.ParentID == nil {
+				break
+			}
+			parts = append([]string{p.Name}, parts...)
+			cur = p
+		}
+		folderCache[strings.Join(parts, "/")] = f.ID
+	}
+
+	seenTestIDs := make(map[uuid.UUID]bool)
+	seenFolderIDs := map[uuid.UUID]bool{rootFolderID: true}
 
 	skip := func(result *SyncResult, file, reason string) {
 		msg := fmt.Sprintf("%s: %s", file, reason)
@@ -274,6 +299,24 @@ func (s *Service) SyncRepo(ctx context.Context, integrationID uuid.UUID) (*SyncR
 			continue
 		}
 
+		// Mark the leaf folder and every intermediate as seen so the prune pass
+		// below doesn't remove them.
+		seenFolderIDs[folderID] = true
+		built := ""
+		for _, p := range strings.Split(dir, "/") {
+			if p == "" {
+				continue
+			}
+			if built == "" {
+				built = p
+			} else {
+				built = built + "/" + p
+			}
+			if id, ok := folderCache[built]; ok {
+				seenFolderIDs[id] = true
+			}
+		}
+
 		// Check if test already exists anywhere in this subproject with this filename
 		fileName := filepath.Base(specPath)
 		existing, err := s.findTestByFileNameInSubProject(ctx, *integ.SubProjectID, fileName)
@@ -285,6 +328,7 @@ func (s *Service) SyncRepo(ctx context.Context, integrationID uuid.UUID) (*SyncR
 		testName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
 		if existing != nil {
+			seenTestIDs[existing.ID] = true
 			// Move to correct folder if it ended up somewhere else (e.g. prior sync before repo_path stripping)
 			if _, err := s.db.Exec(ctx, `UPDATE test_cases SET folder_id = $2 WHERE id = $1`, existing.ID, folderID); err != nil {
 				skip(result, specPath, fmt.Sprintf("move folder error: %v", err))
@@ -299,16 +343,123 @@ func (s *Service) SyncRepo(ctx context.Context, integrationID uuid.UUID) (*SyncR
 			}
 			result.Updated++
 		} else {
-			if err := s.createTestImported(ctx, folderID, testName, fileName, content, bundled); err != nil {
+			newID, err := s.createTestImported(ctx, folderID, testName, fileName, content, bundled)
+			if err != nil {
 				skip(result, specPath, fmt.Sprintf("create error: %v", err))
 				continue
 			}
+			seenTestIDs[newID] = true
 			result.Added++
 		}
 	}
 
+	// Prune: delete tests and folders in this subproject that weren't seen in
+	// the repo this sync — so the dashboard mirrors the repo instead of
+	// accumulating stale entries.
+	deleted, err := s.pruneUnseen(ctx, *integ.SubProjectID, seenTestIDs, seenFolderIDs)
+	if err != nil {
+		return nil, fmt.Errorf("prune unseen: %w", err)
+	}
+	result.Deleted = deleted
+
 	_ = s.glDB.updateLastSynced(ctx, integrationID)
 	return result, nil
+}
+
+// pruneUnseen deletes non-archived tests not in seenTestIDs and folders
+// (excluding root) not in seenFolderIDs for the given subproject. run_items
+// referencing pruned tests are detached (set NULL) first so historical run
+// records survive. Returns the total count of pruned tests + folders.
+func (s *Service) pruneUnseen(ctx context.Context, spID uuid.UUID, seenTests, seenFolders map[uuid.UUID]bool) (int, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Collect test IDs to delete
+	testRows, err := tx.Query(ctx, `
+		SELECT tc.id FROM test_cases tc
+		JOIN test_folders tf ON tf.id = tc.folder_id
+		WHERE tf.sub_project_id = $1 AND tc.is_archived = FALSE
+	`, spID)
+	if err != nil {
+		return 0, err
+	}
+	var testsToDelete []uuid.UUID
+	for testRows.Next() {
+		var id uuid.UUID
+		if err := testRows.Scan(&id); err != nil {
+			testRows.Close()
+			return 0, err
+		}
+		if !seenTests[id] {
+			testsToDelete = append(testsToDelete, id)
+		}
+	}
+	testRows.Close()
+	if err := testRows.Err(); err != nil {
+		return 0, err
+	}
+
+	if len(testsToDelete) > 0 {
+		if _, err := tx.Exec(ctx,
+			`UPDATE run_items SET test_case_id = NULL WHERE test_case_id = ANY($1)`,
+			testsToDelete,
+		); err != nil {
+			return 0, fmt.Errorf("detach run_items: %w", err)
+		}
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM test_cases WHERE id = ANY($1)`, testsToDelete,
+		); err != nil {
+			return 0, fmt.Errorf("delete tests: %w", err)
+		}
+	}
+
+	// Collect folder IDs to delete (excluding root). Cascade FKs handle nested
+	// folders + remaining test_cases, but we still detach run_items for any
+	// non-archived tests that may live under an unseen folder we just missed.
+	folderRows, err := tx.Query(ctx, `
+		SELECT id FROM test_folders
+		WHERE sub_project_id = $1 AND parent_id IS NOT NULL
+	`, spID)
+	if err != nil {
+		return 0, err
+	}
+	var foldersToDelete []uuid.UUID
+	for folderRows.Next() {
+		var id uuid.UUID
+		if err := folderRows.Scan(&id); err != nil {
+			folderRows.Close()
+			return 0, err
+		}
+		if !seenFolders[id] {
+			foldersToDelete = append(foldersToDelete, id)
+		}
+	}
+	folderRows.Close()
+	if err := folderRows.Err(); err != nil {
+		return 0, err
+	}
+
+	if len(foldersToDelete) > 0 {
+		if _, err := tx.Exec(ctx, `
+			UPDATE run_items SET test_case_id = NULL
+			WHERE test_case_id IN (SELECT id FROM test_cases WHERE folder_id = ANY($1))
+		`, foldersToDelete); err != nil {
+			return 0, fmt.Errorf("detach run_items (folders): %w", err)
+		}
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM test_folders WHERE id = ANY($1)`, foldersToDelete,
+		); err != nil {
+			return 0, fmt.Errorf("delete folders: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return len(testsToDelete) + len(foldersToDelete), nil
 }
 
 // DeleteIntegration removes a GitLab integration.
@@ -342,39 +493,152 @@ func (s *Service) fetchGitLabUser(ctx context.Context, token string) (*gitLabUse
 	return &u, nil
 }
 
-func (s *Service) exchangeToken(ctx context.Context, code string) (string, error) {
+type oauthToken struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    *time.Time
+}
+
+func (s *Service) exchangeToken(ctx context.Context, code string) (*oauthToken, error) {
 	params := url.Values{}
 	params.Set("client_id", s.cfg.GitLabClientID)
 	params.Set("client_secret", s.cfg.GitLabClientSecret)
 	params.Set("code", code)
 	params.Set("grant_type", "authorization_code")
 	params.Set("redirect_uri", s.callbackURL())
+	return s.postToken(ctx, params)
+}
 
-	resp, err := http.PostForm(s.tokenURL(), params)
+// refreshAccessToken exchanges the integration's refresh_token for a new access
+// token and persists the rotated credentials. Mutates integ in place.
+func (s *Service) refreshAccessToken(ctx context.Context, integ *Integration) error {
+	if integ.RefreshToken == "" {
+		return fmt.Errorf("no refresh token stored — user must reconnect GitLab")
+	}
+	params := url.Values{}
+	params.Set("client_id", s.cfg.GitLabClientID)
+	params.Set("client_secret", s.cfg.GitLabClientSecret)
+	params.Set("refresh_token", integ.RefreshToken)
+	params.Set("grant_type", "refresh_token")
+	params.Set("redirect_uri", s.callbackURL())
+
+	tok, err := s.postToken(ctx, params)
 	if err != nil {
-		return "", fmt.Errorf("exchange gitlab token: %w", err)
+		return fmt.Errorf("refresh gitlab token: %w", err)
+	}
+	if err := s.glDB.updateTokens(ctx, integ.ID, tok.AccessToken, tok.RefreshToken, tok.ExpiresAt); err != nil {
+		return fmt.Errorf("persist refreshed token: %w", err)
+	}
+	integ.AccessToken = tok.AccessToken
+	if tok.RefreshToken != "" {
+		integ.RefreshToken = tok.RefreshToken
+	}
+	integ.TokenExpiresAt = tok.ExpiresAt
+	return nil
+}
+
+func (s *Service) postToken(ctx context.Context, params url.Values) (*oauthToken, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.tokenURL(), strings.NewReader(params.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("post gitlab token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("gitlab token exchange returned %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("gitlab token endpoint returned %d: %s", resp.StatusCode, body)
 	}
 
 	var result struct {
-		AccessToken string `json:"access_token"`
-		Error       string `json:"error"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		Error        string `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decode token response: %w", err)
+		return nil, fmt.Errorf("decode token response: %w", err)
 	}
 	if result.Error != "" {
-		return "", fmt.Errorf("gitlab oauth error: %s", result.Error)
+		return nil, fmt.Errorf("gitlab oauth error: %s", result.Error)
 	}
 	if result.AccessToken == "" {
-		return "", fmt.Errorf("gitlab returned empty access token")
+		return nil, fmt.Errorf("gitlab returned empty access token")
 	}
-	return result.AccessToken, nil
+	tok := &oauthToken{AccessToken: result.AccessToken, RefreshToken: result.RefreshToken}
+	if result.ExpiresIn > 0 {
+		t := time.Now().Add(time.Duration(result.ExpiresIn) * time.Second)
+		tok.ExpiresAt = &t
+	}
+	return tok, nil
+}
+
+// authedGet calls gitlabGet using integ's access token, and on a 401 attempts
+// a single refresh+retry. Use this for any call made on behalf of a stored
+// integration; raw gitlabGet stays for the OAuth-callback path where no
+// integration exists yet.
+func (s *Service) authedGet(ctx context.Context, integ *Integration, endpoint string, out interface{}) error {
+	err := s.gitlabGet(ctx, integ.AccessToken, endpoint, out)
+	if err == nil || !isUnauthorized(err) {
+		return err
+	}
+	if rerr := s.refreshAccessToken(ctx, integ); rerr != nil {
+		return rerr
+	}
+	return s.gitlabGet(ctx, integ.AccessToken, endpoint, out)
+}
+
+// authedRawGet performs an authenticated GET that returns the raw response body
+// (used for file content). Mirrors authedGet's refresh-on-401 behavior.
+func (s *Service) authedRawGet(ctx context.Context, integ *Integration, endpoint string) ([]byte, error) {
+	body, status, err := s.rawGet(ctx, integ.AccessToken, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	if status == http.StatusUnauthorized {
+		if rerr := s.refreshAccessToken(ctx, integ); rerr != nil {
+			return nil, rerr
+		}
+		body, status, err = s.rawGet(ctx, integ.AccessToken, endpoint)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("gitlab GET %s returned %d: %s", endpoint, status, string(body))
+	}
+	return body, nil
+}
+
+func (s *Service) rawGet(ctx context.Context, token, endpoint string) ([]byte, int, error) {
+	u := s.apiBaseURL() + endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("gitlab GET %s: %w", endpoint, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	return body, resp.StatusCode, nil
+}
+
+func isUnauthorized(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "returned 401")
 }
 
 func (s *Service) gitlabGet(ctx context.Context, token, endpoint string, out interface{}) error {
@@ -421,7 +685,7 @@ func (s *Service) listSpecFiles(ctx context.Context, integ *Integration) ([]stri
 			endpoint += "&path=" + url.QueryEscape(basePath)
 		}
 		var entries []repoTreeEntry
-		if err := s.gitlabGet(ctx, integ.AccessToken, endpoint, &entries); err != nil {
+		if err := s.authedGet(ctx, integ, endpoint, &entries); err != nil {
 			return nil, err
 		}
 		for _, e := range entries {
@@ -450,7 +714,7 @@ func (s *Service) ListRepoDirs(ctx context.Context, integrationID uuid.UUID) ([]
 		endpoint := fmt.Sprintf("/projects/%d/repository/tree?recursive=true&ref=%s&per_page=100&page=%d",
 			integ.RepoID, url.QueryEscape(integ.Branch), page)
 		var entries []repoTreeEntry
-		if err := s.gitlabGet(ctx, integ.AccessToken, endpoint, &entries); err != nil {
+		if err := s.authedGet(ctx, integ, endpoint, &entries); err != nil {
 			return nil, err
 		}
 		for _, e := range entries {
@@ -471,24 +735,7 @@ func (s *Service) fetchFileContent(ctx context.Context, integ *Integration, file
 	endpoint := fmt.Sprintf("/projects/%d/repository/files/%s/raw?ref=%s",
 		integ.RepoID, encoded, url.QueryEscape(integ.Branch))
 
-	u := s.apiBaseURL() + endpoint
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization", "Bearer "+integ.AccessToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("fetch file %s returned %d", filePath, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	body, err := s.authedRawGet(ctx, integ, endpoint)
 	if err != nil {
 		return "", err
 	}
@@ -568,10 +815,10 @@ func (s *Service) ensureFolderPath(
 }
 
 // createTestImported inserts a new test case with NULL created_by (GitLab system import).
-func (s *Service) createTestImported(ctx context.Context, folderID uuid.UUID, name, fileName, fileContent, bundledContent string) error {
+func (s *Service) createTestImported(ctx context.Context, folderID uuid.UUID, name, fileName, fileContent, bundledContent string) (uuid.UUID, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return err
+		return uuid.UUID{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -583,17 +830,20 @@ func (s *Service) createTestImported(ctx context.Context, folderID uuid.UUID, na
 		VALUES ($1, $2, 'Imported from GitLab', $3, $4, $5, NULL, NULL)
 		RETURNING id, version
 	`, folderID, name, fileName, fileContent, bundledContent).Scan(&id, &version); err != nil {
-		return fmt.Errorf("insert test case: %w", err)
+		return uuid.UUID{}, fmt.Errorf("insert test case: %w", err)
 	}
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO test_case_versions (test_case_id, version, file_content, changed_by)
 		VALUES ($1, $2, $3, NULL)
 	`, id, version, fileContent); err != nil {
-		return fmt.Errorf("record version: %w", err)
+		return uuid.UUID{}, fmt.Errorf("record version: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.UUID{}, err
+	}
+	return id, nil
 }
 
 // updateTestImported updates an existing test case with NULL updated_by (GitLab system import).

@@ -19,6 +19,7 @@ type TestRun struct {
 	TriggeredBy    *uuid.UUID `json:"triggered_by"`
 	Status         string     `json:"status"`
 	Label          string     `json:"label"`
+	ErrorMessage   string     `json:"error_message,omitempty"`
 	StartedAt      *time.Time `json:"started_at"`
 	CompletedAt    *time.Time `json:"completed_at"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -82,10 +83,10 @@ func (q *RunQueries) Create(ctx context.Context, orgID uuid.UUID, envID *uuid.UU
 		INSERT INTO test_runs (org_id, environment_id, triggered_by, label, credentials_tmp)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, org_id, pipeline_id, environment_id, triggered_by,
-		          status, label, started_at, completed_at, created_at
+		          status, label, COALESCE(error_message,''), started_at, completed_at, created_at
 	`, orgID, envID, triggeredBy, label, credentialsJSON).Scan(
 		&r.ID, &r.OrgID, &r.PipelineID, &r.EnvironmentID, &r.TriggeredBy,
-		&r.Status, &r.Label, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
+		&r.Status, &r.Label, &r.ErrorMessage, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create run: %w", err)
@@ -98,11 +99,11 @@ func (q *RunQueries) GetByID(ctx context.Context, id uuid.UUID) (*TestRun, error
 	var r TestRun
 	err := q.db.QueryRow(ctx, `
 		SELECT id, org_id, pipeline_id, environment_id, triggered_by,
-		       status, label, started_at, completed_at, created_at
+		       status, label, COALESCE(error_message,''), started_at, completed_at, created_at
 		FROM test_runs WHERE id = $1
 	`, id).Scan(
 		&r.ID, &r.OrgID, &r.PipelineID, &r.EnvironmentID, &r.TriggeredBy,
-		&r.Status, &r.Label, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
+		&r.Status, &r.Label, &r.ErrorMessage, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get run by id: %w", err)
@@ -140,7 +141,7 @@ func (q *RunQueries) GetCredentials(ctx context.Context, runID uuid.UUID) ([]byt
 func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, limit, offset int) ([]TestRun, error) {
 	query := `
 		SELECT id, org_id, pipeline_id, environment_id, triggered_by,
-		       status, label, started_at, completed_at, created_at
+		       status, label, COALESCE(error_message,''), started_at, completed_at, created_at
 		FROM test_runs
 		WHERE org_id = $1
 	`
@@ -165,13 +166,20 @@ func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, l
 		var r TestRun
 		if err := rows.Scan(
 			&r.ID, &r.OrgID, &r.PipelineID, &r.EnvironmentID, &r.TriggeredBy,
-			&r.Status, &r.Label, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
+			&r.Status, &r.Label, &r.ErrorMessage, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
 		runs = append(runs, r)
 	}
 	return runs, rows.Err()
+}
+
+// SetErrorMessage records why a run failed so the dashboard can surface it.
+func (q *RunQueries) SetErrorMessage(ctx context.Context, id uuid.UUID, msg string) error {
+	_, err := q.db.Exec(ctx,
+		`UPDATE test_runs SET error_message = $2 WHERE id = $1`, id, msg)
+	return err
 }
 
 // UpdateStatus sets run status and timestamps.

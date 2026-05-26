@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/notifications"
@@ -189,14 +190,15 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		"--config", filepath.Join(ws.Dir, "playwright.config.ts"),
 	)
 
-	// Inject env vars at OS process level — NEVER written to any file
+	// Inject env vars at OS process level — never written to any file on disk.
+	// Note: credentials remain in cmd.Env (and therefore in process memory) for
+	// the lifetime of the child process; we rely on process isolation, not
+	// in-memory zeroization, to protect them.
 	cmd.Env = append(os.Environ(),
 		"TESTDECK_BASE_URL="+baseURL,
 		"TESTDECK_EMAIL="+creds["email"],
 		"TESTDECK_PASSWORD="+creds["password"],
 	)
-	// Clear creds from memory
-	creds = nil
 
 	// Stream stdout + stderr via WebSocket
 	stdout, _ := cmd.StdoutPipe()
@@ -207,23 +209,26 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// Stream stdout
+	// Stream stdout + stderr. Wait on the scanners before cmd.Wait so we don't
+	// miss the last lines flushed as the child process exits.
+	var streamWG sync.WaitGroup
+	streamWG.Add(2)
 	go func() {
+		defer streamWG.Done()
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			s.streams.Publish(ctx, runID, "stdout", scanner.Text())
 		}
 	}()
-
-	// Stream stderr
 	go func() {
+		defer streamWG.Done()
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			s.streams.Publish(ctx, runID, "stderr", scanner.Text())
 		}
 	}()
 
-	// Wait for playwright to finish
+	streamWG.Wait()
 	runErr := cmd.Wait()
 
 	// Parse results even if playwright exited non-zero (failed tests)
@@ -293,6 +298,7 @@ func (s *Service) failRun(ctx context.Context, runID, orgID uuid.UUID, reason st
 	log.Printf("[runner] run %s failed: %s", runID, reason)
 	s.streams.Publish(ctx, runID, "error", reason)
 	s.streams.Publish(ctx, runID, "status", "failed")
+	_ = s.runQ.SetErrorMessage(ctx, runID, reason)
 	_ = s.runQ.UpdateStatus(ctx, runID, "failed")
 	s.notifyCompletion(ctx, runID, orgID, "failed", nil)
 }

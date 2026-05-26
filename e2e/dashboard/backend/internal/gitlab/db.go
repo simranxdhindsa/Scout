@@ -18,6 +18,8 @@ type Integration struct {
 	GitLabUsername string     `json:"gitlab_username"`
 	GitLabAvatar   string     `json:"gitlab_avatar"`
 	AccessToken    string     `json:"-"`
+	RefreshToken   string     `json:"-"`
+	TokenExpiresAt *time.Time `json:"-"`
 	RepoID         int64      `json:"repo_id"`
 	RepoName       string     `json:"repo_name"`
 	RepoURL        string     `json:"repo_url"`
@@ -39,7 +41,8 @@ func newDB(db *pgxpool.Pool) *gitLabDB {
 func (q *gitLabDB) listByOrg(ctx context.Context, orgID uuid.UUID) ([]Integration, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		       access_token, repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
+		       access_token, refresh_token, token_expires_at,
+		       repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
 		       created_at, updated_at
 		FROM gitlab_integrations
 		WHERE org_id = $1
@@ -53,12 +56,17 @@ func (q *gitLabDB) listByOrg(ctx context.Context, orgID uuid.UUID) ([]Integratio
 	var list []Integration
 	for rows.Next() {
 		var i Integration
+		var refresh *string
 		if err := rows.Scan(
 			&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
-			&i.GitLabAvatar, &i.AccessToken, &i.RepoID, &i.RepoName, &i.RepoURL,
+			&i.GitLabAvatar, &i.AccessToken, &refresh, &i.TokenExpiresAt,
+			&i.RepoID, &i.RepoName, &i.RepoURL,
 			&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
 		); err != nil {
 			return nil, err
+		}
+		if refresh != nil {
+			i.RefreshToken = *refresh
 		}
 		list = append(list, i)
 	}
@@ -67,50 +75,82 @@ func (q *gitLabDB) listByOrg(ctx context.Context, orgID uuid.UUID) ([]Integratio
 
 func (q *gitLabDB) getByID(ctx context.Context, id uuid.UUID) (*Integration, error) {
 	var i Integration
+	var refresh *string
 	err := q.db.QueryRow(ctx, `
 		SELECT id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		       access_token, repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
+		       access_token, refresh_token, token_expires_at,
+		       repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
 		       created_at, updated_at
 		FROM gitlab_integrations WHERE id = $1
 	`, id).Scan(
 		&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
-		&i.GitLabAvatar, &i.AccessToken, &i.RepoID, &i.RepoName, &i.RepoURL,
+		&i.GitLabAvatar, &i.AccessToken, &refresh, &i.TokenExpiresAt,
+		&i.RepoID, &i.RepoName, &i.RepoURL,
 		&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get gitlab integration: %w", err)
 	}
+	if refresh != nil {
+		i.RefreshToken = *refresh
+	}
 	return &i, nil
 }
 
-func (q *gitLabDB) upsert(ctx context.Context, orgID uuid.UUID, userID, username, avatar, accessToken string, repoID int64, repoName, repoURL, branch string) (*Integration, error) {
+func (q *gitLabDB) upsert(ctx context.Context, orgID uuid.UUID, userID, username, avatar, accessToken, refreshToken string, expiresAt *time.Time, repoID int64, repoName, repoURL, branch string) (*Integration, error) {
 	var i Integration
+	var refresh *string
+	if refreshToken != "" {
+		refresh = &refreshToken
+	}
+	var refreshOut *string
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO gitlab_integrations
 		  (org_id, gitlab_user_id, gitlab_username, gitlab_avatar, access_token,
+		   refresh_token, token_expires_at,
 		   repo_id, repo_name, repo_url, branch)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (org_id, repo_id) DO UPDATE
-		  SET gitlab_user_id  = EXCLUDED.gitlab_user_id,
-		      gitlab_username = EXCLUDED.gitlab_username,
-		      gitlab_avatar   = EXCLUDED.gitlab_avatar,
-		      access_token    = EXCLUDED.access_token,
-		      repo_name       = EXCLUDED.repo_name,
-		      repo_url        = EXCLUDED.repo_url,
-		      branch          = EXCLUDED.branch,
-		      updated_at      = NOW()
+		  SET gitlab_user_id    = EXCLUDED.gitlab_user_id,
+		      gitlab_username   = EXCLUDED.gitlab_username,
+		      gitlab_avatar     = EXCLUDED.gitlab_avatar,
+		      access_token      = EXCLUDED.access_token,
+		      refresh_token     = EXCLUDED.refresh_token,
+		      token_expires_at  = EXCLUDED.token_expires_at,
+		      repo_name         = EXCLUDED.repo_name,
+		      repo_url          = EXCLUDED.repo_url,
+		      branch            = EXCLUDED.branch,
+		      updated_at        = NOW()
 		RETURNING id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		          access_token, repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
+		          access_token, refresh_token, token_expires_at,
+		          repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
 		          created_at, updated_at
-	`, orgID, userID, username, avatar, accessToken, repoID, repoName, repoURL, branch).Scan(
+	`, orgID, userID, username, avatar, accessToken, refresh, expiresAt, repoID, repoName, repoURL, branch).Scan(
 		&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
-		&i.GitLabAvatar, &i.AccessToken, &i.RepoID, &i.RepoName, &i.RepoURL,
+		&i.GitLabAvatar, &i.AccessToken, &refreshOut, &i.TokenExpiresAt,
+		&i.RepoID, &i.RepoName, &i.RepoURL,
 		&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("upsert gitlab integration: %w", err)
 	}
+	if refreshOut != nil {
+		i.RefreshToken = *refreshOut
+	}
 	return &i, nil
+}
+
+func (q *gitLabDB) updateTokens(ctx context.Context, id uuid.UUID, accessToken, refreshToken string, expiresAt *time.Time) error {
+	var refresh *string
+	if refreshToken != "" {
+		refresh = &refreshToken
+	}
+	_, err := q.db.Exec(ctx, `
+		UPDATE gitlab_integrations
+		SET access_token = $2, refresh_token = $3, token_expires_at = $4, updated_at = NOW()
+		WHERE id = $1
+	`, id, accessToken, refresh, expiresAt)
+	return err
 }
 
 func (q *gitLabDB) updateSettings(ctx context.Context, id uuid.UUID, subprojectID *uuid.UUID, branch string) error {

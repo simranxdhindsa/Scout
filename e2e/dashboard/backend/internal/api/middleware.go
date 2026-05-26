@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,16 +15,17 @@ import (
 // middlewareChain holds the global middleware configuration.
 type middlewareChain struct {
 	cfg *config.Config
+	ctx context.Context
 }
 
-func newMiddlewareChain(cfg *config.Config) *middlewareChain {
-	return &middlewareChain{cfg: cfg}
+func newMiddlewareChain(ctx context.Context, cfg *config.Config) *middlewareChain {
+	return &middlewareChain{cfg: cfg, ctx: ctx}
 }
 
 // wrap applies CORS → rate limiter → request logger to the given handler.
 func (m *middlewareChain) wrap(next http.Handler) http.Handler {
 	return corsMiddleware(m.cfg)(
-		rateLimitMiddleware()(
+		rateLimitMiddleware(m.ctx)(
 			requestLoggerMiddleware(next),
 		),
 	)
@@ -74,21 +77,27 @@ const (
 	rateLimitBurst = 120 // burst capacity
 )
 
-func rateLimitMiddleware() func(http.Handler) http.Handler {
+func rateLimitMiddleware(ctx context.Context) func(http.Handler) http.Handler {
 	rl := &rateLimiter{
 		clients: make(map[string]*clientBucket),
 	}
 
-	// Background cleanup of stale buckets
 	go func() {
-		for range time.Tick(5 * time.Minute) {
-			rl.mu.Lock()
-			for ip, bucket := range rl.clients {
-				if time.Since(bucket.lastSeen) > 10*time.Minute {
-					delete(rl.clients, ip)
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				rl.mu.Lock()
+				for ip, bucket := range rl.clients {
+					if time.Since(bucket.lastSeen) > 10*time.Minute {
+						delete(rl.clients, ip)
+					}
 				}
+				rl.mu.Unlock()
 			}
-			rl.mu.Unlock()
 		}
 	}()
 
@@ -134,12 +143,11 @@ func clientIP(r *http.Request) string {
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	// Strip port from RemoteAddr
-	addr := r.RemoteAddr
-	if idx := strings.LastIndex(addr, ":"); idx >= 0 {
-		return addr[:idx]
+	// Strip port from RemoteAddr. SplitHostPort handles IPv6 ([::1]:1234).
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
-	return addr
+	return r.RemoteAddr
 }
 
 // ── Request logger ────────────────────────────────────────────────────────────

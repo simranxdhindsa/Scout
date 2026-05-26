@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/apyhub/scout/internal/ai"
@@ -28,11 +29,13 @@ type Services struct {
 }
 
 // RegisterRoutes wires all HTTP handlers to their routes and returns the root mux.
-func RegisterRoutes(svc Services) http.Handler {
+// ctx scopes long-lived middleware goroutines (e.g. the rate-limit cleanup loop)
+// to the server lifetime — cancel it during graceful shutdown.
+func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux := http.NewServeMux()
 
 	// Apply global middleware stack: CORS → rate limit → request logging
-	mid := newMiddlewareChain(svc.Config)
+	mid := newMiddlewareChain(ctx, svc.Config)
 
 	// ── Health (public, no auth) ──────────────────────────────────────────
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +106,8 @@ func RegisterRoutes(svc Services) http.Handler {
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
 	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/products/{productId}", chain(productH.Delete,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/products/{productId}/tests", chain(productH.Tests,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
 	// ── Sub-projects ──────────────────────────────────────────────────────
 	spH := newSubProjectHandler(svc)
