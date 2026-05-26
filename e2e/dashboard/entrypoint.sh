@@ -1,31 +1,23 @@
 #!/bin/sh
 set -e
 
-# Start Next.js standalone server — override PORT since Go backend owns $PORT (8081)
-PORT=3000 HOSTNAME=0.0.0.0 node /app/frontend/server.js &
-NEXT_PID=$!
-
 # Start Go backend — pin to 8081 so it never conflicts with nginx (8080)
 PORT=8081 /app/scout &
 SCOUT_PID=$!
 
-# Wait for both upstreams to be ready before starting nginx
 echo "[entrypoint] waiting for Go backend on :8081..."
 until curl -sf http://localhost:8081/health > /dev/null 2>&1; do sleep 1; done
-echo "[entrypoint] waiting for Next.js on :3000..."
-until curl -sf http://localhost:3000 > /dev/null 2>&1; do sleep 1; done
 
-# Now start nginx — both upstreams are ready
+# Frontend is a static bundle served by nginx — no node process needed
 nginx -g "daemon off;" &
 NGINX_PID=$!
 
 echo "[entrypoint] all services up"
 
-# Forward SIGTERM/SIGINT to all background processes
 shutdown() {
     echo "[entrypoint] shutting down..."
-    kill "$SCOUT_PID" "$NEXT_PID" "$NGINX_PID" 2>/dev/null
-    wait "$SCOUT_PID" "$NEXT_PID" "$NGINX_PID" 2>/dev/null
+    kill "$SCOUT_PID" "$NGINX_PID" 2>/dev/null
+    wait "$SCOUT_PID" "$NGINX_PID" 2>/dev/null
     exit 0
 }
 trap shutdown TERM INT

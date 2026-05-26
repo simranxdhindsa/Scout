@@ -19,23 +19,21 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 
 # ─────────────────────────────────────────────────────────────
-# Stage 2: Build Next.js frontend
+# Stage 2: Build Vite frontend
 # ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-ARG NEXT_PUBLIC_WS_URL=ws://localhost
-ARG NEXT_PUBLIC_API_URL=
+# Empty default → bundle calls /api/v1/... on the same origin (nginx proxies it)
+ARG VITE_SCOUT_API_URL=
 
 COPY frontend/package*.json ./
 RUN npm ci
 
 COPY frontend/ .
 
-ENV DOCKER_BUILD=true \
-    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV VITE_SCOUT_API_URL=$VITE_SCOUT_API_URL
 
 RUN npm run build
 
@@ -72,10 +70,8 @@ RUN mkdir -p /app/data
 # Go backend binary
 COPY --from=go-builder /app/scout /app/scout
 
-# Next.js standalone output
-COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend
-COPY --from=frontend-builder /app/frontend/.next/static     /app/frontend/.next/static
-COPY --from=frontend-builder /app/frontend/public           /app/frontend/public
+# Vite static bundle (served directly by nginx)
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # nginx config and entrypoint
 COPY nginx.conf      /etc/nginx/nginx.conf
