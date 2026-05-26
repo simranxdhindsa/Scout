@@ -7,19 +7,15 @@ import {
   ShieldIcon,
   Trash2Icon,
   UserIcon,
-  XIcon,
 } from "lucide-react"
 
+import { AddMemberDialog } from "@/components/dialogs/add-member-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/lib/auth"
-import {
-  membersApi,
-  type MemberRole,
-  type OrgMember,
-} from "@/lib/scout-api"
+import { membersApi, type MemberRole, type OrgMember } from "@/lib/scout-api"
 
 type ApiError = { response?: { data?: { error?: string } } }
 
@@ -38,7 +34,7 @@ export default function MembersPage() {
   const org = useAuthStore((s) => s.orgs[0] ?? null)
   const currentUserId = useAuthStore((s) => s.user?.id ?? null)
   const [members, setMembers] = useState<OrgMember[] | null>(null)
-  const [adding, setAdding] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -107,10 +103,10 @@ export default function MembersPage() {
           <h2 className="text-base font-semibold">Team Members</h2>
           <Button
             onClick={() => {
-              setAdding(true)
+              setDialogOpen(true)
               setError(null)
             }}
-            disabled={!org || adding}
+            disabled={!org}
           >
             <PlusIcon className="size-4" />
             Add Member
@@ -118,18 +114,6 @@ export default function MembersPage() {
         </div>
 
         {error ? <p className="text-destructive text-sm">{error}</p> : null}
-
-        {adding && org ? (
-          <AddMemberForm
-            orgId={org.id}
-            onCancel={() => setAdding(false)}
-            onAdded={async () => {
-              setAdding(false)
-              await refresh()
-            }}
-            onError={setError}
-          />
-        ) : null}
 
         <ul className="divide-border/40 -mx-2 divide-y">
           {members === null ? (
@@ -231,83 +215,13 @@ export default function MembersPage() {
           )}
         </ul>
       </div>
+
+      <AddMemberDialog
+        orgId={org?.id ?? null}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onAdded={refresh}
+      />
     </div>
-  )
-}
-
-function AddMemberForm({
-  orgId,
-  onCancel,
-  onAdded,
-  onError,
-}: {
-  orgId: string
-  onCancel: () => void
-  onAdded: () => void
-  onError: (msg: string) => void
-}) {
-  const [email, setEmail] = useState("")
-  const [role, setRole] = useState<MemberRole>("member")
-  const [saving, setSaving] = useState(false)
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) return
-    setSaving(true)
-    try {
-      await membersApi.add(orgId, { email: email.trim(), role })
-      onAdded()
-    } catch (err) {
-      onError(readError(err, "Failed to add member"))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <form
-      onSubmit={submit}
-      className="bg-muted/30 ring-border/40 flex flex-col gap-3 p-4 ring-1"
-    >
-      <div className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
-        <Input
-          type="email"
-          autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="user@company.com"
-          required
-          className="bg-muted/40"
-        />
-        <div className="bg-muted/40 ring-border/40 relative ring-1">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as MemberRole)}
-            className="w-full appearance-none bg-transparent py-2 pr-8 pl-3 text-sm outline-none"
-          >
-            <option value="member">Member</option>
-            <option value="admin">Admin</option>
-          </select>
-          <ChevronDownIcon className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="submit" disabled={!email.trim() || saving}>
-            {saving ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <PlusIcon className="size-4" />
-            )}
-            Add
-          </Button>
-          <Button type="button" variant="secondary" onClick={onCancel}>
-            <XIcon className="size-4" />
-            Cancel
-          </Button>
-        </div>
-      </div>
-      <p className="text-muted-foreground text-xs">
-        The user must have signed in with Google at least once.
-      </p>
-    </form>
   )
 }

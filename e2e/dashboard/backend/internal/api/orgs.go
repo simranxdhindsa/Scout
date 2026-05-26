@@ -115,7 +115,17 @@ func (h *orgHandler) ListMyOrgs(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
 	orgQ := queries.NewOrgQueries(h.svc.DB)
 
-	orgs, err := orgQ.ListForUser(r.Context(), claims.UserID)
+	includeInactive := r.URL.Query().Get("include_inactive") == "true"
+
+	var (
+		orgs []queries.Organization
+		err  error
+	)
+	if includeInactive {
+		orgs, err = orgQ.ListAllForUser(r.Context(), claims.UserID)
+	} else {
+		orgs, err = orgQ.ListForUser(r.Context(), claims.UserID)
+	}
 	if err != nil {
 		writeError(w, "failed to list orgs", http.StatusInternalServerError)
 		return

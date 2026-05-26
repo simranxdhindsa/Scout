@@ -110,12 +110,20 @@ export default function IntegrationsPage() {
     setIntegrations(await gitlabApi.list(org.id))
   }
 
-  const startConnect = () => {
+  const startConnect = async () => {
     if (!org) return
-    window.location.href = gitlabApi.connectUrl(
-      org.id,
-      window.location.origin + "/dashboard/settings/integrations",
-    )
+    try {
+      const url = await gitlabApi.startConnect(
+        org.id,
+        "/dashboard/settings/integrations",
+      )
+      window.location.href = url
+    } catch (err) {
+      setToast({
+        kind: "error",
+        text: readError(err, "Failed to start GitLab connection"),
+      })
+    }
   }
 
   return (
@@ -159,7 +167,8 @@ export default function IntegrationsPage() {
           <div>
             <h2 className="text-base font-semibold">GitLab</h2>
             <p className="text-muted-foreground mt-1 text-sm">
-              Connect a GitLab account to this organisation. You'll pick the
+              Connect your GitLab account. Connections are personal — each user
+              in the organisation manages their own. You'll pick the
               repository, branch, and subfolder when creating a project.
             </p>
           </div>
@@ -170,7 +179,7 @@ export default function IntegrationsPage() {
         ) : integrations.length === 0 ? (
           <div className="ring-border/40 flex flex-col items-center gap-3 py-10 text-center ring-1">
             <p className="text-muted-foreground text-sm">
-              No GitLab account is connected to this organisation yet.
+              You haven't connected a GitLab account yet.
             </p>
             <Button onClick={startConnect} disabled={!org}>
               <GitlabIcon className="size-4" />
@@ -280,8 +289,8 @@ function IntegrationCard({
               <span className="font-medium">
                 {integration.gitlab_username || "this GitLab account"}
               </span>{" "}
-              from the organisation. Projects connected to its repositories
-              will no longer sync.
+              from your account. Projects pointing at this repository will be
+              syncable again once you (or another org member) reconnect.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -81,32 +81,16 @@ export default function ProjectPage() {
     setSyncMessage(null)
     setError(null)
     try {
-      // Backend SyncRepo reads repo/branch from the integration record, not
-      // from product_gitlab_links. Push them onto the integration first so
-      // existing projects (linked before this was added) can sync.
-      let subProjects = await subProjectsApi.list(orgId, product.id)
+      // Ensure the product has at least one subproject for the importer to write into.
+      const subProjects = await subProjectsApi.list(orgId, product.id)
       if (subProjects.length === 0) {
-        // Freshly-created project has no subproject yet — create a default
-        // one so SyncRepo has somewhere to import folders/tests into.
-        const created = await subProjectsApi.create(orgId, product.id, {
+        await subProjectsApi.create(orgId, product.id, {
           name: "Default",
           slug: "default",
         })
-        subProjects = [created]
       }
-      await gitlabApi.update(orgId, product.gitlab.integration_id, {
-        repo_id: product.gitlab.repo_id,
-        repo_name: product.gitlab.repo_name,
-        repo_url: product.gitlab.repo_url,
-        branch: product.gitlab.branch,
-        repo_path: product.gitlab.repo_path,
-        subproject_id: subProjects[0]?.id ?? null,
-      })
 
-      const result = await gitlabApi.sync(
-        orgId,
-        product.gitlab.integration_id,
-      )
+      const result = await gitlabApi.syncProduct(orgId, product.id)
       const parts = [
         result.added ? `${result.added} added` : null,
         result.updated ? `${result.updated} updated` : null,

@@ -9,10 +9,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Integration represents a stored GitLab connection for an org.
+// Integration represents a stored GitLab connection owned by a single user
+// inside an organisation.
 type Integration struct {
 	ID             uuid.UUID  `json:"id"`
 	OrgID          uuid.UUID  `json:"org_id"`
+	UserID         uuid.UUID  `json:"user_id"`
 	SubProjectID   *uuid.UUID `json:"subproject_id"`
 	GitLabUserID   string     `json:"gitlab_user_id"`
 	GitLabUsername string     `json:"gitlab_username"`
@@ -38,58 +40,23 @@ func newDB(db *pgxpool.Pool) *gitLabDB {
 	return &gitLabDB{db: db}
 }
 
-func (q *gitLabDB) listByOrg(ctx context.Context, orgID uuid.UUID) ([]Integration, error) {
-	rows, err := q.db.Query(ctx, `
-		SELECT id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		       access_token, refresh_token, token_expires_at,
-		       repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
-		       created_at, updated_at
-		FROM gitlab_integrations
-		WHERE org_id = $1
-		ORDER BY created_at ASC
-	`, orgID)
-	if err != nil {
-		return nil, fmt.Errorf("list gitlab integrations: %w", err)
-	}
-	defer rows.Close()
+const integrationCols = `id, org_id, user_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
+	       access_token, refresh_token, token_expires_at,
+	       repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
+	       created_at, updated_at`
 
-	var list []Integration
-	for rows.Next() {
-		var i Integration
-		var refresh *string
-		if err := rows.Scan(
-			&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
-			&i.GitLabAvatar, &i.AccessToken, &refresh, &i.TokenExpiresAt,
-			&i.RepoID, &i.RepoName, &i.RepoURL,
-			&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		if refresh != nil {
-			i.RefreshToken = *refresh
-		}
-		list = append(list, i)
-	}
-	return list, rows.Err()
-}
-
-func (q *gitLabDB) getByID(ctx context.Context, id uuid.UUID) (*Integration, error) {
+func scanIntegration(scanner interface {
+	Scan(...any) error
+}) (*Integration, error) {
 	var i Integration
 	var refresh *string
-	err := q.db.QueryRow(ctx, `
-		SELECT id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		       access_token, refresh_token, token_expires_at,
-		       repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
-		       created_at, updated_at
-		FROM gitlab_integrations WHERE id = $1
-	`, id).Scan(
-		&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
+	if err := scanner.Scan(
+		&i.ID, &i.OrgID, &i.UserID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
 		&i.GitLabAvatar, &i.AccessToken, &refresh, &i.TokenExpiresAt,
 		&i.RepoID, &i.RepoName, &i.RepoURL,
 		&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("get gitlab integration: %w", err)
+	); err != nil {
+		return nil, err
 	}
 	if refresh != nil {
 		i.RefreshToken = *refresh
@@ -97,20 +64,77 @@ func (q *gitLabDB) getByID(ctx context.Context, id uuid.UUID) (*Integration, err
 	return &i, nil
 }
 
-func (q *gitLabDB) upsert(ctx context.Context, orgID uuid.UUID, userID, username, avatar, accessToken, refreshToken string, expiresAt *time.Time, repoID int64, repoName, repoURL, branch string) (*Integration, error) {
-	var i Integration
+func (q *gitLabDB) listByOrgUser(ctx context.Context, orgID, userID uuid.UUID) ([]Integration, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT `+integrationCols+`
+		FROM gitlab_integrations
+		WHERE org_id = $1 AND user_id = $2
+		ORDER BY created_at ASC
+	`, orgID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list gitlab integrations: %w", err)
+	}
+	defer rows.Close()
+
+	var list []Integration
+	for rows.Next() {
+		i, err := scanIntegration(rows)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, *i)
+	}
+	return list, rows.Err()
+}
+
+func (q *gitLabDB) getByID(ctx context.Context, id uuid.UUID) (*Integration, error) {
+	i, err := scanIntegration(q.db.QueryRow(ctx, `
+		SELECT `+integrationCols+` FROM gitlab_integrations WHERE id = $1
+	`, id))
+	if err != nil {
+		return nil, fmt.Errorf("get gitlab integration: %w", err)
+	}
+	return i, nil
+}
+
+// getOwnedByID returns an integration only if it belongs to the given user.
+// Returns pgx.ErrNoRows otherwise — handlers should translate that to 404/403.
+func (q *gitLabDB) getOwnedByID(ctx context.Context, id, userID uuid.UUID) (*Integration, error) {
+	i, err := scanIntegration(q.db.QueryRow(ctx, `
+		SELECT `+integrationCols+` FROM gitlab_integrations WHERE id = $1 AND user_id = $2
+	`, id, userID))
+	if err != nil {
+		return nil, fmt.Errorf("get gitlab integration: %w", err)
+	}
+	return i, nil
+}
+
+// findByOrgUserRepo locates the caller's integration for a specific repo so a
+// product sync can resolve "use whoever is running it" auth.
+func (q *gitLabDB) findByOrgUserRepo(ctx context.Context, orgID, userID uuid.UUID, repoID int64) (*Integration, error) {
+	i, err := scanIntegration(q.db.QueryRow(ctx, `
+		SELECT `+integrationCols+`
+		FROM gitlab_integrations
+		WHERE org_id = $1 AND user_id = $2 AND repo_id = $3
+	`, orgID, userID, repoID))
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+func (q *gitLabDB) upsert(ctx context.Context, orgID, userID uuid.UUID, gitlabUserID, username, avatar, accessToken, refreshToken string, expiresAt *time.Time, repoID int64, repoName, repoURL, branch string) (*Integration, error) {
 	var refresh *string
 	if refreshToken != "" {
 		refresh = &refreshToken
 	}
-	var refreshOut *string
-	err := q.db.QueryRow(ctx, `
+	i, err := scanIntegration(q.db.QueryRow(ctx, `
 		INSERT INTO gitlab_integrations
-		  (org_id, gitlab_user_id, gitlab_username, gitlab_avatar, access_token,
+		  (org_id, user_id, gitlab_user_id, gitlab_username, gitlab_avatar, access_token,
 		   refresh_token, token_expires_at,
 		   repo_id, repo_name, repo_url, branch)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		ON CONFLICT (org_id, repo_id) DO UPDATE
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT (org_id, user_id, repo_id) DO UPDATE
 		  SET gitlab_user_id    = EXCLUDED.gitlab_user_id,
 		      gitlab_username   = EXCLUDED.gitlab_username,
 		      gitlab_avatar     = EXCLUDED.gitlab_avatar,
@@ -121,23 +145,12 @@ func (q *gitLabDB) upsert(ctx context.Context, orgID uuid.UUID, userID, username
 		      repo_url          = EXCLUDED.repo_url,
 		      branch            = EXCLUDED.branch,
 		      updated_at        = NOW()
-		RETURNING id, org_id, subproject_id, gitlab_user_id, gitlab_username, gitlab_avatar,
-		          access_token, refresh_token, token_expires_at,
-		          repo_id, repo_name, repo_url, branch, repo_path, last_synced_at,
-		          created_at, updated_at
-	`, orgID, userID, username, avatar, accessToken, refresh, expiresAt, repoID, repoName, repoURL, branch).Scan(
-		&i.ID, &i.OrgID, &i.SubProjectID, &i.GitLabUserID, &i.GitLabUsername,
-		&i.GitLabAvatar, &i.AccessToken, &refreshOut, &i.TokenExpiresAt,
-		&i.RepoID, &i.RepoName, &i.RepoURL,
-		&i.Branch, &i.RepoPath, &i.LastSyncedAt, &i.CreatedAt, &i.UpdatedAt,
-	)
+		RETURNING `+integrationCols+`
+	`, orgID, userID, gitlabUserID, username, avatar, accessToken, refresh, expiresAt, repoID, repoName, repoURL, branch))
 	if err != nil {
 		return nil, fmt.Errorf("upsert gitlab integration: %w", err)
 	}
-	if refreshOut != nil {
-		i.RefreshToken = *refreshOut
-	}
-	return &i, nil
+	return i, nil
 }
 
 func (q *gitLabDB) updateTokens(ctx context.Context, id uuid.UUID, accessToken, refreshToken string, expiresAt *time.Time) error {

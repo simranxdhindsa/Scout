@@ -125,11 +125,29 @@ export type OrgInput = {
   slug: string
 }
 
+export type OrgUpdateInput = {
+  name: string
+  slug: string
+  is_active: boolean
+  theme?: Record<string, string>
+}
+
 export const orgsApi = {
-  list: () =>
-    api.get<{ orgs: ScoutOrg[] }>("/orgs").then((r) => r.data.orgs),
+  list: (opts?: { includeInactive?: boolean }) =>
+    api
+      .get<{ orgs: ScoutOrg[] }>("/orgs", {
+        params: opts?.includeInactive ? { include_inactive: "true" } : undefined,
+      })
+      .then((r) => r.data.orgs),
   create: (body: OrgInput) =>
     api.post<ScoutOrg>("/orgs", body).then((r) => r.data),
+  update: (orgId: string, body: OrgUpdateInput) =>
+    api
+      .put<ScoutOrg>(`/admin/orgs/${orgId}`, {
+        theme: {},
+        ...body,
+      })
+      .then((r) => r.data),
 }
 
 export type ProductGitlabLink = {
@@ -371,16 +389,21 @@ export const gitlabApi = {
         body,
       )
       .then((r) => r.data),
-  sync: (orgId: string, integrationId: string) =>
+  syncProduct: (orgId: string, productId: string) =>
     api
       .post<GitlabSyncResult>(
-        `/orgs/${orgId}/integrations/gitlab/${integrationId}/sync`,
+        `/orgs/${orgId}/products/${productId}/gitlab/sync`,
       )
       .then((r) => r.data),
   disconnect: (orgId: string, integrationId: string) =>
     api.delete(`/orgs/${orgId}/integrations/gitlab/${integrationId}`),
-  connectUrl: (orgId: string, returnTo: string) =>
-    `${API_BASE_URL}/api/v1/orgs/${orgId}/integrations/gitlab/connect?return_to=${encodeURIComponent(returnTo)}`,
+  startConnect: (orgId: string, returnTo: string) =>
+    api
+      .get<{ url: string }>(
+        `/orgs/${orgId}/integrations/gitlab/connect-url`,
+        { params: { return_to: returnTo } },
+      )
+      .then((r) => r.data.url),
 }
 
 export const AI_MODELS = [
@@ -496,6 +519,17 @@ export type Environment = {
   id: string
   name: string
   label: string
+  base_url: string
+  username: string
+  password: string
+}
+
+export type EnvironmentInput = {
+  name: string
+  label?: string
+  base_url?: string
+  username?: string
+  password?: string
 }
 
 export const environmentsApi = {
@@ -503,15 +537,11 @@ export const environmentsApi = {
     api
       .get<{ environments: Environment[] }>(`/orgs/${orgId}/environments`)
       .then((r) => r.data.environments),
-  create: (orgId: string, body: { name: string; label?: string }) =>
+  create: (orgId: string, body: EnvironmentInput) =>
     api
       .post<Environment>(`/orgs/${orgId}/environments`, body)
       .then((r) => r.data),
-  update: (
-    orgId: string,
-    envId: string,
-    body: { name: string; label?: string },
-  ) =>
+  update: (orgId: string, envId: string, body: EnvironmentInput) =>
     api
       .put<Environment>(`/orgs/${orgId}/environments/${envId}`, body)
       .then((r) => r.data),

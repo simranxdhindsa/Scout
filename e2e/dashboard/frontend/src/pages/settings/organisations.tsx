@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
-import { PlusIcon } from "lucide-react"
+import { PencilIcon, PlusIcon } from "lucide-react"
 
 import { AddOrganisationDialog } from "@/components/dialogs/add-organisation-dialog"
+import { EditOrganisationDialog } from "@/components/dialogs/edit-organisation-dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/lib/auth"
@@ -14,10 +15,11 @@ export default function OrganisationsPage() {
     storeOrgs.length > 0 ? storeOrgs : null,
   )
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editOrg, setEditOrg] = useState<ScoutOrg | null>(null)
 
   const refresh = async () => {
     try {
-      setOrgs(await orgsApi.list())
+      setOrgs(await orgsApi.list({ includeInactive: true }))
     } catch {
       setOrgs(storeOrgs)
     }
@@ -78,15 +80,25 @@ export default function OrganisationsPage() {
                     {org.slug}
                   </div>
                 </div>
-                <span
-                  className={`px-2 py-0.5 text-[10px] font-medium tracking-wider uppercase ring-1 ${
-                    org.is_active
-                      ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
-                      : "bg-muted text-muted-foreground ring-border/40"
-                  }`}
-                >
-                  {org.is_active ? "Active" : "Inactive"}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`px-2 py-0.5 text-[10px] font-medium tracking-wider uppercase ring-1 ${
+                      org.is_active
+                        ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                        : "bg-muted text-muted-foreground ring-border/40"
+                    }`}
+                  >
+                    {org.is_active ? "Active" : "Inactive"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setEditOrg(org)}
+                    aria-label={`Edit ${org.name}`}
+                  >
+                    <PencilIcon className="size-4" />
+                  </Button>
+                </div>
               </div>
             ))
           )}
@@ -97,6 +109,18 @@ export default function OrganisationsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreated={async () => {
+          await refresh()
+          await loadMe()
+        }}
+      />
+
+      <EditOrganisationDialog
+        org={editOrg}
+        open={editOrg !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditOrg(null)
+        }}
+        onSaved={async () => {
           await refresh()
           await loadMe()
         }}

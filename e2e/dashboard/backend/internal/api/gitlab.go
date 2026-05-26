@@ -2,10 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
+	"github.com/apyhub/scout/internal/auth"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type gitLabHandler struct {
@@ -16,33 +19,31 @@ func newGitLabHandler(svc Services) *gitLabHandler {
 	return &gitLabHandler{svc: svc}
 }
 
-// InitiateOAuth redirects the user to GitLab's OAuth consent page.
-// GET /api/v1/orgs/{orgId}/integrations/gitlab/connect
-func (h *gitLabHandler) InitiateOAuth(w http.ResponseWriter, r *http.Request) {
-	clientID := h.svc.Config.GitLabClientID
-	clientSecret := h.svc.Config.GitLabClientSecret
-	baseURL := h.svc.Config.GitLabBaseURL
-
-	log.Printf("[gitlab] connect clicked — GITLAB_CLIENT_ID=%q (len=%d) GITLAB_CLIENT_SECRET len=%d GITLAB_BASE_URL=%q",
-		clientID, len(clientID), len(clientSecret), baseURL)
-
+// ConnectURL returns the GitLab OAuth consent URL for the caller. The SPA
+// then navigates to that URL. Authed so the user identity is bound into the
+// state before the browser leaves for GitLab.
+// GET /api/v1/orgs/{orgId}/integrations/gitlab/connect-url
+func (h *gitLabHandler) ConnectURL(w http.ResponseWriter, r *http.Request) {
 	if !h.svc.GitLab.IsConfigured() {
 		log.Printf("[gitlab] IsConfigured=false — client_id or client_secret is empty, aborting")
 		writeError(w, "GitLab OAuth is not configured on this server", http.StatusNotImplemented)
 		return
 	}
 
-	log.Printf("[gitlab] IsConfigured=true — proceeding with OAuth redirect")
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	orgID := r.PathValue("orgId")
 	returnTo := r.URL.Query().Get("return_to")
 	if returnTo == "" {
-		returnTo = "/settings/integrations"
+		returnTo = "/dashboard/settings/integrations"
 	}
 
-	authURL := h.svc.GitLab.AuthURL(orgID, returnTo)
-	log.Printf("[gitlab] redirecting to: %s", authURL)
-	http.Redirect(w, r, authURL, http.StatusFound)
+	url := h.svc.GitLab.AuthURL(orgID, claims.UserID.String(), returnTo)
+	writeJSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
 // OAuthCallback handles the redirect from GitLab after the user authorizes.
@@ -56,7 +57,7 @@ func (h *gitLabHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orgIDStr, returnTo, err := h.svc.GitLab.DecodeState(state)
+	orgIDStr, userIDStr, returnTo, err := h.svc.GitLab.DecodeState(state)
 	if err != nil {
 		writeError(w, "invalid state parameter", http.StatusBadRequest)
 		return
@@ -67,8 +68,13 @@ func (h *gitLabHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "invalid org id in state", http.StatusBadRequest)
 		return
 	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		writeError(w, "invalid user id in state", http.StatusBadRequest)
+		return
+	}
 
-	_, err = h.svc.GitLab.ExchangeCode(r.Context(), code, orgID)
+	_, err = h.svc.GitLab.ExchangeCode(r.Context(), code, orgID, userID)
 	if err != nil {
 		writeError(w, "oauth exchange failed: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -81,7 +87,7 @@ func (h *gitLabHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
-// ListIntegrations returns all GitLab integrations for an org.
+// ListIntegrations returns the caller's GitLab integrations inside the org.
 // GET /api/v1/orgs/{orgId}/integrations/gitlab
 func (h *gitLabHandler) ListIntegrations(w http.ResponseWriter, r *http.Request) {
 	orgID, err := uuid.Parse(r.PathValue("orgId"))
@@ -89,8 +95,13 @@ func (h *gitLabHandler) ListIntegrations(w http.ResponseWriter, r *http.Request)
 		writeError(w, "invalid org id", http.StatusBadRequest)
 		return
 	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	list, err := h.svc.GitLab.ListIntegrations(r.Context(), orgID)
+	list, err := h.svc.GitLab.ListIntegrations(r.Context(), orgID, claims.UserID)
 	if err != nil {
 		writeError(w, "failed to list integrations", http.StatusInternalServerError)
 		return
@@ -99,16 +110,39 @@ func (h *gitLabHandler) ListIntegrations(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]interface{}{"integrations": list})
 }
 
-// ListRepos returns the GitLab repos accessible to a connected integration.
-// GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/repos
-func (h *gitLabHandler) ListRepos(w http.ResponseWriter, r *http.Request) {
+// requireOwnedIntegration parses {integrationId} and verifies the caller owns it.
+// On failure it writes the error response and returns nil.
+func (h *gitLabHandler) requireOwnedIntegration(w http.ResponseWriter, r *http.Request) *uuid.UUID {
 	integrationID, err := uuid.Parse(r.PathValue("integrationId"))
 	if err != nil {
 		writeError(w, "invalid integration id", http.StatusBadRequest)
+		return nil
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, "unauthorized", http.StatusUnauthorized)
+		return nil
+	}
+	if _, err := h.svc.GitLab.GetOwnedIntegration(r.Context(), integrationID, claims.UserID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, "integration not found", http.StatusNotFound)
+		} else {
+			writeError(w, "integration lookup failed", http.StatusInternalServerError)
+		}
+		return nil
+	}
+	return &integrationID
+}
+
+// ListRepos returns the GitLab repos accessible to a connected integration.
+// GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/repos
+func (h *gitLabHandler) ListRepos(w http.ResponseWriter, r *http.Request) {
+	integrationID := h.requireOwnedIntegration(w, r)
+	if integrationID == nil {
 		return
 	}
 
-	repos, err := h.svc.GitLab.ListUserRepos(r.Context(), integrationID)
+	repos, err := h.svc.GitLab.ListUserRepos(r.Context(), *integrationID)
 	if err != nil {
 		writeError(w, "failed to list repos: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -120,11 +154,11 @@ func (h *gitLabHandler) ListRepos(w http.ResponseWriter, r *http.Request) {
 // UpdateIntegration saves the repo, branch, and subproject settings.
 // PUT /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}
 func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request) {
-	integrationID, err := uuid.Parse(r.PathValue("integrationId"))
-	if err != nil {
-		writeError(w, "invalid integration id", http.StatusBadRequest)
+	integrationIDPtr := h.requireOwnedIntegration(w, r)
+	if integrationIDPtr == nil {
 		return
 	}
+	integrationID := *integrationIDPtr
 
 	var body struct {
 		SubProjectID string `json:"subproject_id"`
@@ -153,6 +187,7 @@ func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.svc.GitLab.UpdateSettings(r.Context(), integrationID, subprojectID, body.RepoID, body.RepoName, body.RepoURL, body.Branch, body.RepoPath); err != nil {
+
 		writeError(w, "update failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -169,13 +204,12 @@ func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request
 // ListDirs returns all directories in a repo for the folder picker.
 // GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/dirs
 func (h *gitLabHandler) ListDirs(w http.ResponseWriter, r *http.Request) {
-	integrationID, err := uuid.Parse(r.PathValue("integrationId"))
-	if err != nil {
-		writeError(w, "invalid integration id", http.StatusBadRequest)
+	integrationID := h.requireOwnedIntegration(w, r)
+	if integrationID == nil {
 		return
 	}
 
-	dirs, err := h.svc.GitLab.ListRepoDirs(r.Context(), integrationID)
+	dirs, err := h.svc.GitLab.ListRepoDirs(r.Context(), *integrationID)
 	if err != nil {
 		writeError(w, "failed to list dirs: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -187,34 +221,44 @@ func (h *gitLabHandler) ListDirs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"dirs": dirs})
 }
 
-// SyncIntegration pulls spec files from the configured repo and imports them.
-// POST /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/sync
-func (h *gitLabHandler) SyncIntegration(w http.ResponseWriter, r *http.Request) {
-	integrationID, err := uuid.Parse(r.PathValue("integrationId"))
+// SyncProduct pulls spec files using the caller's integration for the
+// product's linked repo, into the product's configured sub_project.
+// POST /api/v1/orgs/{orgId}/products/{productId}/gitlab/sync
+func (h *gitLabHandler) SyncProduct(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
 	if err != nil {
-		writeError(w, "invalid integration id", http.StatusBadRequest)
+		writeError(w, "invalid org id", http.StatusBadRequest)
+		return
+	}
+	productID, err := uuid.Parse(r.PathValue("productId"))
+	if err != nil {
+		writeError(w, "invalid product id", http.StatusBadRequest)
+		return
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims == nil {
+		writeError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	result, err := h.svc.GitLab.SyncRepo(r.Context(), integrationID)
+	result, err := h.svc.GitLab.SyncProductRepo(r.Context(), orgID, productID, claims.UserID)
 	if err != nil {
-		writeError(w, "sync failed: "+err.Error(), http.StatusInternalServerError)
+		writeError(w, "sync failed: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, result)
 }
 
-// DeleteIntegration disconnects a GitLab repo from an org.
+// DeleteIntegration disconnects a caller-owned GitLab integration.
 // DELETE /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}
 func (h *gitLabHandler) DeleteIntegration(w http.ResponseWriter, r *http.Request) {
-	integrationID, err := uuid.Parse(r.PathValue("integrationId"))
-	if err != nil {
-		writeError(w, "invalid integration id", http.StatusBadRequest)
+	integrationID := h.requireOwnedIntegration(w, r)
+	if integrationID == nil {
 		return
 	}
 
-	if err := h.svc.GitLab.DeleteIntegration(r.Context(), integrationID); err != nil {
+	if err := h.svc.GitLab.DeleteIntegration(r.Context(), *integrationID); err != nil {
 		writeError(w, "delete failed", http.StatusInternalServerError)
 		return
 	}
