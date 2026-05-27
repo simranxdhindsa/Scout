@@ -100,7 +100,7 @@ export default defineConfig({
   reporter: [
     ['json', { outputFile: '%s' }],
     ['html', { outputFolder: '%s', open: 'never' }],
-    ['line'],
+    ['list', { printSteps: false }],
   ],
   use: {
     // Injected by Scout runner as OS-level env vars — never written to disk.

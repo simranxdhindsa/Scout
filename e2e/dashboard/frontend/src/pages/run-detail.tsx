@@ -117,23 +117,48 @@ export default function RunDetailPage() {
   }, [orgId, runId])
 
   // Tap the run's stdout/stderr/status stream while it's in progress.
+  // We depend on the actual status string (not just `inProgress`) so the
+  // effect re-fires on queued → running, and we retry the socket if it
+  // closes while the run is still active (e.g. opened before the worker
+  // picked up the job, when the hub didn't yet exist server-side).
+  const status = detail?.run.status
   useEffect(() => {
-    if (!orgId || !runId || !inProgress) return
-    const ws = new WebSocket(runStreamUrl(orgId, runId))
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data) as StreamLine
-        if (msg.type === "done") return
-        setLines((prev) => [...prev, msg])
-      } catch {
-        /* ignore malformed frames */
+    if (!orgId || !runId) return
+    if (status !== "queued" && status !== "running") return
+
+    let closedByCleanup = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let ws: WebSocket | null = null
+
+    const connect = () => {
+      const sock = new WebSocket(runStreamUrl(orgId, runId))
+      ws = sock
+      sock.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data) as StreamLine
+          // Server sends an "error" frame + closes when the hub doesn't
+          // exist yet; don't surface that as a real line.
+          if (msg.type === "done" || msg.type === "error") return
+          setLines((prev) => [...prev, msg])
+        } catch {
+          /* ignore malformed frames */
+        }
+      }
+      sock.onclose = () => {
+        if (closedByCleanup) return
+        // Run is still active → reconnect after a short backoff.
+        retryTimer = setTimeout(connect, 1000)
       }
     }
-    ws.onerror = () => {
-      /* the polling fallback above still loads the run; nothing to surface */
+
+    connect()
+
+    return () => {
+      closedByCleanup = true
+      if (retryTimer) clearTimeout(retryTimer)
+      ws?.close()
     }
-    return () => ws.close()
-  }, [orgId, runId, inProgress])
+  }, [orgId, runId, status])
 
   const handleStop = async () => {
     if (!orgId || !runId) return
@@ -268,7 +293,9 @@ export default function RunDetailPage() {
         </p>
       ) : null}
 
-      {lines.length > 0 ? <TerminalPanel lines={lines} /> : null}
+      {lines.length > 0 || inProgress ? (
+        <TerminalPanel lines={lines} inProgress={inProgress} />
+      ) : null}
 
       <div className="bg-muted/30 ring-border/40 flex flex-col ring-1">
         <div className="border-border/40 flex items-center justify-between border-b px-4 py-2 text-xs">
@@ -331,7 +358,13 @@ function Stat({
   )
 }
 
-function TerminalPanel({ lines }: { lines: StreamLine[] }) {
+function TerminalPanel({
+  lines,
+  inProgress,
+}: {
+  lines: StreamLine[]
+  inProgress: boolean
+}) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -354,6 +387,12 @@ function TerminalPanel({ lines }: { lines: StreamLine[] }) {
         ref={scrollRef}
         className="max-h-96 overflow-auto p-3 font-mono text-xs leading-5"
       >
+        {lines.length === 0 && inProgress ? (
+          <div className="flex items-center gap-2 text-zinc-500">
+            <Loader2Icon className="size-3.5 animate-spin" />
+            Waiting for output…
+          </div>
+        ) : null}
         {lines.map((line, i) => (
           <div
             key={i}

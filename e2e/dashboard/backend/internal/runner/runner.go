@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/creack/pty"
+
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/notifications"
 	"github.com/apyhub/scout/internal/storage"
@@ -113,7 +115,7 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	var creds map[string]string
+	creds := map[string]string{}
 	if len(credsJSON) > 0 {
 		_ = json.Unmarshal(credsJSON, &creds)
 	}
@@ -125,10 +127,18 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// Resolve base URL from environment
+	// Resolve base URL + credentials from the environment, with per-run
+	// credentials taking precedence over the environment's defaults.
 	baseURL := ""
 	if run.EnvironmentID != nil {
 		baseURL, _ = s.getEnvBaseURL(ctx, *run.EnvironmentID)
+		envUser, envPass := s.getEnvCredentials(ctx, *run.EnvironmentID)
+		if creds["email"] == "" {
+			creds["email"] = envUser
+		}
+		if creds["password"] == "" {
+			creds["password"] = envPass
+		}
 	}
 
 	// Fetch all run items to know which tests to execute
@@ -222,21 +232,10 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		"NODE_PATH="+hostNodeModules,
 	)
 
-	// Stream stdout + stderr via WebSocket, and keep a tail of stderr (+ any
-	// stdout error lines) so we can persist them in the failure message if
-	// Playwright exits without writing results.json.
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
-
-	if err := cmd.Start(); err != nil {
-		s.failRun(ctx, runID, orgID, fmt.Sprintf("start playwright: %v", err))
-		return
-	}
-
-	// Keep diagnostic stderr/stdout context: a ring of the last 60 lines plus
-	// any line that looks like a top-of-error summary (e.g. "Error: Cannot find
-	// module ..."), since those carry the action-relevant info but tend to sit
-	// far above the rest of the stack.
+	// Keep diagnostic context for failure messages: a ring of the last 60 lines
+	// plus any line that looks like a top-of-error summary (e.g. "Error: Cannot
+	// find module ..."), since those carry the action-relevant info but tend to
+	// sit far above the rest of the stack.
 	const tailCap = 60
 	var tailMu sync.Mutex
 	tail := make([]string, 0, tailCap)
@@ -261,28 +260,30 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		tail = append(tail, s)
 	}
 
-	var streamWG sync.WaitGroup
-	streamWG.Add(2)
-	go func() {
-		defer streamWG.Done()
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			s.streams.Publish(ctx, runID, "stdout", line)
-			appendTail(line)
-		}
-	}()
-	go func() {
-		defer streamWG.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			s.streams.Publish(ctx, runID, "stderr", line)
-			appendTail(line)
-		}
-	}()
+	// Run via a pseudo-TTY so Node sees stdout as interactive and switches to
+	// line-buffered output. Without this the child holds output in its internal
+	// buffer and we receive nothing until the run ends.
+	ptyF, err := pty.Start(cmd)
+	if err != nil {
+		s.failRun(ctx, runID, orgID, fmt.Sprintf("start playwright: %v", err))
+		return
+	}
+	defer ptyF.Close()
 
-	streamWG.Wait()
+	scanner := bufio.NewScanner(ptyF)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	// Split on either \n or \r so progress-bar-style reporters (which redraw
+	// the same line with \r) still produce per-update frames on the WS.
+	scanner.Split(splitOnCRorLF)
+	for scanner.Scan() {
+		line := strings.TrimRight(scanner.Text(), "\r\n")
+		if line == "" {
+			continue
+		}
+		s.streams.Publish(ctx, runID, "stdout", line)
+		appendTail(line)
+	}
+
 	runErr := cmd.Wait()
 
 	// Parse results even if playwright exited non-zero (failed tests)
@@ -359,6 +360,24 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// splitOnCRorLF is a bufio.SplitFunc that yields a token whenever it sees
+// either \n or \r, so a reporter that "redraws" with \r still produces
+// frames we can stream to the dashboard.
+func splitOnCRorLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	for i, b := range data {
+		if b == '\n' || b == '\r' {
+			return i + 1, data[:i], nil
+		}
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
 func (s *Service) failRun(ctx context.Context, runID, orgID uuid.UUID, reason string) {
 	log.Printf("[runner] run %s failed: %s", runID, reason)
 	s.streams.Publish(ctx, runID, "error", reason)
@@ -368,14 +387,38 @@ func (s *Service) failRun(ctx context.Context, runID, orgID uuid.UUID, reason st
 	s.notifyCompletion(ctx, runID, orgID, "failed", nil)
 }
 
+// getEnvBaseURL resolves the base URL for a run. Precedence:
+//
+//  1. subproject_env_urls.base_url (per-subproject override)
+//  2. environments.base_url        (environment-level default)
+//
+// Either may be empty; the caller decides whether that's fatal.
 func (s *Service) getEnvBaseURL(ctx context.Context, envID uuid.UUID) (string, error) {
-	var baseURL string
+	var override, envBase string
 	err := s.db.QueryRow(ctx,
-		`SELECT COALESCE(seu.base_url, '') FROM environments e
-		 LEFT JOIN subproject_env_urls seu ON seu.environment_id = e.id
-		 WHERE e.id = $1 LIMIT 1`, envID,
-	).Scan(&baseURL)
-	return baseURL, err
+		`SELECT COALESCE((
+		   SELECT base_url FROM subproject_env_urls WHERE environment_id = $1 LIMIT 1
+		 ), ''),
+		 COALESCE(e.base_url, '')
+		 FROM environments e WHERE e.id = $1`, envID,
+	).Scan(&override, &envBase)
+	if err != nil {
+		return "", err
+	}
+	if override != "" {
+		return override, nil
+	}
+	return envBase, nil
+}
+
+// getEnvCredentials returns the environment-level username/password used as a
+// fallback when a run doesn't carry its own credentials_json.
+func (s *Service) getEnvCredentials(ctx context.Context, envID uuid.UUID) (username, password string) {
+	_ = s.db.QueryRow(ctx,
+		`SELECT COALESCE(username, ''), COALESCE(password, '')
+		 FROM environments WHERE id = $1`, envID,
+	).Scan(&username, &password)
+	return username, password
 }
 
 func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr ParsedTestResult) {

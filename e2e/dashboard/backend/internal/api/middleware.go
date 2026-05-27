@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -178,6 +180,25 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack passes the hijack call through to the underlying writer so this
+// wrapper doesn't break WebSocket upgrades. Without it, websocket.Accept
+// fails with "http.ResponseWriter does not implement http.Hijacker".
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
+	}
+	return hj.Hijack()
+}
+
+// Flush passes through to the underlying writer so streaming endpoints
+// (SSE, etc.) work behind the logging middleware.
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // ── Storage handler (local only) ──────────────────────────────────────────────

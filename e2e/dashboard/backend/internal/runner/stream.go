@@ -83,8 +83,14 @@ func (m *StreamManager) Publish(ctx context.Context, runID uuid.UUID, msgType, p
 	hub, ok := m.hubs[runID]
 	m.mu.RUnlock()
 	if !ok {
+		log.Printf("[stream] publish dropped — no hub for run %s (type=%s len=%d)", runID, msgType, len(payload))
 		return
 	}
+
+	hub.mu.RLock()
+	clientCount := len(hub.clients)
+	hub.mu.RUnlock()
+	log.Printf("[stream] publish run=%s type=%s clients=%d len=%d", runID, msgType, clientCount, len(payload))
 
 	hub.broadcast(ctx, StreamMessage{
 		Type:    msgType,
@@ -117,20 +123,25 @@ func (m *StreamManager) HandleWS(w http.ResponseWriter, r *http.Request, runID u
 
 	m.mu.RLock()
 	hub, ok := m.hubs[runID]
+	hubCount := len(m.hubs)
 	m.mu.RUnlock()
 
 	if !ok {
+		log.Printf("[stream] WS connected but no hub for run %s (active hubs=%d)", runID, hubCount)
 		// Run not active — send a status message and close
-		_ = wsjson.Write(r.Context(), conn, StreamMessage{
+		if err := wsjson.Write(r.Context(), conn, StreamMessage{
 			Type:    "error",
 			Payload: "run not active or already completed",
 			RunID:   runID.String(),
 			Time:    time.Now().UTC().Format(time.RFC3339),
-		})
+		}); err != nil {
+			log.Printf("[stream] failed to write 'not active' frame: %v", err)
+		}
 		conn.Close(websocket.StatusNormalClosure, "run not active")
 		return
 	}
 
+	log.Printf("[stream] WS attached to hub for run %s", runID)
 	hub.add(conn)
 	defer hub.remove(conn)
 
