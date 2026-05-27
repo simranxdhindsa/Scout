@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Loader2Icon } from "lucide-react"
 
-import { NativeSelect } from "@/components/dialogs/add-project-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,6 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useAuthStore } from "@/lib/auth"
 import {
   gitlabApi,
@@ -99,7 +105,10 @@ function EditForm({
     gitlabApi
       .list(orgId)
       .then((list) => {
-        if (!cancelled) setIntegrations(list)
+        if (cancelled) return
+        setIntegrations(list)
+        // Default to the user's first connection when the product isn't already linked.
+        setIntegrationId((cur) => (cur === "" && list.length > 0 ? list[0].id : cur))
       })
       .catch(() => {
         if (!cancelled) setIntegrations([])
@@ -134,10 +143,15 @@ function EditForm({
       setDirs(null)
       return
     }
+    const repo = repos?.find((r) => r.id === repoId)
+    if (!repo) return
     let cancelled = false
     setDirs(null)
     gitlabApi
-      .listDirs(orgId, integrationId)
+      .listDirs(orgId, integrationId, {
+        repoId: repo.id,
+        branch: branch || repo.default_branch,
+      })
       .then((list) => {
         if (!cancelled) setDirs(list)
       })
@@ -147,7 +161,7 @@ function EditForm({
     return () => {
       cancelled = true
     }
-  }, [orgId, integrationId, repoId])
+  }, [orgId, integrationId, repoId, branch, repos])
 
   const selectedRepo = useMemo(
     () => (repoId === "" ? null : (repos?.find((r) => r.id === repoId) ?? null)),
@@ -222,8 +236,6 @@ function EditForm({
     }
   }
 
-  const hasIntegration = (integrations?.length ?? 0) > 0
-
   return (
     <DialogContent className="max-w-lg">
       <DialogHeader>
@@ -282,48 +294,39 @@ function EditForm({
           />
         </div>
 
-        {integrations === null ? null : hasIntegration ? (
+        {integrationId ? (
           <>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">GitLab account</label>
-              <NativeSelect
-                value={integrationId}
-                onChange={(v) => {
-                  setIntegrationId(v)
-                  setRepoId("")
-                  setBranch("")
-                  setRepoPath("")
-                }}
-                placeholder="Not linked"
-              >
-                <option value="">Not linked</option>
-                {integrations?.map((it) => (
-                  <option key={it.id} value={it.id}>
-                    {it.gitlab_username || "GitLab account"}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-
-            {integrationId ? (
-              <>
+            <>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium">Repository</label>
-                    <NativeSelect
-                      value={repoId === "" ? "" : String(repoId)}
-                      onChange={(v) =>
+                    <label htmlFor="edit-project-repo" className="text-sm font-medium">
+                      Repository
+                    </label>
+                    <Select
+                      value={repoId === "" ? undefined : String(repoId)}
+                      onValueChange={(v) =>
                         setRepoId(v === "" ? "" : Number(v))
                       }
-                      placeholder="Select your repo"
-                      loading={repos === null}
                     >
-                      {(repos ?? []).map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.path_with_namespace}
-                        </option>
-                      ))}
-                    </NativeSelect>
+                      <SelectTrigger
+                        id="edit-project-repo"
+                        className="bg-muted/40 w-full"
+                        loading={repos === null}
+                      >
+                        <SelectValue
+                          placeholder={
+                            repos === null ? "Loading repos…" : "Select your repo"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(repos ?? []).map((r) => (
+                          <SelectItem key={r.id} value={String(r.id)}>
+                            {r.path_with_namespace}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-medium">Branch</label>
@@ -338,29 +341,52 @@ function EditForm({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-sm font-medium">
+                  <label
+                    htmlFor="edit-project-subfolder"
+                    className="flex items-center gap-2 text-sm font-medium"
+                  >
                     Subfolder{" "}
                     <span className="text-muted-foreground font-normal">
                       (optional)
                     </span>
                   </label>
-                  <NativeSelect
-                    value={repoPath}
-                    onChange={setRepoPath}
-                    loading={repoId !== "" && dirs === null}
+                  <Select
+                    value={repoPath === "" ? "__root__" : repoPath}
+                    onValueChange={(v) =>
+                      setRepoPath(v === "__root__" ? "" : v)
+                    }
                     disabled={repoId === ""}
                   >
-                    <option value="">/ (entire repo)</option>
-                    {(dirs ?? []).map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </NativeSelect>
+                    <SelectTrigger
+                      id="edit-project-subfolder"
+                      className="bg-muted/40 w-full"
+                      loading={repoId !== "" && dirs === null}
+                    >
+                      <SelectValue
+                        placeholder={
+                          repoId !== "" && dirs === null
+                            ? "Loading folders…"
+                            : "/ (entire repo)"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__root__">/ (entire repo)</SelectItem>
+                      {(dirs ?? []).map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </>
-            ) : null}
           </>
+        ) : integrations !== null && integrations.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            Connect a GitLab account in Settings → Integrations to link this
+            project to a repository.
+          </p>
         ) : null}
 
         {error ? <p className="text-destructive text-sm">{error}</p> : null}

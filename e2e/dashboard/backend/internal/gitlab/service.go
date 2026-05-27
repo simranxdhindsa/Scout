@@ -765,18 +765,33 @@ func (s *Service) listSpecFiles(ctx context.Context, integ *Integration) ([]stri
 	return all, nil
 }
 
-// ListRepoDirs returns the top-level and nested directories in a repo for the folder picker.
-func (s *Service) ListRepoDirs(ctx context.Context, integrationID uuid.UUID) ([]string, error) {
+// ListRepoDirs returns the top-level and nested directories in a repo for the
+// folder picker. repoID and branch override whatever is saved on the integration
+// — needed because the project-creation flow picks a repo *before* it's been
+// persisted onto the integration row.
+func (s *Service) ListRepoDirs(ctx context.Context, integrationID uuid.UUID, repoID int64, branch string) ([]string, error) {
 	integ, err := s.glDB.getByID(ctx, integrationID)
 	if err != nil {
 		return nil, err
+	}
+	if repoID == 0 {
+		repoID = integ.RepoID
+	}
+	if branch == "" {
+		branch = integ.Branch
+	}
+	if repoID == 0 {
+		return nil, fmt.Errorf("no repository selected — pass repo_id or save one on the integration first")
+	}
+	if branch == "" {
+		branch = "main"
 	}
 
 	var dirs []string
 	page := 1
 	for {
 		endpoint := fmt.Sprintf("/projects/%d/repository/tree?recursive=true&ref=%s&per_page=100&page=%d",
-			integ.RepoID, url.QueryEscape(integ.Branch), page)
+			repoID, url.QueryEscape(branch), page)
 		var entries []repoTreeEntry
 		if err := s.authedGet(ctx, integ, endpoint, &entries); err != nil {
 			return nil, err

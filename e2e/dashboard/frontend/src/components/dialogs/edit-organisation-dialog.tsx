@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { orgsApi, type ScoutOrg } from "@/lib/scout-api"
 
 export function EditOrganisationDialog({
@@ -106,15 +107,22 @@ export function EditOrganisationDialog({
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="edit-org-active"
+              className="flex flex-col text-sm font-medium"
+            >
+              Active
+              <span className="text-muted-foreground text-xs font-normal">
+                Inactive organisations are hidden from the team switcher.
+              </span>
+            </label>
+            <Switch
+              id="edit-org-active"
               checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              className="size-4 accent-emerald-500"
+              onCheckedChange={setIsActive}
             />
-            Active
-          </label>
+          </div>
 
           {error ? <p className="text-destructive text-sm">{error}</p> : null}
 

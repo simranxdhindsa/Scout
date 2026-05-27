@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDownIcon, Loader2Icon } from "lucide-react"
+import { Loader2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,6 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useAuthStore } from "@/lib/auth"
 import {
   gitlabApi,
@@ -162,12 +169,16 @@ function ProjectForm({
     const repo = repos?.find((r) => r.id === repoId)
     if (repo) setBranch(repo.default_branch)
     setRepoPath("")
+    if (!repo) return
 
     let cancelled = false
     setDirs(null)
     setDirError(null)
     gitlabApi
-      .listDirs(orgId, integrationId)
+      .listDirs(orgId, integrationId, {
+        repoId: repo.id,
+        branch: repo.default_branch,
+      })
       .then((list) => {
         if (!cancelled) setDirs(list)
       })
@@ -176,8 +187,7 @@ function ProjectForm({
         setDirs([])
         setDirError(
           (err as { response?: { data?: { error?: string } } })?.response?.data
-            ?.error ??
-            "Failed to list subfolders. (The backend reads the repo from the saved integration — pick a repo + branch and click 'Create' first, then re-open settings to choose a subfolder.)",
+            ?.error ?? "Failed to list subfolders.",
         )
       })
     return () => {
@@ -287,42 +297,34 @@ function ProjectForm({
 
         {integrations === null ? null : hasIntegration ? (
           <>
-            {(integrations?.length ?? 0) > 1 ? (
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">GitLab account</label>
-                <NativeSelect
-                  value={integrationId}
-                  onChange={(v) => {
-                    setIntegrationId(v)
-                    setRepoId("")
-                    setBranch("")
-                    setRepoPath("")
-                  }}
-                >
-                  {integrations?.map((it) => (
-                    <option key={it.id} value={it.id}>
-                      {it.gitlab_username || "GitLab account"}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </div>
-            ) : null}
-
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">Repository</label>
-                <NativeSelect
-                  value={repoId === "" ? "" : String(repoId)}
-                  onChange={(v) => setRepoId(v === "" ? "" : Number(v))}
-                  placeholder="Select your repo"
-                  loading={repos === null}
+                <label className="text-sm font-medium" htmlFor="add-project-repo">
+                  Repository
+                </label>
+                <Select
+                  value={repoId === "" ? undefined : String(repoId)}
+                  onValueChange={(v) => setRepoId(v === "" ? "" : Number(v))}
                 >
-                  {(repos ?? []).map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.path_with_namespace}
-                    </option>
-                  ))}
-                </NativeSelect>
+                  <SelectTrigger
+                    id="add-project-repo"
+                    className="bg-muted/40 w-full"
+                    loading={repos === null}
+                  >
+                    <SelectValue
+                      placeholder={
+                        repos === null ? "Loading repos…" : "Select your repo"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(repos ?? []).map((r) => (
+                      <SelectItem key={r.id} value={String(r.id)}>
+                        {r.path_with_namespace}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {repoError ? (
                   <p className="text-destructive text-xs">{repoError}</p>
                 ) : null}
@@ -340,25 +342,42 @@ function ProjectForm({
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label
+                htmlFor="add-project-subfolder"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
                 Subfolder{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional — leave blank to scan entire repo)
                 </span>
               </label>
-              <NativeSelect
-                value={repoPath}
-                onChange={setRepoPath}
-                loading={repoId !== "" && dirs === null}
+              <Select
+                value={repoPath === "" ? "__root__" : repoPath}
+                onValueChange={(v) => setRepoPath(v === "__root__" ? "" : v)}
                 disabled={repoId === ""}
               >
-                <option value="">/ (entire repo)</option>
-                {(dirs ?? []).map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </NativeSelect>
+                <SelectTrigger
+                  id="add-project-subfolder"
+                  className="bg-muted/40 w-full"
+                  loading={repoId !== "" && dirs === null}
+                >
+                  <SelectValue
+                    placeholder={
+                      repoId !== "" && dirs === null
+                        ? "Loading folders…"
+                        : "/ (entire repo)"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__root__">/ (entire repo)</SelectItem>
+                  {(dirs ?? []).map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {dirError ? (
                 <p className="text-destructive text-xs">{dirError}</p>
               ) : null}
@@ -382,37 +401,3 @@ function ProjectForm({
   )
 }
 
-export function NativeSelect({
-  value,
-  onChange,
-  children,
-  placeholder,
-  loading,
-  disabled,
-}: {
-  value: string
-  onChange: (v: string) => void
-  children: React.ReactNode
-  placeholder?: string
-  loading?: boolean
-  disabled?: boolean
-}) {
-  return (
-    <div className="bg-muted/40 ring-border/40 relative ring-1">
-      <select
-        value={value}
-        disabled={loading || disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none bg-transparent px-3 py-2 text-sm outline-none disabled:opacity-60"
-      >
-        {placeholder ? (
-          <option value="" disabled hidden>
-            {placeholder}
-          </option>
-        ) : null}
-        {children}
-      </select>
-      <ChevronDownIcon className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
-    </div>
-  )
-}

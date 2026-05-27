@@ -32,8 +32,8 @@ type RunItem struct {
 	PipelineStep *int       `json:"pipeline_step"`
 	Status       string     `json:"status"`
 	DurationMs   *int       `json:"duration_ms"`
-	ErrorMessage string     `json:"error_message"`
-	ErrorStack   string     `json:"error_stack"`
+	ErrorMessage string     `json:"error_message,omitempty"`
+	ErrorStack   string     `json:"error_stack,omitempty"`
 	RetryCount   int        `json:"retry_count"`
 	StartedAt    *time.Time `json:"started_at"`
 	CompletedAt  *time.Time `json:"completed_at"`
@@ -208,7 +208,10 @@ func (q *RunQueries) CreateItem(ctx context.Context, runID uuid.UUID, testCaseID
 		INSERT INTO run_items (run_id, test_case_id, pipeline_step, status)
 		VALUES ($1, $2, $3, 'queued')
 		RETURNING id, run_id, test_case_id, pipeline_step, status,
-		          duration_ms, error_message, error_stack, retry_count, started_at, completed_at
+		          duration_ms,
+		          COALESCE(error_message, '') AS error_message,
+		          COALESCE(error_stack,   '') AS error_stack,
+		          retry_count, started_at, completed_at
 	`, runID, testCaseID, pipelineStep).Scan(
 		&item.ID, &item.RunID, &item.TestCaseID, &item.PipelineStep, &item.Status,
 		&item.DurationMs, &item.ErrorMessage, &item.ErrorStack, &item.RetryCount,
@@ -238,7 +241,10 @@ func (q *RunQueries) UpdateItem(ctx context.Context, id uuid.UUID, status string
 func (q *RunQueries) ListItems(ctx context.Context, runID uuid.UUID) ([]RunItem, error) {
 	rows, err := q.db.Query(ctx, `
 		SELECT ri.id, ri.run_id, ri.test_case_id, ri.pipeline_step, ri.status,
-		       ri.duration_ms, ri.error_message, ri.error_stack, ri.retry_count,
+		       ri.duration_ms,
+		       COALESCE(ri.error_message, '') AS error_message,
+		       COALESCE(ri.error_stack,   '') AS error_stack,
+		       ri.retry_count,
 		       ri.started_at, ri.completed_at,
 		       COALESCE(tc.name, '') AS test_case_name
 		FROM run_items ri
@@ -365,7 +371,7 @@ func (q *RunQueries) GetTrend(ctx context.Context, orgID uuid.UUID, days int) ([
 		FROM test_runs tr
 		LEFT JOIN run_reports rr ON rr.run_id = tr.id
 		WHERE tr.org_id = $1
-		  AND tr.created_at >= NOW() - ($2::TEXT || ' days')::INTERVAL
+		  AND tr.created_at >= NOW() - make_interval(days => $2::INT)
 		  AND tr.status IN ('done', 'failed')
 		GROUP BY DATE(tr.created_at)
 		ORDER BY DATE(tr.created_at) ASC

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { orgsApi, slugify } from "@/lib/scout-api"
 
 export function AddOrganisationDialog({
@@ -25,6 +26,7 @@ export function AddOrganisationDialog({
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [slugTouched, setSlugTouched] = useState(false)
+  const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,6 +35,7 @@ export function AddOrganisationDialog({
       setName("")
       setSlug("")
       setSlugTouched(false)
+      setIsActive(true)
       setError(null)
       setSaving(false)
     }
@@ -46,7 +49,11 @@ export function AddOrganisationDialog({
     setSaving(true)
     setError(null)
     try {
-      await orgsApi.create({ name: name.trim(), slug: effectiveSlug })
+      await orgsApi.create({
+        name: name.trim(),
+        slug: effectiveSlug,
+        is_active: isActive,
+      })
       await onCreated?.()
       onOpenChange(false)
     } catch (err) {
@@ -99,6 +106,23 @@ export function AddOrganisationDialog({
               placeholder="acme"
               required
               className="bg-muted/40 px-3 font-mono"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="add-org-active"
+              className="flex flex-col text-sm font-medium"
+            >
+              Active
+              <span className="text-muted-foreground text-xs font-normal">
+                Inactive organisations are hidden from the team switcher.
+              </span>
+            </label>
+            <Switch
+              id="add-org-active"
+              checked={isActive}
+              onCheckedChange={setIsActive}
             />
           </div>
 

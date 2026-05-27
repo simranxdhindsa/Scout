@@ -33,17 +33,23 @@ func (h *adminHandler) ListOrgs(w http.ResponseWriter, r *http.Request) {
 // CreateOrg handles POST /api/v1/admin/orgs
 func (h *adminHandler) CreateOrg(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name string `json:"name"`
-		Slug string `json:"slug"`
+		Name     string `json:"name"`
+		Slug     string `json:"slug"`
+		IsActive *bool  `json:"is_active"`
 	}
 	if err := decodeBody(r, &body); err != nil || body.Name == "" || body.Slug == "" {
 		writeError(w, "name and slug are required", http.StatusBadRequest)
 		return
 	}
 
+	isActive := true
+	if body.IsActive != nil {
+		isActive = *body.IsActive
+	}
+
 	claims := auth.ClaimsFromContext(r.Context())
 	orgQ := queries.NewOrgQueries(h.svc.DB)
-	org, err := orgQ.Create(r.Context(), body.Name, body.Slug)
+	org, err := orgQ.Create(r.Context(), body.Name, body.Slug, isActive)
 	if err != nil {
 		writeError(w, "failed to create org (slug may be taken)", http.StatusConflict)
 		return

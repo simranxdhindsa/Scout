@@ -123,6 +123,7 @@ export const authApi = {
 export type OrgInput = {
   name: string
   slug: string
+  is_active?: boolean
 }
 
 export type OrgUpdateInput = {
@@ -372,10 +373,20 @@ export const gitlabApi = {
         `/orgs/${orgId}/integrations/gitlab/${integrationId}/repos`,
       )
       .then((r) => r.data.repos),
-  listDirs: (orgId: string, integrationId: string) =>
+  listDirs: (
+    orgId: string,
+    integrationId: string,
+    opts?: { repoId?: number; branch?: string },
+  ) =>
     api
       .get<{ dirs: string[] }>(
         `/orgs/${orgId}/integrations/gitlab/${integrationId}/dirs`,
+        {
+          params: {
+            ...(opts?.repoId ? { repo_id: opts.repoId } : {}),
+            ...(opts?.branch ? { branch: opts.branch } : {}),
+          },
+        },
       )
       .then((r) => r.data.dirs),
   update: (

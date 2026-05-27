@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/apyhub/scout/internal/auth"
 	"github.com/google/uuid"
@@ -202,14 +203,26 @@ func (h *gitLabHandler) UpdateIntegration(w http.ResponseWriter, r *http.Request
 }
 
 // ListDirs returns all directories in a repo for the folder picker.
-// GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/dirs
+// GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/dirs?repo_id=...&branch=...
+// repo_id and branch are optional — fall back to whatever is saved on the integration.
 func (h *gitLabHandler) ListDirs(w http.ResponseWriter, r *http.Request) {
 	integrationID := h.requireOwnedIntegration(w, r)
 	if integrationID == nil {
 		return
 	}
 
-	dirs, err := h.svc.GitLab.ListRepoDirs(r.Context(), *integrationID)
+	var repoID int64
+	if v := r.URL.Query().Get("repo_id"); v != "" {
+		parsed, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			writeError(w, "invalid repo_id", http.StatusBadRequest)
+			return
+		}
+		repoID = parsed
+	}
+	branch := r.URL.Query().Get("branch")
+
+	dirs, err := h.svc.GitLab.ListRepoDirs(r.Context(), *integrationID, repoID, branch)
 	if err != nil {
 		writeError(w, "failed to list dirs: "+err.Error(), http.StatusInternalServerError)
 		return

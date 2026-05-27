@@ -21,6 +21,13 @@ import {
 
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useAuthStore } from "@/lib/auth"
 import {
   environmentsApi,
@@ -553,17 +560,18 @@ function FolderTreeSection({
               Set up an environment
             </Link>
           ) : (
-            <select
-              value={envId}
-              onChange={(e) => onEnvChange(e.target.value)}
-              className="bg-background ring-border/40 px-2 py-1.5 text-xs ring-1"
-            >
-              {envs?.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.label || e.name}
-                </option>
-              ))}
-            </select>
+            <Select value={envId} onValueChange={onEnvChange}>
+              <SelectTrigger size="sm" className="bg-background w-40">
+                <SelectValue placeholder="Environment" />
+              </SelectTrigger>
+              <SelectContent>
+                {envs?.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.label || e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {onSync ? (
             <Button

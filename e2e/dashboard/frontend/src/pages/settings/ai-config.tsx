@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import {
   BotIcon,
   CheckCircle2Icon,
-  ChevronDownIcon,
   Loader2Icon,
   SaveIcon,
   SearchIcon,
@@ -12,6 +11,15 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
 import { useAuthStore } from "@/lib/auth"
 import {
   AI_CONFIG_DEFAULTS,
@@ -161,26 +169,28 @@ export default function AiConfigPage() {
               <label className="text-sm font-medium" htmlFor="model">
                 Model
               </label>
-              <div className="bg-muted/40 ring-border/40 relative ring-1">
-                <select
-                  id="model"
-                  value={draft.model}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, model: e.target.value }))
-                  }
-                  className="w-full appearance-none bg-transparent px-3 py-2 text-sm outline-none"
-                >
+              <Select
+                value={draft.model}
+                onValueChange={(v) => setDraft((d) => ({ ...d, model: v }))}
+              >
+                <SelectTrigger id="model" className="bg-muted/40 w-full">
+                  <SelectValue placeholder="Select a model" />
+                </SelectTrigger>
+                <SelectContent>
                   {AI_MODELS.map((m) => (
-                    <option key={m} value={m}>
+                    <SelectItem key={m} value={m}>
                       {m}
-                    </option>
+                    </SelectItem>
                   ))}
-                  {!AI_MODELS.includes(draft.model as (typeof AI_MODELS)[number]) ? (
-                    <option value={draft.model}>{draft.model} (custom)</option>
+                  {!AI_MODELS.includes(
+                    draft.model as (typeof AI_MODELS)[number],
+                  ) ? (
+                    <SelectItem value={draft.model}>
+                      {draft.model} (custom)
+                    </SelectItem>
                   ) : null}
-                </select>
-                <ChevronDownIcon className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -191,20 +201,15 @@ export default function AiConfigPage() {
                     ({draft.temperature.toFixed(2)})
                   </span>
                 </label>
-                <input
+                <Slider
                   id="temperature"
-                  type="range"
                   min={0}
                   max={1}
                   step={0.05}
-                  value={draft.temperature}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      temperature: parseFloat(e.target.value),
-                    }))
+                  value={[draft.temperature]}
+                  onValueChange={([v]) =>
+                    setDraft((d) => ({ ...d, temperature: v }))
                   }
-                  className="accent-primary"
                 />
                 <div className="text-muted-foreground flex justify-between text-xs">
                   <span>Precise (0)</span>
@@ -234,31 +239,21 @@ export default function AiConfigPage() {
             </div>
 
             <div className="bg-muted/40 ring-border/40 flex items-center justify-between p-4 ring-1">
-              <div>
-                <div className="text-sm font-semibold">
+              <label htmlFor="rag-enabled" className="flex flex-col">
+                <span className="text-sm font-semibold">
                   Context-Aware Responses (RAG)
-                </div>
-                <div className="text-muted-foreground text-xs">
+                </span>
+                <span className="text-muted-foreground text-xs">
                   Inject relevant test history into every AI response
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.rag_enabled}
-                onClick={() =>
-                  setDraft((d) => ({ ...d, rag_enabled: !d.rag_enabled }))
+                </span>
+              </label>
+              <Switch
+                id="rag-enabled"
+                checked={draft.rag_enabled}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({ ...d, rag_enabled: v }))
                 }
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${
-                  draft.rag_enabled ? "bg-primary" : "bg-muted"
-                }`}
-              >
-                <span
-                  className={`bg-background inline-block size-5 translate-y-0.5 transform rounded-full transition-transform ${
-                    draft.rag_enabled ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
+              />
             </div>
 
             <div className="flex justify-end">

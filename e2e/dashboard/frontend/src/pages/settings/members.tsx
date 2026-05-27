@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import {
-  ChevronDownIcon,
   Loader2Icon,
   PlusIcon,
   SearchIcon,
@@ -13,6 +12,13 @@ import { AddMemberDialog } from "@/components/dialogs/add-member-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/lib/auth"
 import { membersApi, type MemberRole, type OrgMember } from "@/lib/scout-api"
@@ -170,20 +176,21 @@ export default function MembersPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="bg-muted/60 ring-border/40 relative ring-1">
-                      <select
-                        value={m.role}
-                        disabled={isMe || busy}
-                        onChange={(e) =>
-                          handleRoleChange(m, e.target.value as MemberRole)
-                        }
-                        className="appearance-none bg-transparent py-2 pr-8 pl-3 text-sm capitalize outline-none disabled:opacity-50"
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="member">Member</option>
-                      </select>
-                      <ChevronDownIcon className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2" />
-                    </div>
+                    <Select
+                      value={m.role}
+                      disabled={isMe || busy}
+                      onValueChange={(v) =>
+                        handleRoleChange(m, v as MemberRole)
+                      }
+                    >
+                      <SelectTrigger className="bg-muted/60 w-32 capitalize">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="member">Member</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <span
                       className="bg-muted/60 ring-border/40 inline-flex size-9 items-center justify-center ring-1"
                       aria-label={m.role === "admin" ? "Admin" : "Member"}

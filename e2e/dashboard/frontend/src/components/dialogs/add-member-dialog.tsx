@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ChevronDownIcon, Loader2Icon } from "lucide-react"
+import { Loader2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,6 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { membersApi, type MemberRole } from "@/lib/scout-api"
 
 export function AddMemberDialog({
@@ -89,18 +96,18 @@ export function AddMemberDialog({
             <label className="text-sm font-medium" htmlFor="add-member-role">
               Role
             </label>
-            <div className="bg-muted/40 ring-border/40 relative ring-1">
-              <select
-                id="add-member-role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as MemberRole)}
-                className="w-full appearance-none bg-transparent py-2 pr-8 pl-3 text-sm capitalize outline-none"
-              >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-              <ChevronDownIcon className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2" />
-            </div>
+            <Select
+              value={role}
+              onValueChange={(v) => setRole(v as MemberRole)}
+            >
+              <SelectTrigger id="add-member-role" className="bg-muted/40 w-full capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {error ? <p className="text-destructive text-sm">{error}</p> : null}

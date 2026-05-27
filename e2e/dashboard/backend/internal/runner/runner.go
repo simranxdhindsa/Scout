@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/apyhub/scout/internal/db/queries"
@@ -185,22 +186,45 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
+	// The generated config imports `@playwright/test`. The workspace is in /tmp
+	// with no node_modules, so Node can't resolve that import. Symlink the host
+	// scout repo's node_modules into the workspace so module resolution works.
+	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
+	if playwrightProjectDir == "" {
+		cwd, _ := os.Getwd()
+		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
+	}
+	if playwrightProjectDir == "" {
+		s.failRun(ctx, runID, orgID,
+			"could not locate node_modules/@playwright/test — set SCOUT_PLAYWRIGHT_PROJECT_DIR to the repo root that has Playwright installed")
+		return
+	}
+	if err := ws.LinkNodeModules(filepath.Join(playwrightProjectDir, "node_modules")); err != nil {
+		s.failRun(ctx, runID, orgID, fmt.Sprintf("link node_modules: %v", err))
+		return
+	}
+
 	// Build the playwright command
 	cmd := exec.CommandContext(ctx, "npx", "playwright", "test",
 		"--config", filepath.Join(ws.Dir, "playwright.config.ts"),
 	)
+	cmd.Dir = playwrightProjectDir
 
 	// Inject env vars at OS process level — never written to any file on disk.
 	// Note: credentials remain in cmd.Env (and therefore in process memory) for
 	// the lifetime of the child process; we rely on process isolation, not
 	// in-memory zeroization, to protect them.
+	hostNodeModules := filepath.Join(playwrightProjectDir, "node_modules")
 	cmd.Env = append(os.Environ(),
 		"TESTDECK_BASE_URL="+baseURL,
 		"TESTDECK_EMAIL="+creds["email"],
 		"TESTDECK_PASSWORD="+creds["password"],
+		"NODE_PATH="+hostNodeModules,
 	)
 
-	// Stream stdout + stderr via WebSocket
+	// Stream stdout + stderr via WebSocket, and keep a tail of stderr (+ any
+	// stdout error lines) so we can persist them in the failure message if
+	// Playwright exits without writing results.json.
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
@@ -209,22 +233,52 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// Stream stdout + stderr. Wait on the scanners before cmd.Wait so we don't
-	// miss the last lines flushed as the child process exits.
+	// Keep diagnostic stderr/stdout context: a ring of the last 60 lines plus
+	// any line that looks like a top-of-error summary (e.g. "Error: Cannot find
+	// module ..."), since those carry the action-relevant info but tend to sit
+	// far above the rest of the stack.
+	const tailCap = 60
+	var tailMu sync.Mutex
+	tail := make([]string, 0, tailCap)
+	errLines := make([]string, 0, 8)
+	keepErr := func(line string) {
+		l := strings.ToLower(line)
+		switch {
+		case strings.HasPrefix(line, "Error:"),
+			strings.Contains(l, "cannot find module"),
+			strings.Contains(l, "module_not_found"),
+			strings.Contains(l, "executable doesn't exist"):
+			errLines = append(errLines, line)
+		}
+	}
+	appendTail := func(s string) {
+		tailMu.Lock()
+		defer tailMu.Unlock()
+		keepErr(s)
+		if len(tail) == tailCap {
+			tail = append(tail[:0], tail[1:]...)
+		}
+		tail = append(tail, s)
+	}
+
 	var streamWG sync.WaitGroup
 	streamWG.Add(2)
 	go func() {
 		defer streamWG.Done()
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
-			s.streams.Publish(ctx, runID, "stdout", scanner.Text())
+			line := scanner.Text()
+			s.streams.Publish(ctx, runID, "stdout", line)
+			appendTail(line)
 		}
 	}()
 	go func() {
 		defer streamWG.Done()
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
-			s.streams.Publish(ctx, runID, "stderr", scanner.Text())
+			line := scanner.Text()
+			s.streams.Publish(ctx, runID, "stderr", line)
+			appendTail(line)
 		}
 	}()
 
@@ -236,7 +290,18 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 	if parseErr != nil {
 		log.Printf("[runner] parse results error for run %s: %v", runID, parseErr)
 		if runErr != nil {
-			s.failRun(ctx, runID, orgID, fmt.Sprintf("playwright failed and results unparseable: %v", runErr))
+			tailMu.Lock()
+			tailCopy := strings.Join(tail, "\n")
+			errCopy := strings.Join(errLines, "\n")
+			tailMu.Unlock()
+			msg := fmt.Sprintf("playwright exited (%v); results.json could not be read (%v).", runErr, parseErr)
+			if errCopy != "" {
+				msg += "\n\nDiagnostic:\n" + errCopy
+			}
+			if tailCopy != "" {
+				msg += "\n\nLast output:\n" + tailCopy
+			}
+			s.failRun(ctx, runID, orgID, msg)
 			return
 		}
 	}
