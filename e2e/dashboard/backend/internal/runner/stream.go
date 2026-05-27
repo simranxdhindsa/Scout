@@ -65,6 +65,7 @@ func NewStreamManager() *StreamManager {
 
 // CreateHub initialises a stream hub for a run. Called when a run starts.
 func (m *StreamManager) CreateHub(runID uuid.UUID) {
+	log.Printf("[stream] hub create run=%s", runID)
 	m.mu.Lock()
 	m.hubs[runID] = newStreamHub()
 	m.mu.Unlock()
@@ -72,6 +73,7 @@ func (m *StreamManager) CreateHub(runID uuid.UUID) {
 
 // RemoveHub tears down the hub after a run completes.
 func (m *StreamManager) RemoveHub(runID uuid.UUID) {
+	log.Printf("[stream] hub remove run=%s", runID)
 	m.mu.Lock()
 	delete(m.hubs, runID)
 	m.mu.Unlock()
