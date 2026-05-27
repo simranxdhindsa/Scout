@@ -63,6 +63,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=playwright /ms-playwright /ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
+# Playwright npm package. The runner generates playwright.config.ts files in
+# /tmp scratch dirs that `import { defineConfig } from '@playwright/test'`,
+# so it needs a resolvable @playwright/test on disk. We install it into a
+# stable path and point the runner at it via SCOUT_PLAYWRIGHT_PROJECT_DIR.
+RUN mkdir -p /opt/scout-playwright \
+    && cd /opt/scout-playwright \
+    && npm init -y >/dev/null \
+    && npm install --no-save --omit=dev @playwright/test@1.44.0
+
 WORKDIR /app
 
 RUN mkdir -p /app/data
@@ -82,7 +91,8 @@ ENV PORT=8081 \
     ENVIRONMENT=production \
     STORAGE_DRIVER=local \
     STORAGE_LOCAL_DIR=/app/data \
-    MAX_CONCURRENT_RUNS=3
+    MAX_CONCURRENT_RUNS=3 \
+    SCOUT_PLAYWRIGHT_PROJECT_DIR=/opt/scout-playwright
 
 EXPOSE 8080
 
