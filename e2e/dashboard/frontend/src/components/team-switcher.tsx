@@ -9,8 +9,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -92,7 +90,7 @@ export function TeamSwitcher() {
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Organisations
             </DropdownMenuLabel>
-            {orgs.map((org, index) => (
+            {orgs.map((org) => (
               <DropdownMenuItem
                 key={org.id}
                 onClick={() => setActiveOrgId(org.id)}
@@ -101,34 +99,11 @@ export function TeamSwitcher() {
                 <div className="flex size-6 items-center justify-center rounded-md border">
                   <Building2Icon className="size-3.5" />
                 </div>
-                <span className="truncate">{org.name}</span>
-                {index < 9 ? (
-                  <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
-                ) : null}
+                <span className="truncate text-sm normal-case">{org.name}</span>
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 p-2"
-              onSelect={(e) => {
-                e.preventDefault()
-                setDialogOpen(true)
-              }}
-            >
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <PlusIcon className="size-4" />
-              </div>
-              <div className="font-medium text-muted-foreground">
-                Add organisation
-              </div>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <AddOrganisationDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onCreated={() => loadMe()}
-        />
       </SidebarMenuItem>
     </SidebarMenu>
   )
