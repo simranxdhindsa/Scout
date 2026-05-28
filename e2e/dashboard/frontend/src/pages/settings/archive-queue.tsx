@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   archiveApi,
   type ArchiveRequest,
@@ -39,7 +39,7 @@ function relativeTime(iso: string) {
 type Toast = { kind: "success" | "error"; text: string }
 
 export default function ArchiveQueuePage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [requests, setRequests] = useState<ArchiveRequest[] | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)

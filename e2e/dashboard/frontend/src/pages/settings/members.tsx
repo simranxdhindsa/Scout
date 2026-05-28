@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg, useAuthStore } from "@/lib/auth"
 import { membersApi, type MemberRole, type OrgMember } from "@/lib/scout-api"
 
 type ApiError = { response?: { data?: { error?: string } } }
@@ -37,7 +37,7 @@ function initialsFor(name: string, email: string) {
 }
 
 export default function MembersPage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const currentUserId = useAuthStore((s) => s.user?.id ?? null)
   const [members, setMembers] = useState<OrgMember[] | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)

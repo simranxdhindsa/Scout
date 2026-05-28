@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   AI_CONFIG_DEFAULTS,
   AI_MODELS,
@@ -37,7 +37,7 @@ function readError(err: unknown, fallback: string) {
 }
 
 export default function AiConfigPage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [draft, setDraft] = useState<AiConfig>(AI_CONFIG_DEFAULTS)
   const [saving, setSaving] = useState(false)

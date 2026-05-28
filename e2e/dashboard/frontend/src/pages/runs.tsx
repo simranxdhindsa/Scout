@@ -11,7 +11,7 @@ import { useNavigate } from "react-router-dom"
 
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   runsApi,
   type Run,
@@ -66,7 +66,7 @@ function formatDuration(run: Run) {
 
 export default function RunsPage() {
   const navigate = useNavigate()
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [active, setActiveFilter] =
     useState<(typeof filters)[number]["key"]>("all")
   const [page, setPage] = useState(0)

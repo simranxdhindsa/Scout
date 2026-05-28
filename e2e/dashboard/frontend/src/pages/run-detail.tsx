@@ -12,7 +12,7 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   runStreamUrl,
   runsApi,
@@ -69,7 +69,7 @@ function itemIcon(status: string) {
 
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>()
-  const orgId = useAuthStore((s) => s.orgs[0]?.id ?? null)
+  const orgId = useActiveOrg()?.id ?? null
   const navigate = useNavigate()
 
   const [detail, setDetail] = useState<RunDetailResponse | null>(null)

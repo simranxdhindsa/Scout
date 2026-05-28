@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   streamChat,
   type ChatMessage,
@@ -24,7 +24,7 @@ const suggestions = [
 ]
 
 export default function AiAssistantPage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)

@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   environmentsApi,
   foldersApi,
@@ -54,7 +54,7 @@ function readError(err: unknown, fallback: string) {
 export default function ProjectPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const orgId = useAuthStore((s) => s.orgs[0]?.id ?? null)
+  const orgId = useActiveOrg()?.id ?? null
 
   const [product, setProduct] = useState<Product | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)

@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import { gitlabApi, type GitlabIntegration } from "@/lib/scout-api"
 
 type ApiError = { response?: { data?: { error?: string } } }
@@ -49,7 +49,7 @@ function formatSyncedAt(iso: string | null) {
 type Toast = { kind: "success" | "error"; text: string }
 
 export default function IntegrationsPage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [integrations, setIntegrations] = useState<GitlabIntegration[] | null>(
     null,
   )

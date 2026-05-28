@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   gitlabApi,
   productsApi,
@@ -46,7 +46,7 @@ type Banner = { kind: "success" | "error"; text: string } | null
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const orgId = org?.id ?? null
   const orgName = org?.name ?? ""
 

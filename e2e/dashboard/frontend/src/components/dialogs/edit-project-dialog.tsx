@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   gitlabApi,
   productsApi,
@@ -65,7 +65,7 @@ function EditForm({
   onCancel: () => void
   onSaved: (updated: Product) => void
 }) {
-  const orgId = useAuthStore((s) => s.orgs[0]?.id ?? null)
+  const orgId = useActiveOrg()?.id ?? null
 
   const [name, setName] = useState(product.name)
   const [slug, setSlug] = useState(product.slug)

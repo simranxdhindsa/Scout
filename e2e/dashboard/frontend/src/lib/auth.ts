@@ -154,3 +154,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 export function useCurrentOrg(orgSlug: string) {
   return useAuthStore((s) => s.orgs.find((o) => o.slug === orgSlug))
 }
+
+// Resolves the org currently selected in the team switcher, falling back to the
+// first org. Use this instead of `orgs[0]` so pages honour the active selection.
+export function useActiveOrg() {
+  return useAuthStore(
+    (s) => s.orgs.find((o) => o.id === s.activeOrgId) ?? s.orgs[0] ?? null,
+  )
+}

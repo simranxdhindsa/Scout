@@ -79,6 +79,12 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 	mux.HandleFunc("GET /api/v1/admin/users", chain(adminH.ListUsers,
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("GET /api/v1/admin/orgs/{orgId}/members", chain(adminH.ListOrgMembers,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("POST /api/v1/admin/orgs/{orgId}/members", chain(adminH.AddOrgMember,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("DELETE /api/v1/admin/orgs/{orgId}/members/{userId}", chain(adminH.RemoveOrgMember,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 
 	// ── Organizations ─────────────────────────────────────────────────────
 	orgH := newOrgHandler(svc)

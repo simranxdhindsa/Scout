@@ -12,7 +12,7 @@ import { AddPipelineDialog } from "@/components/dialogs/add-pipeline-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   pipelinesApi,
   type Pipeline,
@@ -24,7 +24,7 @@ type Editing =
   | null
 
 export default function PipelinePage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [pipelines, setPipelines] = useState<Pipeline[] | null>(null)
   const [editing, setEditing] = useState<Editing>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)

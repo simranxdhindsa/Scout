@@ -526,6 +526,22 @@ export const membersApi = {
     api.delete(`/orgs/${orgId}/members/${memberId}`),
 }
 
+export const adminUsersApi = {
+  list: () =>
+    api.get<{ users: ScoutUser[] }>("/admin/users").then((r) => r.data.users),
+}
+
+export const adminOrgMembersApi = {
+  list: (orgId: string) =>
+    api
+      .get<{ members: OrgMember[] }>(`/admin/orgs/${orgId}/members`)
+      .then((r) => r.data.members),
+  add: (orgId: string, body: { user_id: string; role: MemberRole }) =>
+    api.post<OrgMember>(`/admin/orgs/${orgId}/members`, body).then((r) => r.data),
+  remove: (orgId: string, userId: string) =>
+    api.delete(`/admin/orgs/${orgId}/members/${userId}`),
+}
+
 export type Environment = {
   id: string
   name: string

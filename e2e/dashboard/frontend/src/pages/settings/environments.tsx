@@ -11,7 +11,7 @@ import { EnvironmentDialog } from "@/components/dialogs/environment-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import { environmentsApi, type Environment } from "@/lib/scout-api"
 
 function chipClassFor(name: string) {
@@ -30,7 +30,7 @@ function readError(err: unknown, fallback: string) {
 }
 
 export default function EnvironmentsPage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [envs, setEnvs] = useState<Environment[] | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingEnv, setEditingEnv] = useState<Environment | null>(null)

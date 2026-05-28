@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   gitlabApi,
   slugify,
@@ -72,7 +72,7 @@ function ProjectForm({
   onCancel: () => void
   onCreate: (project: NewProject) => Promise<void> | void
 }) {
-  const orgId = useAuthStore((s) => s.orgs[0]?.id ?? null)
+  const orgId = useActiveOrg()?.id ?? null
 
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")

@@ -10,7 +10,7 @@ import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAuthStore } from "@/lib/auth"
+import { useActiveOrg } from "@/lib/auth"
 import {
   overviewApi,
   type OverviewStats,
@@ -48,7 +48,7 @@ function relativeTime(iso: string) {
 }
 
 export default function DashboardPage() {
-  const org = useAuthStore((s) => s.orgs[0] ?? null)
+  const org = useActiveOrg()
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [trend, setTrend] = useState<TrendPoint[] | null>(null)
   const [runs, setRuns] = useState<RecentRun[] | null>(null)
