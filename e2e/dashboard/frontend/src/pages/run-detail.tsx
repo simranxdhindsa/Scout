@@ -188,7 +188,9 @@ export default function RunDetailPage() {
         target_type: "test_case",
         target_ids: testCaseIds,
         environment_id: detail.run.environment_id ?? undefined,
-        label: detail.run.label ? `Re-run: ${detail.run.label}` : "Re-run",
+        label: detail.run.label
+          ? `Re-run: ${detail.run.label.replace(/^(Re-run:\s*)+/, "")}`
+          : "Re-run",
       })
       navigate(`/runs/${run_id}`)
     } catch (err) {

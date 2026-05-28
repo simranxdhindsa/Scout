@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import {
   CheckIcon,
+  CommandIcon,
   CopyIcon,
   Loader2Icon,
   SearchIcon,
@@ -121,10 +122,10 @@ export default function AiAssistantPage() {
             <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
               placeholder="Search..."
-              className="bg-muted/60 w-64 pl-9 pr-12"
+              className="bg-muted/60 w-64 pl-9 pr-14"
             />
-            <kbd className="bg-muted text-muted-foreground absolute top-1/2 right-2 -translate-y-1/2 px-1.5 py-0.5 text-[10px]">
-              ⌘K
+            <kbd className="bg-muted text-muted-foreground absolute top-1/2 right-2 -translate-y-1/2 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px]">
+              <CommandIcon className="size-2.5" />K
             </kbd>
           </div>
         </div>
@@ -217,7 +218,7 @@ function ChatComposer({
 }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
-      <div className="bg-muted/40 ring-border/40 flex items-end gap-2 p-3 ring-1">
+      <div className="bg-muted/40 ring-border/40 flex items-center gap-2 p-3 ring-1">
         <textarea
           rows={1}
           value={input}
