@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/apyhub/scout/internal/auth"
 	"github.com/apyhub/scout/internal/db/queries"
@@ -90,7 +92,6 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 	h.svc.Runner.Enqueue(&runner.RunJob{
 		RunID: run.ID,
 		OrgID: orgID,
-		Ctx:   r.Context(),
 	})
 
 	writeJSON(w, http.StatusCreated, map[string]any{
@@ -149,9 +150,12 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 		items = []queries.RunItem{}
 	}
 
+	report, _ := runQ.GetReport(r.Context(), runID)
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"run":   run,
-		"items": items,
+		"run":    run,
+		"items":  items,
+		"report": report,
 	})
 }
 
@@ -179,9 +183,22 @@ func (h *runHandler) Stop(w http.ResponseWriter, r *http.Request) {
 func (h *runHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	runID, err := uuid.Parse(r.PathValue("runId"))
 	if err != nil {
+		log.Printf("[stream] handler hit with invalid runId path=%s err=%v", r.URL.Path, err)
 		http.Error(w, "invalid runId", http.StatusBadRequest)
 		return
 	}
+
+	// Log enough headers to debug proxy/middleware issues without dumping the
+	// JWT. WS upgrade is failing if Connection/Upgrade don't arrive intact.
+	log.Printf("[stream] handler hit run=%s remote=%s xff=%q upgrade=%q connection=%q sec-ws-key=%q sec-ws-version=%q",
+		runID,
+		r.RemoteAddr,
+		r.Header.Get("X-Forwarded-For"),
+		r.Header.Get("Upgrade"),
+		r.Header.Get("Connection"),
+		r.Header.Get("Sec-WebSocket-Key"),
+		r.Header.Get("Sec-WebSocket-Version"),
+	)
 
 	// For WebSocket, JWT comes as query param ?token=...
 	token := r.URL.Query().Get("token")
@@ -190,6 +207,7 @@ func (h *runHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.svc.Runner.Streams().HandleWS(w, r, runID)
+	log.Printf("[stream] handler returned for run=%s", runID)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -238,12 +256,9 @@ func parseIntQ(r *http.Request, key string, fallback int) int {
 	if v == "" {
 		return fallback
 	}
-	n := 0
-	for _, c := range v {
-		if c < '0' || c > '9' {
-			return fallback
-		}
-		n = n*10 + int(c-'0')
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return fallback
 	}
 	return n
 }

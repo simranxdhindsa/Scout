@@ -75,6 +75,31 @@ func (q *OrgQueries) ListForUser(ctx context.Context, userID uuid.UUID) ([]Organ
 	return orgs, rows.Err()
 }
 
+// ListAllForUser returns every organization a user belongs to, including inactive ones.
+func (q *OrgQueries) ListAllForUser(ctx context.Context, userID uuid.UUID) ([]Organization, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT o.id, o.name, o.slug, o.theme, o.is_active, o.created_at
+		FROM organizations o
+		JOIN org_members om ON om.org_id = o.id
+		WHERE om.user_id = $1
+		ORDER BY o.is_active DESC, o.name ASC
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list all orgs for user: %w", err)
+	}
+	defer rows.Close()
+
+	var orgs []Organization
+	for rows.Next() {
+		var o Organization
+		if err := rows.Scan(&o.ID, &o.Name, &o.Slug, &o.Theme, &o.IsActive, &o.CreatedAt); err != nil {
+			return nil, err
+		}
+		orgs = append(orgs, o)
+	}
+	return orgs, rows.Err()
+}
+
 // ListAll returns all organizations (platform admin use).
 func (q *OrgQueries) ListAll(ctx context.Context) ([]Organization, error) {
 	rows, err := q.db.Query(ctx, `
@@ -125,13 +150,13 @@ func (q *OrgQueries) GetBySlug(ctx context.Context, slug string) (*Organization,
 }
 
 // Create inserts a new organization and returns it.
-func (q *OrgQueries) Create(ctx context.Context, name, slug string) (*Organization, error) {
+func (q *OrgQueries) Create(ctx context.Context, name, slug string, isActive bool) (*Organization, error) {
 	var o Organization
 	err := q.db.QueryRow(ctx, `
-		INSERT INTO organizations (name, slug)
-		VALUES ($1, $2)
+		INSERT INTO organizations (name, slug, is_active)
+		VALUES ($1, $2, $3)
 		RETURNING id, name, slug, theme, is_active, created_at
-	`, name, slug).Scan(&o.ID, &o.Name, &o.Slug, &o.Theme, &o.IsActive, &o.CreatedAt)
+	`, name, slug, isActive).Scan(&o.ID, &o.Name, &o.Slug, &o.Theme, &o.IsActive, &o.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create org: %w", err)
 	}

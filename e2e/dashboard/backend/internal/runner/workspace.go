@@ -74,6 +74,43 @@ func (w *Workspace) AttachmentsPath() string {
 	return filepath.Join(w.Dir, "test-results")
 }
 
+// LinkNodeModules creates a symlink at <workspace>/node_modules pointing at
+// the given absolute path so the generated playwright.config.ts can resolve
+// `@playwright/test` when Node walks up from the workspace.
+func (w *Workspace) LinkNodeModules(target string) error {
+	if target == "" {
+		return fmt.Errorf("empty node_modules target")
+	}
+	link := filepath.Join(w.Dir, "node_modules")
+	if err := os.Symlink(target, link); err != nil {
+		return fmt.Errorf("symlink node_modules: %w", err)
+	}
+	return nil
+}
+
+// FindPlaywrightProjectDir walks up from `start` looking for a directory
+// containing `node_modules/@playwright/test`. Returns that directory (the one
+// with the node_modules folder), or "" if none found.
+func FindPlaywrightProjectDir(start string) string {
+	if start == "" {
+		return ""
+	}
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "node_modules", "@playwright", "test")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 // Cleanup removes the entire workspace directory tree.
 // Should always be deferred immediately after workspace creation.
 func (w *Workspace) Cleanup(_ context.Context) error {

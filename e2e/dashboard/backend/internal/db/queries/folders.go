@@ -164,6 +164,45 @@ func (q *FolderQueries) Delete(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// DeleteCascade removes a folder, all descendant folders, and every test case
+// contained within (archived or not). Intended for the dashboard's explicit
+// "force delete" flow — bypasses the safety guards in Delete.
+func (q *FolderQueries) DeleteCascade(ctx context.Context, id uuid.UUID) error {
+	ids, err := q.GetSubtreeIDs(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(ids) == 0 {
+		ids = []uuid.UUID{id}
+	}
+
+	tx, err := q.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// run_items.test_case_id has no ON DELETE rule — null it out so historical
+	// run records survive the cascade.
+	if _, err := tx.Exec(ctx,
+		`UPDATE run_items SET test_case_id = NULL
+		 WHERE test_case_id IN (SELECT id FROM test_cases WHERE folder_id = ANY($1))`, ids,
+	); err != nil {
+		return fmt.Errorf("detach run_items: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM test_cases WHERE folder_id = ANY($1)`, ids,
+	); err != nil {
+		return fmt.Errorf("delete test cases: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM test_folders WHERE id = ANY($1)`, ids,
+	); err != nil {
+		return fmt.Errorf("delete folders: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
 // GetSubtreeIDs returns the IDs of a folder and all its descendants.
 // Used by the runner to resolve a folder target to individual test cases.
 func (q *FolderQueries) GetSubtreeIDs(ctx context.Context, folderID uuid.UUID) ([]uuid.UUID, error) {
@@ -197,21 +236,31 @@ func (q *FolderQueries) GetSubtreeIDs(ctx context.Context, folderID uuid.UUID) (
 
 // BuildTree converts a flat list of folders into a nested tree structure.
 // Root folders (parent_id == nil) are at the top level.
+//
+// Input is expected to be ordered by path ASC (parents before children). We
+// walk in reverse so that a folder's own Children slice is fully populated
+// before we copy it into its parent's Children — otherwise the parent ends
+// up holding a stale snapshot taken before grandchildren were attached.
 func BuildTree(folders []TestFolder) []TestFolder {
 	byID := make(map[uuid.UUID]*TestFolder, len(folders))
 	for i := range folders {
+		folders[i].Children = nil
 		byID[folders[i].ID] = &folders[i]
 	}
 
 	var roots []TestFolder
-	for i := range folders {
+	for i := len(folders) - 1; i >= 0; i-- {
 		f := &folders[i]
 		if f.ParentID == nil {
-			roots = append(roots, *f)
-		} else {
-			if parent, ok := byID[*f.ParentID]; ok {
-				parent.Children = append(parent.Children, *f)
-			}
+			continue
+		}
+		if parent, ok := byID[*f.ParentID]; ok {
+			parent.Children = append([]TestFolder{*f}, parent.Children...)
+		}
+	}
+	for i := range folders {
+		if folders[i].ParentID == nil {
+			roots = append(roots, folders[i])
 		}
 	}
 	return roots

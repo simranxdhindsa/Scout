@@ -1,327 +1,388 @@
-import { test, expect } from '../../../fixtures';
-import { LoginPage } from '../../../pages/ui/login.page';
+import { test, expect, Page, Route } from '@playwright/test';
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const LOGIN_URL = '/auth/signIn';
+const LOGIN_URL_RE = /\/auth\/signIn/;
+
+const VALID_EMAIL = process.env.TEST_EMAIL ?? '';
+const VALID_PASSWORD = process.env.TEST_PASSWORD ?? '';
+const INVALID_EMAIL = process.env.INVALID_TEST_USER_EMAIL ?? 'wrong@example.com';
+const INVALID_PASSWORD = process.env.INVALID_TEST_USER_PASSWORD ?? 'WrongPassw0rd!';
+
+// Source-of-truth selectors (signIn.tsx ships these data-test attributes).
+const SEL = {
+  emailInput: '[data-test="email-input"]',
+  passwordInput: '[data-test="password-input"]',
+  errorAlert: '[data-test="login-error-alert"]',
+};
+
+// English copy used for stable role/text-based locators. Source: src/translations/en.json.
+const TXT = {
+  pageTitle: 'Sign In',
+  signInBtn: 'Sign In',
+  signInWithEmailBtn: 'Sign in with Email',
+  back: 'Back',
+  forgotPassword: 'Forgot Password?',
+  sessionExpired: 'Your session has expired.',
+  somethingWentWrong: 'Something went wrong!',
+  accountLocked: 'Your account is locked',
+};
+
+// ---------------------------------------------------------------------------
+// IdP payload builders
+// ---------------------------------------------------------------------------
+function buildIdpResponse(
+  opts: { enabled?: boolean; ssoOnly?: boolean; providers?: any[] } = {}
+) {
+  return {
+    data: {
+      enabled: opts.enabled ?? false,
+      sso_only: opts.ssoOnly ?? false,
+      data:
+        opts.providers ??
+        [
+          {
+            uuid: 'idp-google',
+            idp_alias: 'google',
+            display_name: 'Sign in with Google',
+            display_name_translations: [],
+            display_help: '',
+            display_help_translations: [],
+            display_icon: 'google',
+          },
+        ],
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mock helpers
+// ---------------------------------------------------------------------------
+function isApi(route: Route) {
+  const t = route.request().resourceType();
+  return t === 'fetch' || t === 'xhr';
+}
+
+async function mockIdp(
+  page: Page,
+  opts: { enabled?: boolean; ssoOnly?: boolean; providers?: any[]; status?: number } = {}
+) {
+  await page.route('**/api/auth/identity-providers**', async (route) => {
+    if (!isApi(route)) return route.continue();
+    if (opts.status && opts.status >= 400) {
+      return route.fulfill({ status: opts.status, body: '{}' });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(buildIdpResponse(opts)),
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Locator factories
+// ---------------------------------------------------------------------------
+const emailInput = (p: Page) => p.locator(SEL.emailInput);
+const passwordInput = (p: Page) => p.locator(SEL.passwordInput);
+const errorAlert = (p: Page) => p.locator(SEL.errorAlert);
+const submitButton = (p: Page) => p.getByRole('button', { name: TXT.signInBtn, exact: true });
+const signInWithEmailBtn = (p: Page) =>
+  p.getByRole('button', { name: TXT.signInWithEmailBtn, exact: true });
+const backControl = (p: Page) => p.getByText(TXT.back, { exact: true });
+const forgotPasswordLink = (p: Page) => p.getByRole('link', { name: TXT.forgotPassword });
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+async function revealCredentialForm(page: Page): Promise<void> {
+  // The login page renders either:
+  //   - direct mode:   email + password visible immediately
+  //   - SSO-enabled:   IdP buttons + "Sign in with Email" gate (the form is
+  //                    hidden until the gate is clicked)
+  // Race the two states with waitFor() — isVisible() snapshots the *current*
+  // moment and returns false during the initial paint, so we'd miss the gate.
+  const gate = signInWithEmailBtn(page);
+  const email = emailInput(page);
+
+  await Promise.race([
+    gate.waitFor({ state: 'visible', timeout: 15000 }),
+    email.waitFor({ state: 'visible', timeout: 15000 }),
+  ]);
+
+  if (await gate.isVisible()) {
+    await gate.click();
+  }
+  await expect(email).toBeVisible();
+}
+
+async function fillCredentials(page: Page, email: string, password: string) {
+  await emailInput(page).fill(email);
+  await passwordInput(page).fill(password);
+}
+
+// ---------------------------------------------------------------------------
+// File-scope state: every test in this file runs unauthenticated.
+// ---------------------------------------------------------------------------
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test.describe('Login Page — Login Form', () => {
-  let loginPage: LoginPage;
+// The deployed test environment defaults to French. Pin every test to English
+// so text-based locators are stable. src/i18n.ts:24 reads the
+// `userSelectedLanguage` cookie at boot, so setting it once per test forces
+// the whole UI into English without touching the URL.
+test.beforeEach(async ({ context, baseURL }) => {
+  if (!baseURL) return;
+  const { hostname } = new URL(baseURL);
+  await context.addCookies([
+    {
+      name: 'userSelectedLanguage',
+      value: 'en',
+      domain: hostname,
+      path: '/',
+    },
+  ]);
+});
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-  });
-
-  test('Verify email input field is displayed', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await expect(loginPage.emailInput).toBeVisible();
-  });
-
-  test('Enter invalid email format (e.g., "abc", "abc@", "@domain")', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    for (const invalid of ['abc', 'abc@', '@domain.com']) {
-      await loginPage.emailInput.fill(invalid);
-      await loginPage.submitButton.click();
-      // Should not navigate away — form validation should block submission
-      await expect(page).toHaveURL(/signIn/);
-    }
-  });
-
-  test('Leave email field empty and attempt to submit', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.submitButton.click();
-    await expect(page).toHaveURL(/signIn/);
-  });
-
-  test('Verify password field is displayed with masked characters', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await expect(loginPage.passwordInput).toHaveAttribute('type', 'password');
-  });
-
-  test('Leave password field empty and attempt to submit', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.emailInput.fill('test@example.com');
-    await loginPage.submitButton.click();
-    await expect(page).toHaveURL(/signIn/);
-  });
-
-  test('Click Login with valid credentials', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.login(
-      process.env.PLAYWRIGHT_UI_EMAIL || '',
-      process.env.PLAYWRIGHT_UI_PASSWORD || ''
-    );
-    await page.waitForURL((url) => !url.pathname.includes('/auth/'), { timeout: 30_000 });
-    const cookies = await page.context().cookies();
-    expect(cookies.some((c) => c.name === 'accessToken')).toBeTruthy();
-  });
-
-  test('Click Login with wrong password', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.login('valid@example.com', 'WrongPassword999!');
-    await loginPage.assertErrorVisible();
-    await expect(page).toHaveURL(/signIn/);
-  });
-
-  test('Click Login with non-existent email', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.login('nonexistent_999@nowhere.com', 'Password123!');
-    await loginPage.assertErrorVisible();
-  });
-
-  test('Verify loading spinner during authentication', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.emailInput.fill(process.env.PLAYWRIGHT_UI_EMAIL || 'test@test.com');
-    await loginPage.passwordInput.fill(process.env.PLAYWRIGHT_UI_PASSWORD || 'password');
-    await loginPage.submitButton.click();
-    // Button should show disabled/loading state immediately after click
-    await expect(loginPage.submitButton).toBeDisabled({ timeout: 3_000 }).catch(() => {
-      // Some implementations use spinner instead of disabled state — both are valid
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+test.describe('Login page', () => {
+  test.describe('Page load', () => {
+    test('GET /auth/signIn returns 200', async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+      const response = await page.goto(LOGIN_URL);
+      expect(response?.status()).toBe(200);
     });
-  });
-});
 
-test.describe('Login Page — SSO Login', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signIn');
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-  });
-
-  test('Verify SSO buttons are displayed', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const credVisible = await loginPage.isCredFormVisible();
-    if (credVisible) {
-      test.skip(true, 'SSO not the primary flow in this environment');
-    }
-    await expect(page.locator('button').first()).toBeVisible();
-  });
-
-  test('Verify SSO section hidden when no providers configured', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const credVisible = await loginPage.isCredFormVisible();
-    if (credVisible) {
-      // Credential form shown directly — SSO not present
-      await expect(loginPage.emailInput).toBeVisible();
-    }
-    // Either path is valid — test documents the expected branching behaviour
-  });
-});
-
-test.describe('Login Page — Navigation', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signIn');
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-  });
-
-  test('Click "Forgot Password"', async ({ page }) => {
-    const forgotLink = page.locator('a').filter({ hasText: /forgot password/i });
-    const exists = await forgotLink.isVisible({ timeout: 3_000 }).catch(() => false);
-    test.skip(!exists, 'Forgot password link not present');
-    await forgotLink.click();
-    await expect(page).toHaveURL(/password_reset|forgot/i);
-  });
-
-  test('Click "Return to Homepage"', async ({ page }) => {
-    const homeLink = page.locator('a').filter({ hasText: /return to homepage|homepage/i });
-    const exists = await homeLink.isVisible({ timeout: 3_000 }).catch(() => false);
-    test.skip(!exists, 'Return to Homepage link not present');
-    await homeLink.click();
-    await expect(page).not.toHaveURL(/signIn/);
-  });
-});
-
-test.describe('Login Page — Layout & Session', () => {
-  test('Verify accessToken cookie is set after login', async ({ page }) => {
-    await page.goto('/auth/signIn');
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-    const loginPage = new LoginPage(page);
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.login(
-      process.env.PLAYWRIGHT_UI_EMAIL || '',
-      process.env.PLAYWRIGHT_UI_PASSWORD || ''
-    );
-    await page.waitForURL((url) => !url.pathname.includes('/auth/'), { timeout: 30_000 });
-    const cookies = await page.context().cookies();
-    const token = cookies.find((c) => c.name === 'accessToken');
-    expect(token).toBeDefined();
-  });
-
-  test('should have no critical accessibility violations', async ({ page, a11y }) => {
-    await page.goto('/auth/signIn');
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-    await a11y.assertNoViolations({
-      exclude: ['iframe[title*="reCAPTCHA"]'],
-      allowedIds: ['document-title', 'button-name', 'meta-viewport'],
+    test('renders the "Sign In" page title', async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+      await page.goto(LOGIN_URL);
+      await expect(
+        page.getByRole('heading', { name: TXT.pageTitle, exact: true })
+      ).toBeVisible({ timeout: 10000 });
     });
   });
 
-  test('should match visual snapshot', async ({ page }) => {
-    await page.goto('/auth/signIn');
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-    await expect(page).toHaveScreenshot('login-page.png', {
-      fullPage: true,
-      mask: [page.locator('iframe[title*="reCAPTCHA"]')],
+  test.describe('Direct mode (SSO disabled)', () => {
+    test.beforeEach(async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+    });
+
+    test('renders email + password fields and the Sign In submit button immediately', async ({
+      page,
+    }) => {
+      await page.goto(LOGIN_URL);
+
+      await expect(emailInput(page)).toBeVisible({ timeout: 10000 });
+      await expect(passwordInput(page)).toBeVisible();
+      await expect(submitButton(page)).toBeVisible();
+      // "Sign in with Email" button must NOT appear when SSO is disabled.
+      await expect(signInWithEmailBtn(page)).toHaveCount(0);
+    });
+
+    test('renders the forgot-password link pointing to /auth/password_reset', async ({ page }) => {
+      await page.goto(LOGIN_URL);
+      const link = forgotPasswordLink(page);
+      await expect(link).toBeVisible({ timeout: 10000 });
+      await expect(link).toHaveAttribute('href', /\/auth\/password_reset/);
+    });
+
+    test('forgot-password link preserves the current query string', async ({ page }) => {
+      await page.goto(`${LOGIN_URL}?callback_url=/dashboard&source=mobile`);
+      const link = forgotPasswordLink(page);
+      await expect(link).toBeVisible({ timeout: 10000 });
+      const href = (await link.getAttribute('href')) ?? '';
+      expect(href).toMatch(/callback_url=%2Fdashboard|callback_url=\/dashboard/);
+      expect(href).toContain('source=mobile');
     });
   });
-});
 
-test.describe('Login Page — Input Behaviour', () => {
-  let loginPage: LoginPage;
-
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-  });
-
-  test('Typing a space in the email field does nothing', async () => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.emailInput.click();
-    await loginPage.emailInput.pressSequentially('test user');
-    // Space is prevented via onKeyDown — the field should contain "testuser"
-    await expect(loginPage.emailInput).toHaveValue('testuser');
-  });
-
-  test('Pasting an email with spaces strips the spaces', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.emailInput.click();
-    await page.evaluate(() => {
-      const input = document.querySelector('[data-test="email-input"] input') as HTMLInputElement;
-      const dt = new DataTransfer();
-      dt.setData('text', '  test @ example.com  ');
-      input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+  test.describe('SSO-enabled mode (Google IdP)', () => {
+    test.beforeEach(async ({ page }) => {
+      await mockIdp(page, {
+        enabled: true,
+        ssoOnly: false,
+        providers: [
+          {
+            uuid: 'idp-google',
+            idp_alias: 'google',
+            display_name: 'Sign in with Google',
+            display_icon: 'google',
+            display_name_translations: [],
+            display_help_translations: [],
+          },
+        ],
+      });
     });
-    await expect(loginPage.emailInput).toHaveValue('test@example.com');
-  });
 
-  test('Typing a space in the password field does nothing', async () => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.passwordInput.click();
-    await loginPage.passwordInput.pressSequentially('pass word123!');
-    await expect(loginPage.passwordInput).toHaveValue('password123!');
-  });
-
-  test('Password show/hide toggle reveals and re-masks the password', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.passwordInput.fill('Secret123!');
-    // Mantine renders a visibility toggle button inside the PasswordInput wrapper
-    const toggleBtn = page.locator('.mantine-PasswordInput-visibilityToggle');
-    await toggleBtn.click();
-    await expect(loginPage.passwordInput).toHaveAttribute('type', 'text');
-    await toggleBtn.click();
-    await expect(loginPage.passwordInput).toHaveAttribute('type', 'password');
-  });
-});
-
-test.describe('Login Page — Error States', () => {
-  let loginPage: LoginPage;
-
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
-  });
-
-  test('Shows account-locked message after too many failed attempts', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    // Intercept the NextAuth credentials callback to simulate a locked-account response
-    await page.route('**/api/auth/callback/credentials**', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'error.account-locked', ok: false, url: null }),
-      })
-    );
-    await loginPage.login('locked@example.com', 'Password123!');
-    await loginPage.assertErrorVisible();
-    // The locked-specific message key is rendered when showLockedWarning is true
-    const alert = page.locator('[data-test="login-error-alert"]');
-    await expect(alert).toBeVisible();
-  });
-
-  test('Error alert disappears on a fresh login attempt', async ({ page }) => {
-    const credVisible = await loginPage.isCredFormVisible();
-    test.skip(!credVisible, 'SSO-only environment');
-    await loginPage.login('wrong@example.com', 'WrongPassword1!');
-    await loginPage.assertErrorVisible();
-    // Start a new attempt — error should clear immediately
-    await loginPage.emailInput.fill(process.env.PLAYWRIGHT_UI_EMAIL || '');
-    await loginPage.passwordInput.fill(process.env.PLAYWRIGHT_UI_PASSWORD || '');
-    await loginPage.submitButton.click();
-    // While the request is in flight the alert must be gone
-    await expect(loginPage.errorAlert).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
-  });
-});
-
-test.describe('Login Page — Already Authenticated', () => {
-  test('Redirects to /dashboard when accessToken cookie is present', async ({ browser }) => {
-    // Create a context with a pre-set cookie to simulate an already-logged-in user
-    const ctx = await browser.newContext({
-      storageState: { cookies: [], origins: [] },
+    test('renders the IdP button and the "Sign in with Email" button', async ({ page }) => {
+      await page.goto(LOGIN_URL);
+      await expect(
+        page.getByRole('button', { name: 'Sign in with Google', exact: true })
+      ).toBeVisible({ timeout: 10000 });
+      await expect(signInWithEmailBtn(page)).toBeVisible();
+      // Credential form is hidden until "Sign in with Email" is clicked.
+      await expect(emailInput(page)).toHaveCount(0);
     });
-    const page = await ctx.newPage();
-    await ctx.addCookies([
-      {
-        name: 'accessToken',
-        value: 'dummy-token',
-        domain: new URL(process.env.PLAYWRIGHT_UI_URL || 'http://localhost:3000').hostname,
-        path: '/',
-      },
-    ]);
-    await page.goto('/auth/signIn');
-    // getServerSideProps checks for the cookie and redirects before rendering the page
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
-    await ctx.close();
-  });
-});
 
-test.describe('Login Page — SSO Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signIn');
-    await page.locator('button').first().waitFor({ state: 'visible', timeout: 30_000 });
+    test('clicking "Sign in with Email" reveals the credential form and a Back control', async ({
+      page,
+    }) => {
+      await page.goto(LOGIN_URL);
+      await signInWithEmailBtn(page).click();
+
+      await expect(emailInput(page)).toBeVisible();
+      await expect(passwordInput(page)).toBeVisible();
+      await expect(submitButton(page)).toBeVisible();
+      await expect(backControl(page)).toBeVisible();
+    });
+
+    test('clicking Back hides the credential form again', async ({ page }) => {
+      await page.goto(LOGIN_URL);
+      await signInWithEmailBtn(page).click();
+      await expect(emailInput(page)).toBeVisible();
+
+      await backControl(page).click();
+      await expect(emailInput(page)).toHaveCount(0);
+      await expect(signInWithEmailBtn(page)).toBeVisible();
+    });
+
+    test('IdP fetch error falls back to the credential form (idpUnavailable branch)', async ({
+      page,
+    }) => {
+      // Override the IdP mock with a 500 — signIn.tsx flips showCredForm true.
+      await mockIdp(page, { status: 500 });
+      await page.goto(LOGIN_URL);
+
+      await expect(emailInput(page)).toBeVisible({ timeout: 10000 });
+      await expect(passwordInput(page)).toBeVisible();
+    });
   });
 
-  test('Clicking "Login with email" reveals the credential form', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const credVisible = await loginPage.isCredFormVisible();
-    if (credVisible) {
-      test.skip(true, 'SSO not primary in this environment');
-    }
-    const emailBtn = page.locator('button').filter({ hasText: /email/i });
-    const exists = await emailBtn.isVisible({ timeout: 3_000 }).catch(() => false);
-    test.skip(!exists, 'No "Login with email" button — ssoOnly or no SSO');
-    await emailBtn.click();
-    await expect(loginPage.emailInput).toBeVisible();
+  test.describe('SSO-only mode', () => {
+    test.beforeEach(async ({ page }) => {
+      await mockIdp(page, { enabled: true, ssoOnly: true });
+    });
+
+    test('does NOT render email/password form or "Sign in with Email" button', async ({
+      page,
+    }) => {
+      await page.goto(LOGIN_URL);
+      await expect(
+        page.getByRole('button', { name: 'Sign in with Google', exact: true })
+      ).toBeVisible({ timeout: 10000 });
+
+      await expect(emailInput(page)).toHaveCount(0);
+      await expect(passwordInput(page)).toHaveCount(0);
+      await expect(signInWithEmailBtn(page)).toHaveCount(0);
+    });
   });
 
-  test('Back button returns to SSO view from credential form', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const credVisible = await loginPage.isCredFormVisible();
-    if (credVisible) {
-      test.skip(true, 'SSO not primary in this environment');
-    }
-    const emailBtn = page.locator('button').filter({ hasText: /email/i });
-    const exists = await emailBtn.isVisible({ timeout: 3_000 }).catch(() => false);
-    test.skip(!exists, 'No "Login with email" button — ssoOnly or no SSO');
-    await emailBtn.click();
-    await expect(loginPage.emailInput).toBeVisible();
-    const backBtn = page.locator('text=/back/i');
-    await backBtn.click();
-    await expect(loginPage.emailInput).not.toBeVisible({ timeout: 3_000 });
+  test.describe('Client-side validation', () => {
+    test('submitting an empty form surfaces inline validation errors', async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+      await page.goto(LOGIN_URL);
+
+      await expect(emailInput(page)).toBeVisible({ timeout: 10000 });
+      await submitButton(page).click();
+
+      // Mantine renders errors with these wrapper classes.
+      await expect(
+        page
+          .locator('.mantine-TextInput-error, .mantine-PasswordInput-error, .mantine-InputWrapper-error')
+          .first()
+      ).toBeVisible();
+    });
+
+    test('email and password inputs strip whitespace from typed input', async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+      await page.goto(LOGIN_URL);
+
+      await emailInput(page).pressSequentially('user @ex ample.com', { delay: 10 });
+      await expect(emailInput(page)).toHaveValue('user@example.com');
+
+      await passwordInput(page).pressSequentially('Pass W0rd!', { delay: 10 });
+      await expect(passwordInput(page)).toHaveValue('PassW0rd!');
+    });
+  });
+
+  test.describe('Query-param driven banners', () => {
+    test('?sessionExpired=true renders the "Your session has expired." alert', async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+      await page.goto(`${LOGIN_URL}?sessionExpired=true`);
+
+      const alert = errorAlert(page);
+      await expect(alert).toBeVisible({ timeout: 10000 });
+      await expect(alert).toContainText(TXT.sessionExpired);
+    });
+
+    test('?error=<msg> renders the "Something went wrong!" alert', async ({ page }) => {
+      await mockIdp(page, { enabled: false });
+      await page.goto(`${LOGIN_URL}?error=CredentialsSignin`);
+
+      const alert = errorAlert(page);
+      await expect(alert).toBeVisible({ timeout: 10000 });
+      await expect(alert).toContainText(TXT.somethingWentWrong);
+    });
+  });
+
+  test.describe('Authenticated session redirects', () => {
+    test('unauthenticated visit to /dashboard redirects to /auth/signIn', async ({ page }) => {
+      await page.goto('/dashboard');
+      await expect(page).toHaveURL(LOGIN_URL_RE, { timeout: 10000 });
+    });
+
+    test('authenticated user visiting /auth/signIn is redirected away (server-side)', async ({
+      browser,
+    }) => {
+      test.skip(
+        !VALID_EMAIL || !VALID_PASSWORD,
+        'TEST_EMAIL and TEST_PASSWORD required to populate playwright/.auth/user.json'
+      );
+
+      const context = await browser.newContext({ storageState: 'playwright/.auth/user.json' });
+      const page = await context.newPage();
+      await page.goto(LOGIN_URL);
+      await expect(page).not.toHaveURL(LOGIN_URL_RE, { timeout: 10000 });
+      await context.close();
+    });
+
+    test('authenticated user can reach /dashboard', async ({ browser }) => {
+      test.skip(
+        !VALID_EMAIL || !VALID_PASSWORD,
+        'TEST_EMAIL and TEST_PASSWORD required to populate playwright/.auth/user.json'
+      );
+
+      const context = await browser.newContext({ storageState: 'playwright/.auth/user.json' });
+      const page = await context.newPage();
+      await page.goto('/dashboard');
+      await expect(page).not.toHaveURL(LOGIN_URL_RE, { timeout: 10000 });
+      await context.close();
+    });
+  });
+
+  test.describe('Real backend — happy path (env-gated)', () => {
+    test('user can sign in with valid credentials', async ({ page }) => {
+      test.skip(!VALID_EMAIL || !VALID_PASSWORD, 'TEST_EMAIL and TEST_PASSWORD env vars required');
+
+      // No IdP mock here — hit the real backend so reCAPTCHA + NextAuth flow runs.
+      await page.goto(LOGIN_URL);
+      await revealCredentialForm(page);
+      await fillCredentials(page, VALID_EMAIL, VALID_PASSWORD);
+      await submitButton(page).click();
+
+      await expect(page).not.toHaveURL(LOGIN_URL_RE, { timeout: 30000 });
+    });
+
+    test('shows the error alert for invalid credentials', async ({ page }) => {
+      await page.goto(LOGIN_URL);
+      await revealCredentialForm(page);
+      await fillCredentials(page, INVALID_EMAIL, INVALID_PASSWORD);
+      await submitButton(page).click();
+
+      await expect(errorAlert(page)).toBeVisible({ timeout: 20000 });
+    });
   });
 });

@@ -79,6 +79,9 @@ type Config struct {
 
 	// Frontend URL (for OAuth redirect, CORS)
 	FrontendURL string // default: "http://localhost:3000"
+
+	// Backend's own public URL (for OAuth callbacks GitLab calls back to)
+	BackendURL string // default: "http://localhost:8080"
 }
 
 // Load reads all configuration from environment variables.
@@ -121,6 +124,7 @@ func Load() (*Config, error) {
 	cfg.Port = optional("PORT", "8080")
 	cfg.Environment = optional("ENVIRONMENT", "development")
 	cfg.FrontendURL = optional("FRONTEND_URL", "http://localhost:3000")
+	cfg.BackendURL = optional("BACKEND_URL", "http://localhost:8080")
 
 	// ── Database ──────────────────────────────────────────────────────────
 	cfg.DatabaseURL = required("DATABASE_URL")

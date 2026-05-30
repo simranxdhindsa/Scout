@@ -15,6 +15,9 @@ type Environment struct {
 	OrgID     uuid.UUID  `json:"org_id"`
 	Name      string     `json:"name"`
 	Label     string     `json:"label"`
+	BaseURL   string     `json:"base_url"`
+	Username  string     `json:"username"`
+	Password  string     `json:"password"`
 	CreatedBy *uuid.UUID `json:"created_by"`
 	CreatedAt time.Time  `json:"created_at"`
 }
@@ -47,7 +50,8 @@ func (h *environmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.svc.DB.Query(r.Context(), `
-		SELECT id, org_id, name, COALESCE(label,''), created_by, created_at
+		SELECT id, org_id, name, COALESCE(label,''), COALESCE(base_url,''),
+		       COALESCE(username,''), COALESCE(password,''), created_by, created_at
 		FROM environments WHERE org_id = $1 ORDER BY created_at ASC
 	`, orgID)
 	if err != nil {
@@ -59,7 +63,8 @@ func (h *environmentHandler) List(w http.ResponseWriter, r *http.Request) {
 	var envs []Environment
 	for rows.Next() {
 		var e Environment
-		if err := rows.Scan(&e.ID, &e.OrgID, &e.Name, &e.Label, &e.CreatedBy, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.OrgID, &e.Name, &e.Label, &e.BaseURL,
+			&e.Username, &e.Password, &e.CreatedBy, &e.CreatedAt); err != nil {
 			writeError(w, "scan error", http.StatusInternalServerError)
 			return
 		}
@@ -82,8 +87,11 @@ func (h *environmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := auth.ClaimsFromContext(r.Context())
 
 	var body struct {
-		Name  string `json:"name"`
-		Label string `json:"label"`
+		Name     string `json:"name"`
+		Label    string `json:"label"`
+		BaseURL  string `json:"base_url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if err := decodeBody(r, &body); err != nil || body.Name == "" {
 		writeError(w, "name is required", http.StatusBadRequest)
@@ -92,11 +100,12 @@ func (h *environmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var e Environment
 	err = h.svc.DB.QueryRow(r.Context(), `
-		INSERT INTO environments (org_id, name, label, created_by)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, org_id, name, COALESCE(label,''), created_by, created_at
-	`, orgID, body.Name, body.Label, claims.UserID).Scan(
-		&e.ID, &e.OrgID, &e.Name, &e.Label, &e.CreatedBy, &e.CreatedAt,
+		INSERT INTO environments (org_id, name, label, base_url, username, password, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, org_id, name, COALESCE(label,''), COALESCE(base_url,''),
+		          COALESCE(username,''), COALESCE(password,''), created_by, created_at
+	`, orgID, body.Name, body.Label, body.BaseURL, body.Username, body.Password, claims.UserID).Scan(
+		&e.ID, &e.OrgID, &e.Name, &e.Label, &e.BaseURL, &e.Username, &e.Password, &e.CreatedBy, &e.CreatedAt,
 	)
 	if err != nil {
 		writeError(w, "failed to create environment (name may be taken)", http.StatusConflict)
@@ -114,8 +123,11 @@ func (h *environmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Name  string `json:"name"`
-		Label string `json:"label"`
+		Name     string `json:"name"`
+		Label    string `json:"label"`
+		BaseURL  string `json:"base_url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if err := decodeBody(r, &body); err != nil || body.Name == "" {
 		writeError(w, "name is required", http.StatusBadRequest)
@@ -124,11 +136,13 @@ func (h *environmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var e Environment
 	err = h.svc.DB.QueryRow(r.Context(), `
-		UPDATE environments SET name = $2, label = $3
+		UPDATE environments
+		SET name = $2, label = $3, base_url = $4, username = $5, password = $6
 		WHERE id = $1
-		RETURNING id, org_id, name, COALESCE(label,''), created_by, created_at
-	`, envID, body.Name, body.Label).Scan(
-		&e.ID, &e.OrgID, &e.Name, &e.Label, &e.CreatedBy, &e.CreatedAt,
+		RETURNING id, org_id, name, COALESCE(label,''), COALESCE(base_url,''),
+		          COALESCE(username,''), COALESCE(password,''), created_by, created_at
+	`, envID, body.Name, body.Label, body.BaseURL, body.Username, body.Password).Scan(
+		&e.ID, &e.OrgID, &e.Name, &e.Label, &e.BaseURL, &e.Username, &e.Password, &e.CreatedBy, &e.CreatedAt,
 	)
 	if err != nil {
 		writeError(w, "failed to update environment", http.StatusInternalServerError)

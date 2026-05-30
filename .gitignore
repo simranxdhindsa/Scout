@@ -1,7 +1,7 @@
-ui/
-mission-control/
-studio-web/
-Bots Configuration/
+/ui/
+/mission-control/
+/studio-web/
+/Bots Configuration/
 
 # Un-ignore e2e specs (overrides the folder rules above)
 !e2e/specs/
@@ -42,6 +42,16 @@ playwright-report/
 
 # Logs
 *.log
+
+# Binaries
+*.exe
+e2e/dashboard/backend/main.exe
+
+# MCP scratch
+.playwright-mcp/
+
+# TypeScript incremental build info
+**/tsconfig.tsbuildinfo
 
 # OS
 .DS_Store

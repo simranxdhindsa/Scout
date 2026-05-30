@@ -9,10 +9,11 @@ import (
 )
 
 // RunJob is a unit of work placed onto the queue by the API handler.
+// The worker derives its own context from the runner-service lifetime, not
+// from the request that enqueued the job — runs outlive HTTP requests.
 type RunJob struct {
-	RunID       uuid.UUID
-	OrgID       uuid.UUID
-	Ctx         context.Context
+	RunID uuid.UUID
+	OrgID uuid.UUID
 }
 
 // ActiveRun tracks a run that is currently executing.

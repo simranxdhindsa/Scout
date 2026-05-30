@@ -19,23 +19,21 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 
 # ─────────────────────────────────────────────────────────────
-# Stage 2: Build Next.js frontend
+# Stage 2: Build Vite frontend
 # ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-ARG NEXT_PUBLIC_WS_URL=ws://localhost
-ARG NEXT_PUBLIC_API_URL=
+# Empty default → bundle calls /api/v1/... on the same origin (nginx proxies it)
+ARG VITE_SCOUT_API_URL=
 
 COPY frontend/package*.json ./
 RUN npm ci
 
 COPY frontend/ .
 
-ENV DOCKER_BUILD=true \
-    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV VITE_SCOUT_API_URL=$VITE_SCOUT_API_URL
 
 RUN npm run build
 
@@ -65,6 +63,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=playwright /ms-playwright /ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
+# Playwright npm package. The runner generates playwright.config.ts files in
+# /tmp scratch dirs that `import { defineConfig } from '@playwright/test'`,
+# so it needs a resolvable @playwright/test on disk. We install it into a
+# stable path and point the runner at it via SCOUT_PLAYWRIGHT_PROJECT_DIR.
+RUN mkdir -p /opt/scout-playwright \
+    && cd /opt/scout-playwright \
+    && npm init -y >/dev/null \
+    && npm install --no-save --omit=dev @playwright/test@1.44.0
+
 WORKDIR /app
 
 RUN mkdir -p /app/data
@@ -72,10 +79,8 @@ RUN mkdir -p /app/data
 # Go backend binary
 COPY --from=go-builder /app/scout /app/scout
 
-# Next.js standalone output
-COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend
-COPY --from=frontend-builder /app/frontend/.next/static     /app/frontend/.next/static
-COPY --from=frontend-builder /app/frontend/public           /app/frontend/public
+# Vite static bundle (served directly by nginx)
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 # nginx config and entrypoint
 COPY nginx.conf      /etc/nginx/nginx.conf
@@ -86,7 +91,8 @@ ENV PORT=8081 \
     ENVIRONMENT=production \
     STORAGE_DRIVER=local \
     STORAGE_LOCAL_DIR=/app/data \
-    MAX_CONCURRENT_RUNS=3
+    MAX_CONCURRENT_RUNS=3 \
+    SCOUT_PLAYWRIGHT_PROJECT_DIR=/opt/scout-playwright
 
 EXPOSE 8080
 

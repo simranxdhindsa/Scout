@@ -93,7 +93,12 @@ func main() {
 	}
 
 	// ── 11. Register all HTTP routes ──────────────────────────────────────
-	mux := api.RegisterRoutes(api.Services{
+	// rootCtx scopes long-lived background goroutines started by the API layer
+	// (rate-limit cleanup, etc.) to the server lifetime.
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+
+	mux := api.RegisterRoutes(rootCtx, api.Services{
 		Config:        cfg,
 		DB:            pool,
 		Auth:          authSvc,
@@ -128,6 +133,9 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
 	log.Printf("[scout] received signal %s — shutting down", sig)
+
+	// Stop background middleware goroutines (rate-limit cleanup, etc.)
+	rootCancel()
 
 	// Graceful shutdown: give in-flight requests 30 seconds to finish
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

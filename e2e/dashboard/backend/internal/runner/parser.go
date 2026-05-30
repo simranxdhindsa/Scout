@@ -18,11 +18,11 @@ type PlaywrightReport struct {
 }
 
 type PlaywrightStats struct {
-	Expected   int `json:"expected"`
-	Unexpected int `json:"unexpected"`
-	Skipped    int `json:"skipped"`
-	Flaky      int `json:"flaky"`
-	Duration   int `json:"duration"` // milliseconds
+	Expected   int     `json:"expected"`
+	Unexpected int     `json:"unexpected"`
+	Skipped    int     `json:"skipped"`
+	Flaky      int     `json:"flaky"`
+	Duration   float64 `json:"duration"` // milliseconds; Playwright emits a float
 }
 
 type PlaywrightSuite struct {
@@ -39,14 +39,14 @@ type PlaywrightSpec struct {
 }
 
 type PlaywrightTest struct {
-	Status      string                `json:"status"`   // "expected" | "unexpected" | "skipped" | "flaky"
-	Duration    int                   `json:"duration"` // ms
+	Status      string                 `json:"status"`   // "expected" | "unexpected" | "skipped" | "flaky"
+	Duration    float64                `json:"duration"` // ms; Playwright emits a float
 	Results     []PlaywrightTestResult `json:"results"`
 }
 
 type PlaywrightTestResult struct {
 	Status       string                  `json:"status"` // "passed" | "failed" | "timedOut" | "skipped"
-	Duration     int                     `json:"duration"`
+	Duration     float64                 `json:"duration"`
 	Error        *PlaywrightTestError    `json:"error"`
 	Attachments  []PlaywrightAttachment  `json:"attachments"`
 	RetryIndex   int                     `json:"retry"`
@@ -115,7 +115,7 @@ func ParseResults(resultsPath string) (*ParsedResult, error) {
 	}
 
 	result := &ParsedResult{
-		DurationMs: report.Stats.Duration,
+		DurationMs: int(report.Stats.Duration),
 	}
 
 	// Flatten all suites → specs → tests recursively
@@ -155,7 +155,7 @@ func ParseResults(resultsPath string) (*ParsedResult, error) {
 			if len(test.Results) > 0 {
 				last := test.Results[len(test.Results)-1]
 				ptr.Status = normaliseStatus(last.Status)
-				ptr.DurationMs = last.Duration
+				ptr.DurationMs = int(last.Duration)
 				ptr.RetryCount = last.RetryIndex
 
 				if last.Error != nil {

@@ -320,7 +320,6 @@ func (h *pipelineHandler) Run(w http.ResponseWriter, r *http.Request) {
 	h.svc.Runner.Enqueue(&runner.RunJob{
 		RunID: run.ID,
 		OrgID: orgID,
-		Ctx:   r.Context(),
 	})
 
 	writeJSON(w, http.StatusCreated, map[string]any{

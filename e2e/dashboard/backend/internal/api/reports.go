@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/apyhub/scout/internal/db/queries"
@@ -32,6 +33,7 @@ func (h *reportHandler) Trend(w http.ResponseWriter, r *http.Request) {
 	runQ := queries.NewRunQueries(h.svc.DB)
 	trend, err := runQ.GetTrend(r.Context(), orgID, days)
 	if err != nil {
+		log.Printf("[reports] trend query failed org=%s days=%d: %v", orgID, days, err)
 		writeError(w, "failed to get trend data", http.StatusInternalServerError)
 		return
 	}

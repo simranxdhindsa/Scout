@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/apyhub/scout/internal/ai"
@@ -28,11 +29,13 @@ type Services struct {
 }
 
 // RegisterRoutes wires all HTTP handlers to their routes and returns the root mux.
-func RegisterRoutes(svc Services) http.Handler {
+// ctx scopes long-lived middleware goroutines (e.g. the rate-limit cleanup loop)
+// to the server lifetime — cancel it during graceful shutdown.
+func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux := http.NewServeMux()
 
 	// Apply global middleware stack: CORS → rate limit → request logging
-	mid := newMiddlewareChain(svc.Config)
+	mid := newMiddlewareChain(ctx, svc.Config)
 
 	// ── Health (public, no auth) ──────────────────────────────────────────
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -51,17 +54,18 @@ func RegisterRoutes(svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/gitlab/callback", gitLabH.OAuthCallback)
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab", chain(gitLabH.ListIntegrations,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
-	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/connect", gitLabH.InitiateOAuth) // public — just generates a redirect
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/connect-url", chain(gitLabH.ConnectURL,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/repos", chain(gitLabH.ListRepos,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/dirs", chain(gitLabH.ListDirs,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}", chain(gitLabH.UpdateIntegration,
-		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
-	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}/sync", chain(gitLabH.SyncIntegration,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/integrations/gitlab/{integrationId}", chain(gitLabH.DeleteIntegration,
-		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/products/{productId}/gitlab/sync", chain(gitLabH.SyncProduct,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
 	// ── Platform admin ────────────────────────────────────────────────────
 	adminH := newAdminHandler(svc)
@@ -74,6 +78,12 @@ func RegisterRoutes(svc Services) http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/orgs/{orgId}/join", chain(adminH.JoinOrg,
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 	mux.HandleFunc("GET /api/v1/admin/users", chain(adminH.ListUsers,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("GET /api/v1/admin/orgs/{orgId}/members", chain(adminH.ListOrgMembers,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("POST /api/v1/admin/orgs/{orgId}/members", chain(adminH.AddOrgMember,
+		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
+	mux.HandleFunc("DELETE /api/v1/admin/orgs/{orgId}/members/{userId}", chain(adminH.RemoveOrgMember,
 		svc.Auth.Authenticate, svc.Auth.RequirePlatformAdmin))
 
 	// ── Organizations ─────────────────────────────────────────────────────
@@ -103,6 +113,8 @@ func RegisterRoutes(svc Services) http.Handler {
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
 	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/products/{productId}", chain(productH.Delete,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/products/{productId}/tests", chain(productH.Tests,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
 	// ── Sub-projects ──────────────────────────────────────────────────────
 	spH := newSubProjectHandler(svc)
