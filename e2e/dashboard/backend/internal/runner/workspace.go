@@ -50,6 +50,26 @@ func (w *Workspace) WriteTestFile(filename, content string) (string, error) {
 	return dest, nil
 }
 
+// AuthStatePath returns the path where the generated login setup saves the
+// authenticated session (storageState) for the rest of the run to reuse.
+func (w *Workspace) AuthStatePath() string {
+	return filepath.Join(w.Dir, ".auth", "user.json")
+}
+
+// WriteAuthSetup writes the generated login setup spec into the workspace and
+// returns its absolute path. The .auth dir is created up-front so the setup can
+// save storageState into it.
+func (w *Workspace) WriteAuthSetup(content string) (string, error) {
+	if err := os.MkdirAll(filepath.Join(w.Dir, ".auth"), 0o755); err != nil {
+		return "", fmt.Errorf("create .auth dir: %w", err)
+	}
+	dest := filepath.Join(w.Dir, "auth.setup.js")
+	if err := os.WriteFile(dest, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("write auth setup: %w", err)
+	}
+	return dest, nil
+}
+
 // WriteConfig writes the generated playwright.config.ts into the workspace.
 func (w *Workspace) WriteConfig(content string) (string, error) {
 	dest := filepath.Join(w.Dir, "playwright.config.ts")
