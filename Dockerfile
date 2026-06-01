@@ -70,7 +70,12 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN mkdir -p /opt/scout-playwright \
     && cd /opt/scout-playwright \
     && npm init -y >/dev/null \
-    && npm install --no-save --omit=dev @playwright/test@1.44.0
+    && npm install --no-save --omit=dev @playwright/test@1.44.0 \
+    # Browser binaries are copied from the playwright image above, but this
+    # ubuntu base lacks the shared libs Chromium needs (libnss3, libgbm1, …).
+    # install-deps apt-installs exactly the right set for this PW version.
+    && npx playwright install-deps \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
