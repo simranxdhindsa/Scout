@@ -34,5 +34,8 @@
       "C:\\Users\\Simran\\.claude\\projects\\c--dhindsa-Ardoise",
       "C:\\Users\\Simran\\.claude\\projects\\c--dhindsa-Ardoise\\memory"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "shadcn"
+  ]
 }
