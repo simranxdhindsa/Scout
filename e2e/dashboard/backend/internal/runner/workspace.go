@@ -9,18 +9,16 @@ import (
 	"github.com/google/uuid"
 )
 
-const workspaceBase = "/tmp"
-
 // Workspace represents a temporary directory created for a single test run.
 // It is created before execution and deleted immediately after.
 type Workspace struct {
 	RunID uuid.UUID
-	Dir   string // e.g. /tmp/scout-run-<runID>
+	Dir   string // e.g. <os.TempDir()>/scout-run-<runID>
 }
 
 // NewWorkspace creates the temp directory for a run.
 func NewWorkspace(runID uuid.UUID) (*Workspace, error) {
-	dir := filepath.Join(workspaceBase, fmt.Sprintf("scout-run-%s", runID.String()))
+	dir := filepath.Join(os.TempDir(), fmt.Sprintf("scout-run-%s", runID.String()))
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create workspace dir: %w", err)
@@ -32,12 +30,10 @@ func NewWorkspace(runID uuid.UUID) (*Workspace, error) {
 // WriteTestFile writes a bundled test file into the workspace directory.
 // Returns the absolute path to the written file.
 func (w *Workspace) WriteTestFile(filename, content string) (string, error) {
-	// Sanitise filename — strip any directory traversal
 	safe := filepath.Base(filename)
 	if safe == "" || safe == "." {
 		safe = "test.js"
 	}
-	// Ensure .js extension for playwright
 	if filepath.Ext(safe) == ".ts" {
 		safe = safe[:len(safe)-3] + ".js"
 	}
@@ -57,8 +53,7 @@ func (w *Workspace) AuthStatePath() string {
 }
 
 // WriteAuthSetup writes the generated login setup spec into the workspace and
-// returns its absolute path. The .auth dir is created up-front so the setup can
-// save storageState into it.
+// returns its absolute path.
 func (w *Workspace) WriteAuthSetup(content string) (string, error) {
 	if err := os.MkdirAll(filepath.Join(w.Dir, ".auth"), 0o755); err != nil {
 		return "", fmt.Errorf("create .auth dir: %w", err)
@@ -94,23 +89,42 @@ func (w *Workspace) AttachmentsPath() string {
 	return filepath.Join(w.Dir, "test-results")
 }
 
-// LinkNodeModules creates a symlink at <workspace>/node_modules pointing at
-// the given absolute path so the generated playwright.config.ts can resolve
-// `@playwright/test` when Node walks up from the workspace.
+// TestResultsDir returns the directory where Playwright writes test-results
+// (screenshots, traces, videos). Canonical alias for AttachmentsPath.
+func (w *Workspace) TestResultsDir() string {
+	return filepath.Join(w.Dir, "test-results")
+}
+
+// ListFiles walks dir recursively and returns every file path whose extension
+// matches ext (e.g. ".png", ".webm", ".zip").
+func (w *Workspace) ListFiles(dir, ext string) []string {
+	var files []string
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil || info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ext {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files
+}
+
+// LinkNodeModules creates a directory junction/symlink at <workspace>/node_modules
+// pointing at the given absolute path so the generated playwright.config.ts can
+// resolve `@playwright/test` when Node walks up from the workspace.
+// Uses platform-specific linkDir: junction on Windows (no admin required), symlink on Unix.
 func (w *Workspace) LinkNodeModules(target string) error {
 	if target == "" {
 		return fmt.Errorf("empty node_modules target")
 	}
 	link := filepath.Join(w.Dir, "node_modules")
-	if err := os.Symlink(target, link); err != nil {
-		return fmt.Errorf("symlink node_modules: %w", err)
-	}
-	return nil
+	return linkDir(link, target)
 }
 
 // FindPlaywrightProjectDir walks up from `start` looking for a directory
-// containing `node_modules/@playwright/test`. Returns that directory (the one
-// with the node_modules folder), or "" if none found.
+// containing `node_modules/@playwright/test`. Returns that directory, or "".
 func FindPlaywrightProjectDir(start string) string {
 	if start == "" {
 		return ""

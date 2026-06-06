@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/notifications"
@@ -273,10 +275,39 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		tail = append(tail, s)
 	}
 
+	// Live screenshot watcher — polls test-results/ for new PNGs every 500 ms
+	// and streams each one as a base64 data URL via the WebSocket hub.
+	watchCtx, cancelWatch := context.WithCancel(ctx)
+	go func() {
+		seen := make(map[string]struct{})
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchCtx.Done():
+				return
+			case <-ticker.C:
+				for _, f := range ws.ListFiles(ws.TestResultsDir(), ".png") {
+					if _, ok := seen[f]; ok {
+						continue
+					}
+					seen[f] = struct{}{}
+					data, err := os.ReadFile(f)
+					if err != nil || len(data) > 1<<20 { // skip files > 1 MB
+						continue
+					}
+					s.streams.Publish(ctx, runID, "screenshot",
+						"data:image/png;base64,"+base64.StdEncoding.EncodeToString(data))
+				}
+			}
+		}
+	}()
+
 	runErr := startAndStream(cmd, func(line string) {
 		s.streams.Publish(ctx, runID, "stdout", line)
 		appendTail(line)
 	})
+	cancelWatch() // stop screenshot watcher once the process exits
 
 	// Parse results even if playwright exited non-zero (failed tests)
 	result, parseErr := ParseResults(ws.ResultsPath())
@@ -315,9 +346,13 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 			s.updateRunItemByName(ctx, runID, tr)
 		}
 
-		// Upload attachments
+		// Upload test-result attachments (screenshots from individual test cases)
 		s.uploadAttachments(ctx, runID, orgID, result.TestResults)
 	}
+
+	// Upload video and trace files produced by Playwright into run_attachments.
+	// This runs regardless of pass/fail so videos/traces are always preserved.
+	s.uploadRunMediaFiles(ctx, runID, orgID, ws)
 
 	// Determine final status
 	finalStatus := "done"
@@ -461,6 +496,55 @@ func (s *Service) uploadAttachments(ctx context.Context, runID, orgID uuid.UUID,
 				}
 				_ = s.runQ.SaveAttachment(ctx, item.ID, att.Type, url)
 			}
+		}
+	}
+}
+
+// uploadRunMediaFiles scans the workspace test-results dir for videos (.webm),
+// traces (.zip), and persisted screenshots (.png), uploads each to storage, and
+// records them in run_attachments. All three types are uploaded regardless of
+// test outcome so they are always available from the run detail page.
+func (s *Service) uploadRunMediaFiles(ctx context.Context, runID, orgID uuid.UUID, ws *Workspace) {
+	items, err := s.runQ.ListItems(ctx, runID)
+	if err != nil || len(items) == 0 {
+		return
+	}
+	// Best-effort match: try to find a run item whose test name appears in the
+	// file path. Fall back to the first item so attachments are never orphaned.
+	itemFor := func(path string) uuid.UUID {
+		base := strings.ToLower(filepath.Base(filepath.Dir(path)))
+		for _, it := range items {
+			if it.TestCaseName != "" &&
+				strings.Contains(base, strings.ToLower(strings.ReplaceAll(it.TestCaseName, " ", "-"))) {
+				return it.ID
+			}
+		}
+		return items[0].ID
+	}
+
+	type upload struct {
+		ext         string
+		contentType string
+		attachType  string
+	}
+	for _, u := range []upload{
+		{".webm", "video/webm", "video"},
+		{".zip", "application/zip", "trace"},
+		{".png", "image/png", "screenshot"},
+	} {
+		for _, f := range ws.ListFiles(ws.TestResultsDir(), u.ext) {
+			fh, err := os.Open(f)
+			if err != nil {
+				continue
+			}
+			key := storage.RunAttachmentKey(orgID.String(), runID.String(), filepath.Base(f))
+			url, err := s.store.Put(ctx, key, fh, u.contentType)
+			fh.Close()
+			if err != nil {
+				log.Printf("[runner] upload media %s: %v", filepath.Base(f), err)
+				continue
+			}
+			_ = s.runQ.SaveAttachment(ctx, itemFor(f), u.attachType, url)
 		}
 	}
 }

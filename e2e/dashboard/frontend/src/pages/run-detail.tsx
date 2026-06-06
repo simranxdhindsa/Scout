@@ -3,7 +3,12 @@ import {
   ArrowLeftIcon,
   CheckCircle2Icon,
   CircleIcon,
+  ClapperboardIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  ImageIcon,
   Loader2Icon,
+  MonitorPlayIcon,
   RefreshCwIcon,
   StopCircleIcon,
   TerminalIcon,
@@ -16,13 +21,14 @@ import { useActiveOrg } from "@/lib/auth"
 import {
   runStreamUrl,
   runsApi,
+  type RunAttachment,
   type RunDetailResponse,
   type RunItem,
   type RunStatus,
 } from "@/lib/scout-api"
 
 type StreamLine = {
-  type: "stdout" | "stderr" | "status" | "error" | "done" | "data"
+  type: "stdout" | "stderr" | "status" | "error" | "done" | "data" | "screenshot"
   payload: string
 }
 
@@ -77,10 +83,13 @@ export default function RunDetailPage() {
   const [stopping, setStopping] = useState(false)
   const [rerunning, setRerunning] = useState(false)
   const [lines, setLines] = useState<StreamLine[]>([])
+  const [liveScreenshot, setLiveScreenshot] = useState<string | null>(null)
+  const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null)
 
   const inProgress =
     detail?.run.status === "queued" || detail?.run.status === "running"
 
+  // Poll run state every 2 s; self-terminate once run reaches a terminal state.
   useEffect(() => {
     if (!orgId || !runId) return
     let cancelled = false
@@ -91,10 +100,6 @@ export default function RunDetailPage() {
         const data = await runsApi.get(orgId, runId)
         if (cancelled) return
         setDetail(data)
-        // Self-terminating poll: once the run reaches a terminal state, stop
-        // hammering the API. We intentionally don't depend on `detail` in the
-        // effect deps — that would re-fire the effect on every setDetail and
-        // turn polling into a request-per-render loop.
         if (
           data.run.status !== "queued" &&
           data.run.status !== "running" &&
@@ -116,11 +121,7 @@ export default function RunDetailPage() {
     }
   }, [orgId, runId])
 
-  // Tap the run's stdout/stderr/status stream while it's in progress.
-  // We depend on the actual status string (not just `inProgress`) so the
-  // effect re-fires on queued → running, and we retry the socket if it
-  // closes while the run is still active (e.g. opened before the worker
-  // picked up the job, when the hub didn't yet exist server-side).
+  // WebSocket stream: stdout/stderr lines + live screenshots while run is active.
   const status = detail?.run.status
   useEffect(() => {
     if (!orgId || !runId) return
@@ -136,8 +137,10 @@ export default function RunDetailPage() {
       sock.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data) as StreamLine
-          // Server sends an "error" frame + closes when the hub doesn't
-          // exist yet; don't surface that as a real line.
+          if (msg.type === "screenshot") {
+            setLiveScreenshot(msg.payload)
+            return
+          }
           if (msg.type === "done" || msg.type === "error") return
           setLines((prev) => [...prev, msg])
         } catch {
@@ -146,7 +149,6 @@ export default function RunDetailPage() {
       }
       sock.onclose = () => {
         if (closedByCleanup) return
-        // Run is still active → reconnect after a short backoff.
         retryTimer = setTimeout(connect, 1000)
       }
     }
@@ -215,12 +217,16 @@ export default function RunDetailPage() {
     )
   }
 
-  const { run, items, report } = detail
+  const { run, items, report, attachments = [] } = detail
+  const screenshots = attachments.filter((a) => a.type === "screenshot")
+  const videos = attachments.filter((a) => a.type === "video")
+  const traces = attachments.filter((a) => a.type === "trace")
 
   return (
     <div className="flex flex-col gap-6">
       <BackLink />
 
+      {/* Header: title + status badge + action buttons */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -233,18 +239,11 @@ export default function RunDetailPage() {
               {run.status}
             </span>
           </div>
-          <p className="text-muted-foreground mt-1 font-mono text-xs">
-            {run.id}
-          </p>
+          <p className="text-muted-foreground mt-1 font-mono text-xs">{run.id}</p>
         </div>
         <div className="flex items-center gap-2">
           {inProgress ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleStop}
-              disabled={stopping}
-            >
+            <Button variant="outline" size="sm" onClick={handleStop} disabled={stopping}>
               {stopping ? (
                 <Loader2Icon className="size-4 animate-spin" />
               ) : (
@@ -267,6 +266,7 @@ export default function RunDetailPage() {
 
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
+      {/* Pre-run failure banner */}
       {run.error_message ? (
         <div className="ring-rose-500/30 bg-rose-500/5 flex flex-col gap-2 p-4 ring-1">
           <div className="flex items-center gap-2">
@@ -281,13 +281,44 @@ export default function RunDetailPage() {
         </div>
       ) : null}
 
+      {/* Stats row + trace/video quick-action buttons */}
       {report ? (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-          <Stat label="Total" value={report.total} />
-          <Stat label="Passed" value={report.passed} accent="emerald" />
-          <Stat label="Failed" value={report.failed} accent="rose" />
-          <Stat label="Skipped" value={report.skipped} />
-          <Stat label="Duration" value={formatDuration(report.duration_ms)} />
+        <div className="flex flex-wrap items-stretch gap-4">
+          <div className="grid flex-1 grid-cols-2 gap-4 md:grid-cols-5">
+            <Stat label="Total" value={report.total} />
+            <Stat label="Passed" value={report.passed} accent="emerald" />
+            <Stat label="Failed" value={report.failed} accent="rose" />
+            <Stat label="Skipped" value={report.skipped} />
+            <Stat label="Duration" value={formatDuration(report.duration_ms)} />
+          </div>
+          {(videos.length > 0 || traces.length > 0) && (
+            <div className="flex flex-col gap-2">
+              {videos.map((v) => (
+                <a
+                  key={v.id}
+                  href={v.storage_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-muted/40 ring-border/40 hover:bg-accent inline-flex items-center gap-2 px-3 py-2 text-xs ring-1 whitespace-nowrap"
+                >
+                  <ClapperboardIcon className="size-3.5" />
+                  Watch Video
+                </a>
+              ))}
+              {traces.map((t) => (
+                <a
+                  key={t.id}
+                  href={`https://trace.playwright.dev/?trace=${encodeURIComponent(t.storage_url)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-muted/40 ring-border/40 hover:bg-accent inline-flex items-center gap-2 px-3 py-2 text-xs ring-1 whitespace-nowrap"
+                >
+                  <ExternalLinkIcon className="size-3.5" />
+                  View Trace
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       ) : inProgress ? (
         <p className="text-muted-foreground text-sm">
@@ -295,10 +326,51 @@ export default function RunDetailPage() {
         </p>
       ) : null}
 
-      {lines.length > 0 || inProgress ? (
-        <TerminalPanel lines={lines} inProgress={inProgress} />
-      ) : null}
+      {/* Terminal output + live screenshot preview (side by side while running) */}
+      {(lines.length > 0 || inProgress) && (
+        <div
+          className={
+            inProgress && liveScreenshot ? "grid grid-cols-2 gap-4" : undefined
+          }
+        >
+          <TerminalPanel lines={lines} inProgress={!!inProgress} />
+          {inProgress && liveScreenshot && <LivePreview src={liveScreenshot} />}
+        </div>
+      )}
 
+      {/* Screenshot strip — persisted attachments shown after run */}
+      {!inProgress && screenshots.length > 0 && (
+        <AttachmentStrip
+          screenshots={screenshots}
+          selected={selectedScreenshot}
+          onSelect={setSelectedScreenshot}
+        />
+      )}
+
+      {/* Inline video player */}
+      {!inProgress && videos.length > 0 && (
+        <div className="ring-border/40 flex flex-col ring-1">
+          <div className="border-border/40 flex items-center gap-2 border-b px-4 py-2 text-xs">
+            <MonitorPlayIcon className="size-3.5 text-zinc-400" />
+            <span className="font-medium tracking-wider text-zinc-400 uppercase">
+              Recording{videos.length > 1 ? `s (${videos.length})` : ""}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-4 p-4">
+            {videos.map((v, i) => (
+              <video
+                key={v.id}
+                src={v.storage_url}
+                controls
+                className="max-h-64 max-w-full ring-border/40 ring-1"
+                title={`Recording ${i + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Test items list */}
       <div className="bg-muted/30 ring-border/40 flex flex-col ring-1">
         <div className="border-border/40 flex items-center justify-between border-b px-4 py-2 text-xs">
           <span className="text-muted-foreground font-medium tracking-wider uppercase">
@@ -309,9 +381,7 @@ export default function RunDetailPage() {
           </span>
         </div>
         {items.length === 0 ? (
-          <p className="text-muted-foreground p-6 text-center text-sm">
-            No tests yet.
-          </p>
+          <p className="text-muted-foreground p-6 text-center text-sm">No tests yet.</p>
         ) : (
           <ul className="divide-border/40 divide-y">
             {items.map((it) => (
@@ -323,6 +393,8 @@ export default function RunDetailPage() {
     </div>
   )
 }
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function BackLink() {
   return (
@@ -352,9 +424,7 @@ function Stat({
         : "text-foreground"
   return (
     <div className="bg-muted/30 ring-border/40 p-4 ring-1">
-      <p className="text-muted-foreground text-xs tracking-wider uppercase">
-        {label}
-      </p>
+      <p className="text-muted-foreground text-xs tracking-wider uppercase">{label}</p>
       <p className={`mt-1 text-2xl font-semibold ${accentClass}`}>{value}</p>
     </div>
   )
@@ -378,9 +448,7 @@ function TerminalPanel({
     <div className="ring-border/40 flex flex-col bg-zinc-950 ring-1">
       <div className="border-border/40 flex items-center gap-2 border-b px-4 py-2 text-xs">
         <TerminalIcon className="size-3.5 text-zinc-400" />
-        <span className="font-medium tracking-wider text-zinc-400 uppercase">
-          Output
-        </span>
+        <span className="font-medium tracking-wider text-zinc-400 uppercase">Output</span>
         <span className="ml-auto font-mono text-[10px] text-zinc-500">
           {lines.length} {lines.length === 1 ? "line" : "lines"}
         </span>
@@ -407,6 +475,102 @@ function TerminalPanel({
             }
           >
             {line.payload || " "}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LivePreview({ src }: { src: string }) {
+  return (
+    <div className="ring-border/40 flex flex-col bg-zinc-950 ring-1">
+      <div className="border-border/40 flex items-center gap-2 border-b px-4 py-2 text-xs">
+        <MonitorPlayIcon className="size-3.5 text-sky-400" />
+        <span className="font-medium tracking-wider text-sky-400 uppercase">
+          Live Preview
+        </span>
+        <span className="ml-auto flex items-center gap-1.5 text-[10px] text-zinc-500">
+          <span className="inline-block size-1.5 animate-pulse rounded-full bg-sky-400" />
+          live
+        </span>
+      </div>
+      <div className="flex items-center justify-center p-2">
+        <img
+          src={src}
+          alt="Live browser preview"
+          className="max-h-[360px] w-full object-contain"
+        />
+      </div>
+    </div>
+  )
+}
+
+function AttachmentStrip({
+  screenshots,
+  selected,
+  onSelect,
+}: {
+  screenshots: RunAttachment[]
+  selected: string | null
+  onSelect: (url: string | null) => void
+}) {
+  return (
+    <div className="ring-border/40 flex flex-col ring-1">
+      <div className="border-border/40 flex items-center gap-2 border-b px-4 py-2 text-xs">
+        <ImageIcon className="size-3.5 text-zinc-400" />
+        <span className="font-medium tracking-wider text-zinc-400 uppercase">
+          Screenshots ({screenshots.length})
+        </span>
+      </div>
+
+      {/* Expanded view of the selected screenshot */}
+      {selected && (
+        <div className="border-border/40 relative border-b bg-zinc-950 p-4">
+          <img
+            src={selected}
+            alt="Screenshot"
+            className="mx-auto max-h-[480px] max-w-full object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="bg-muted/60 ring-border/40 hover:bg-accent absolute top-3 right-3 px-2 py-1 text-xs ring-1"
+          >
+            Close
+          </button>
+        </div>
+      )}
+
+      {/* Thumbnail strip */}
+      <div className="flex flex-wrap gap-3 p-4">
+        {screenshots.map((s) => (
+          <div key={s.id} className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() =>
+                onSelect(selected === s.storage_url ? null : s.storage_url)
+              }
+              className={`ring-1 transition ${
+                selected === s.storage_url
+                  ? "ring-sky-400"
+                  : "ring-border/40 hover:ring-sky-400/50"
+              }`}
+            >
+              <img
+                src={s.storage_url}
+                alt="Screenshot thumbnail"
+                className="h-24 w-40 object-cover"
+              />
+            </button>
+            <a
+              href={s.storage_url}
+              download
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px]"
+            >
+              <DownloadIcon className="size-3" />
+              Download
+            </a>
           </div>
         ))}
       </div>

@@ -153,10 +153,16 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	report, _ := runQ.GetReport(r.Context(), runID)
 
+	attachments, _ := runQ.ListAttachments(r.Context(), runID)
+	if attachments == nil {
+		attachments = []queries.RunAttachment{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"run":    run,
-		"items":  items,
-		"report": report,
+		"run":         run,
+		"items":       items,
+		"report":      report,
+		"attachments": attachments,
 	})
 }
 

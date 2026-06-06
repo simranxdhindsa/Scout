@@ -30,6 +30,9 @@ type PlaywrightConfigOptions struct {
 	// Trace controls when traces are captured: "on", "off", "retain-on-failure"
 	Trace string
 
+	// Video controls when video is recorded: "on", "off", "retain-on-failure"
+	Video string
+
 	// AuthSetupFile, when non-empty, is the absolute path to a generated login
 	// setup spec. A 'setup' project runs it before the main project, which then
 	// reuses the saved session via AuthStatePath. Both must be set to enable auth.
@@ -47,8 +50,9 @@ func DefaultConfigOptions(workspaceDir string) PlaywrightConfigOptions {
 		Workers:      1,
 		Retries:      0,
 		Timeout:      30000, // 30 seconds
-		Screenshot:   "only-on-failure",
-		Trace:        "retain-on-failure",
+		Screenshot:   "on",               // "on" so screenshots stream live via WebSocket watcher
+		Trace:        "retain-on-failure", // traces saved for failed tests
+		Video:        "retain-on-failure", // videos saved for failed tests
 	}
 }
 
@@ -81,6 +85,11 @@ func GenerateConfig(opts PlaywrightConfigOptions) string {
 	trace := opts.Trace
 	if trace == "" {
 		trace = "retain-on-failure"
+	}
+
+	video := opts.Video
+	if video == "" {
+		video = "retain-on-failure"
 	}
 
 	// When credentials are available the runner generates a login setup spec.
@@ -132,7 +141,7 @@ export default defineConfig({
     baseURL: process.env.TESTDECK_BASE_URL,
     screenshot: '%s',
     trace: '%s',
-    video: 'off',
+    video: '%s',
     // Credentials injected as process.env.TESTDECK_EMAIL / TESTDECK_PASSWORD
   },
   projects: [
@@ -155,6 +164,7 @@ export default defineConfig({
 		escapeForJS(opts.WorkspaceDir+"/html"),
 		screenshot,
 		trace,
+		video,
 		setupProject,
 		deps,
 		storageStateLine,

@@ -704,10 +704,19 @@ export type RunReport = {
   created_at: string
 }
 
+export type RunAttachment = {
+  id: string
+  run_item_id: string
+  type: "screenshot" | "video" | "trace" | string
+  storage_url: string
+  created_at: string
+}
+
 export type RunDetailResponse = {
   run: RunDetail
   items: RunItem[]
   report: RunReport | null
+  attachments: RunAttachment[]
 }
 
 export function runStreamUrl(orgId: string, runId: string) {
