@@ -418,7 +418,9 @@ func (s *Service) failRun(ctx context.Context, runID, orgID uuid.UUID, reason st
 	s.streams.Publish(ctx, runID, "status", "failed")
 	_ = s.runQ.SetErrorMessage(ctx, runID, reason)
 	_ = s.runQ.UpdateStatus(ctx, runID, "failed")
-	_ = s.runQ.FailItems(ctx, runID)
+	if err := s.runQ.FailItems(ctx, runID); err != nil {
+		log.Printf("[runner] failItems run=%s: %v", runID, err)
+	}
 	s.notifyCompletion(ctx, runID, orgID, "failed", nil)
 }
 

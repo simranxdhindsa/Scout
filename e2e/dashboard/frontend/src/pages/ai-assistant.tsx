@@ -84,17 +84,22 @@ export default function AiAssistantPage() {
     }
   }
 
+  const pendingSessionRef = useRef<Promise<import("@/lib/scout-api").ChatSession> | null>(null)
+
   const newChat = async () => {
     if (!org) return
     try {
-      const session = await chatHistoryApi.createSession(org.id)
+      const promise = chatHistoryApi.createSession(org.id)
+      pendingSessionRef.current = promise
+      const session = await promise
       setSessions((prev) => [session, ...prev])
       setActiveSessionId(session.id)
       setMessages([])
     } catch {
-      // fallback: just clear messages, session created lazily on first send
       setActiveSessionId(null)
       setMessages([])
+    } finally {
+      pendingSessionRef.current = null
     }
   }
 
@@ -122,14 +127,22 @@ export default function AiAssistantPage() {
     setInput("")
     setStreaming(true)
 
-    // Ensure we have an active session
+    // Ensure we have an active session — reuse newChat()'s in-flight promise if present
     let sessionId = activeSessionId
     const isFirstMessage = messages.length === 0
     if (!sessionId) {
       try {
-        const session = await chatHistoryApi.createSession(org.id)
-        setSessions((prev) => [session, ...prev])
-        setActiveSessionId(session.id)
+        const session = pendingSessionRef.current
+          ? await pendingSessionRef.current
+          : await (async () => {
+              const p = chatHistoryApi.createSession(org.id)
+              pendingSessionRef.current = p
+              const s = await p
+              pendingSessionRef.current = null
+              setSessions((prev) => [s, ...prev])
+              setActiveSessionId(s.id)
+              return s
+            })()
         sessionId = session.id
       } catch {
         // proceed without persistence

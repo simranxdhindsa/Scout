@@ -91,9 +91,13 @@ func (h *aiHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	flusher, canFlush := w.(http.Flusher)
 
-	// Convert message types
+	// Convert message types — only user/assistant roles accepted from clients
 	messages := make([]ai.ChatMessage, len(body.Messages))
 	for i, m := range body.Messages {
+		if m.Role != "user" && m.Role != "assistant" {
+			writeError(w, "invalid role: only 'user' and 'assistant' are accepted", http.StatusBadRequest)
+			return
+		}
 		messages[i] = ai.ChatMessage{Role: m.Role, Content: m.Content}
 	}
 

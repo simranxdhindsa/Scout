@@ -71,7 +71,8 @@ func (s *Service) fire(ctx context.Context, sq *queries.ScheduledRunQueries, sch
 	testCaseIDs = append(testCaseIDs, sched.TestCaseIDs...)
 
 	if len(testCaseIDs) == 0 {
-		log.Printf("[scheduler] schedule %s has no test cases — skipping", sched.ID)
+		log.Printf("[scheduler] schedule %s has no test cases — skipping (next_run_at unchanged)", sched.ID)
+		return
 	} else {
 		run, err := runQ.Create(ctx, sched.OrgID, sched.EnvID, sched.CreatedBy,
 			"[Scheduled] "+sched.Label, nil)

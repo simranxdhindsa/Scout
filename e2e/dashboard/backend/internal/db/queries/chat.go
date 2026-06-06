@@ -100,15 +100,27 @@ func (q *ChatQueries) DeleteSession(ctx context.Context, id uuid.UUID) error {
 // ── Messages ──────────────────────────────────────────────────────────────────
 
 func (q *ChatQueries) AddMessage(ctx context.Context, sessionID uuid.UUID, role, content string) (*ChatMessage, error) {
-	// Bump session updated_at so the list stays sorted by recency
-	_, _ = q.db.Exec(ctx, `UPDATE ai_chat_sessions SET updated_at = NOW() WHERE id = $1`, sessionID)
-	row := q.db.QueryRow(ctx, `
+	tx, err := q.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `UPDATE ai_chat_sessions SET updated_at = NOW() WHERE id = $1`, sessionID); err != nil {
+		return nil, err
+	}
+
+	row := tx.QueryRow(ctx, `
 		INSERT INTO ai_chat_messages (session_id, role, content)
 		VALUES ($1, $2, $3)
 		RETURNING id, session_id, role, content, created_at
 	`, sessionID, role, content)
 	var m ChatMessage
 	if err := row.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return &m, nil

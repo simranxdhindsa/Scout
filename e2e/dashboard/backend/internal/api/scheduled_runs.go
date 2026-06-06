@@ -8,6 +8,7 @@ import (
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/scheduler"
 	"github.com/google/uuid"
+	"github.com/gorhill/cronexpr"
 )
 
 type scheduledRunHandler struct {
@@ -62,6 +63,10 @@ func parseScheduledRunBody(body scheduledRunBody) (
 			testCaseIDs = append(testCaseIDs, id)
 		}
 	}
+	if _, err := cronexpr.Parse(cronExpr); err != nil {
+		valErr = "invalid cron expression: " + err.Error()
+		return
+	}
 	nextRunAt = scheduler.NextAfter(cronExpr, time.Now())
 	return
 }
@@ -98,7 +103,11 @@ func (h *scheduledRunHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	label, cronExpr, product, envID, folderID, testCaseIDs, nextRunAt, _ := parseScheduledRunBody(body)
+	label, cronExpr, product, envID, folderID, testCaseIDs, nextRunAt, valErr := parseScheduledRunBody(body)
+	if valErr != "" {
+		writeError(w, valErr, http.StatusBadRequest)
+		return
+	}
 	sq := queries.NewScheduledRunQueries(h.svc.DB)
 	run, err := sq.Create(r.Context(), orgID, &claims.UserID, label, cronExpr, product, envID, folderID, testCaseIDs, nextRunAt)
 	if err != nil {
@@ -131,7 +140,11 @@ func (h *scheduledRunHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "scheduled run not found", http.StatusNotFound)
 		return
 	}
-	label, cronExpr, product, envID, folderID, testCaseIDs, nextRunAt, _ := parseScheduledRunBody(body)
+	label, cronExpr, product, envID, folderID, testCaseIDs, nextRunAt, valErr := parseScheduledRunBody(body)
+	if valErr != "" {
+		writeError(w, valErr, http.StatusBadRequest)
+		return
+	}
 	enabled := existing.Enabled
 	if body.Enabled != nil {
 		enabled = *body.Enabled
@@ -140,7 +153,11 @@ func (h *scheduledRunHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "failed to update scheduled run", http.StatusInternalServerError)
 		return
 	}
-	updated, _ := sq.GetByID(r.Context(), schedID)
+	updated, err := sq.GetByID(r.Context(), schedID)
+	if err != nil {
+		writeError(w, "failed to fetch updated schedule", http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, http.StatusOK, updated)
 }
 
