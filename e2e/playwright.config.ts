@@ -54,13 +54,9 @@ export default defineConfig({
   },
 
   projects: [
-    // ── Auth setup projects ──────────────────────────────────────
+    // ── Auth setup ───────────────────────────────────────────────
     {
       name: 'setup-ui',
-      testMatch: /global-setup\.ts/,
-    },
-    {
-      name: 'setup-mc',
       testMatch: /global-setup\.ts/,
     },
     {
@@ -68,7 +64,7 @@ export default defineConfig({
       testMatch: /global-setup\.ts/,
     },
 
-    // ── UI ───────────────────────────────────────────────────────
+    // ── UI (mocked) ──────────────────────────────────────────────
     {
       name: 'ui',
       testMatch: /specs\/ui\/.*/,
@@ -82,10 +78,19 @@ export default defineConfig({
     {
       name: 'ui-no-auth',
       testMatch: /specs\/ui\/auth\/.*/,
+      use: { ...devices['Desktop Chrome'], baseURL: UI_URL },
+    },
+
+    // ── UI (live — real server) ──────────────────────────────────
+    {
+      name: 'ui-live',
+      testMatch: /specs\/ui-live\/.*/,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: UI_URL,
+        storageState: path.join(AUTH_DIR, 'ui-user.json'),
       },
+      dependencies: ['setup-ui'],
     },
 
     // ── Mission-Control ──────────────────────────────────────────
@@ -97,18 +102,14 @@ export default defineConfig({
         baseURL: MC_URL,
         storageState: path.join(AUTH_DIR, 'mc-user.json'),
       },
-      dependencies: ['setup-mc'],
     },
     {
       name: 'mission-control-no-auth',
       testMatch: /specs\/mission-control\/auth\/.*/,
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: MC_URL,
-      },
+      use: { ...devices['Desktop Chrome'], baseURL: MC_URL },
     },
 
-    // ── Studio-Web ───────────────────────────────────────────────
+    // ── Studio-Web (mocked) ──────────────────────────────────────
     {
       name: 'studio-web',
       testMatch: /specs\/studio-web\/.*/,
@@ -122,10 +123,19 @@ export default defineConfig({
     {
       name: 'studio-web-no-auth',
       testMatch: /specs\/studio-web\/auth\/.*/,
+      use: { ...devices['Desktop Chrome'], baseURL: SW_URL },
+    },
+
+    // ── Studio-Web (live — real server) ─────────────────────────
+    {
+      name: 'studio-web-live',
+      testMatch: /specs\/studio-web-live\/.*/,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: SW_URL,
+        storageState: path.join(AUTH_DIR, 'sw-user.json'),
       },
+      dependencies: ['setup-sw'],
     },
   ],
 });

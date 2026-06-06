@@ -13,12 +13,14 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import {
+  CalendarClockIcon,
+  GitMergeIcon,
   LayoutDashboardIcon,
   PlayIcon,
-  GitBranchIcon,
   SparklesIcon,
   Settings2Icon,
   FolderIcon,
+  ZapIcon,
 } from "lucide-react"
 
 const data = {
@@ -41,7 +43,12 @@ const data = {
     {
       title: "Pipeline",
       url: "/dashboard/pipeline",
-      icon: <GitBranchIcon />,
+      icon: <GitMergeIcon />,
+    },
+    {
+      title: "Sprints",
+      url: "/dashboard/sprints",
+      icon: <ZapIcon />,
     },
     {
       title: "AI Assistant",
@@ -66,6 +73,7 @@ const data = {
         { title: "AI Config", url: "/dashboard/settings/ai-config" },
         { title: "Integrations", url: "/dashboard/settings/integrations" },
         { title: "Organisations", url: "/dashboard/settings/organisations" },
+        { title: "Scheduled Runs", url: "/dashboard/settings/scheduled-runs", icon: <CalendarClockIcon /> },
       ],
     },
   ],

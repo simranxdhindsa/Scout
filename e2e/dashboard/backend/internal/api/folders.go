@@ -27,6 +27,16 @@ func (h *folderHandler) Tree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForSubProject(r.Context(), h.svc.DB, spID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
+		return
+	}
+
 	folderQ := queries.NewFolderQueries(h.svc.DB)
 
 	flat, err := folderQ.ListBySubProject(r.Context(), spID)
@@ -51,7 +61,15 @@ func (h *folderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForSubProject(r.Context(), h.svc.DB, spID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
 	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
+		return
+	}
 
 	var body struct {
 		Name     string  `json:"name"`
@@ -90,6 +108,16 @@ func (h *folderHandler) Rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForFolder(r.Context(), h.svc.DB, folderID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
+		return
+	}
+
 	var body struct {
 		Name string `json:"name"`
 	}
@@ -114,6 +142,16 @@ func (h *folderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	folderID, err := uuid.Parse(r.PathValue("folderId"))
 	if err != nil {
 		writeError(w, "invalid folderId", http.StatusBadRequest)
+		return
+	}
+
+	orgID, ok := orgIDForFolder(r.Context(), h.svc.DB, folderID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
 		return
 	}
 

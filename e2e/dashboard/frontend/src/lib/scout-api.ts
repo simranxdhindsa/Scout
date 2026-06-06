@@ -704,10 +704,19 @@ export type RunReport = {
   created_at: string
 }
 
+export type RunAttachment = {
+  id: string
+  run_item_id: string
+  type: "screenshot" | "video" | "trace" | string
+  storage_url: string
+  created_at: string
+}
+
 export type RunDetailResponse = {
   run: RunDetail
   items: RunItem[]
   report: RunReport | null
+  attachments: RunAttachment[]
 }
 
 export function runStreamUrl(orgId: string, runId: string) {
@@ -753,4 +762,377 @@ export const overviewApi = {
         params: { limit },
       })
       .then((r) => r.data.runs),
+}
+
+// ── Flows ─────────────────────────────────────────────────────────────────────
+
+export type FlowProduct = "ui" | "mission-control" | "studio-web"
+
+export type FlowStep = {
+  id: string
+  flow_id: string
+  position: number
+  name: string
+  product: FlowProduct
+  test_case_id: string | null
+  folder_id: string | null
+  env_inputs: Array<{ key: string; from: string }>
+  env_outputs: Array<{ from: string; to: string }>
+  created_at: string
+  test_case_name?: string
+  folder_name?: string
+}
+
+export type FlowStepInput = {
+  position?: number
+  name: string
+  product: FlowProduct
+  test_case_id?: string | null
+  folder_id?: string | null
+  env_inputs?: Array<{ key: string; from: string }>
+  env_outputs?: Array<{ from: string; to: string }>
+}
+
+export type Flow = {
+  id: string
+  org_id: string
+  name: string
+  description: string
+  is_template: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  step_count?: number
+}
+
+export type FlowDetail = {
+  flow: Flow
+  steps: FlowStep[]
+}
+
+export type FlowRunStatus = "queued" | "running" | "passed" | "failed" | "stopped"
+
+export type FlowStepRun = {
+  id: string
+  flow_run_id: string
+  step_id: string
+  run_id: string | null
+  status: string
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  step_name?: string
+  step_product?: FlowProduct
+  position?: number
+}
+
+export type FlowRun = {
+  id: string
+  flow_id: string
+  org_id: string
+  status: FlowRunStatus
+  started_by: string | null
+  shared_state: Record<string, string>
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  flow_name?: string
+}
+
+export type FlowRunDetail = {
+  flow_run: FlowRun
+  step_runs: FlowStepRun[]
+}
+
+export const flowsApi = {
+  list: (orgId: string) =>
+    api
+      .get<{ flows: Flow[] }>(`/orgs/${orgId}/flows`)
+      .then((r) => r.data.flows),
+
+  create: (orgId: string, body: { name: string; description?: string }) =>
+    api.post<Flow>(`/orgs/${orgId}/flows`, body).then((r) => r.data),
+
+  get: (orgId: string, flowId: string) =>
+    api
+      .get<FlowDetail>(`/orgs/${orgId}/flows/${flowId}`)
+      .then((r) => r.data),
+
+  update: (orgId: string, flowId: string, body: { name: string; description?: string }) =>
+    api.put(`/orgs/${orgId}/flows/${flowId}`, body),
+
+  remove: (orgId: string, flowId: string) =>
+    api.delete(`/orgs/${orgId}/flows/${flowId}`),
+
+  addStep: (orgId: string, flowId: string, body: FlowStepInput) =>
+    api
+      .post<FlowStep>(`/orgs/${orgId}/flows/${flowId}/steps`, body)
+      .then((r) => r.data),
+
+  updateStep: (orgId: string, flowId: string, stepId: string, body: Partial<FlowStepInput>) =>
+    api.put(`/orgs/${orgId}/flows/${flowId}/steps/${stepId}`, body),
+
+  removeStep: (orgId: string, flowId: string, stepId: string) =>
+    api.delete(`/orgs/${orgId}/flows/${flowId}/steps/${stepId}`),
+
+  reorderSteps: (orgId: string, flowId: string, stepIds: string[]) =>
+    api.post(`/orgs/${orgId}/flows/${flowId}/steps/reorder`, { step_ids: stepIds }),
+
+  run: (orgId: string, flowId: string) =>
+    api
+      .post<{ flow_run_id: string; status: string }>(`/orgs/${orgId}/flows/${flowId}/run`, {})
+      .then((r) => r.data),
+
+  listRuns: (orgId: string, params?: { limit?: number; offset?: number }) =>
+    api
+      .get<{ runs: FlowRun[]; total: number }>(`/orgs/${orgId}/flows/runs`, { params })
+      .then((r) => r.data),
+
+  getRun: (orgId: string, flowRunId: string) =>
+    api
+      .get<FlowRunDetail>(`/orgs/${orgId}/flows/runs/${flowRunId}`)
+      .then((r) => r.data),
+}
+
+// ── YouTrack ──────────────────────────────────────────────────────────────────
+
+export type YouTrackIntegration = {
+  id: string
+  org_id: string
+  user_id: string
+  base_url: string
+  project_id: string
+  board_id: string
+  connected: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type YouTrackBoard = {
+  id: string
+  name: string
+}
+
+export type YouTrackSprint = {
+  id: string
+  name: string
+  start: number
+  finish: number
+  isCompleted: boolean
+}
+
+export type YouTrackTicketMapping = {
+  id: string
+  org_id: string
+  ticket_id: string
+  ticket_title: string
+  test_case_id: string
+  test_case_name?: string
+  created_at: string
+}
+
+export type YouTrackIssue = {
+  id: string
+  idReadable: string
+  summary: string
+  description: string
+  ticket_key: string
+  status: string
+  priority: string
+  subsystem: string
+  mappings: YouTrackTicketMapping[]
+}
+
+export type YouTrackConnectBody = {
+  base_url: string
+  token: string
+  project_id: string
+  board_id?: string
+}
+
+export const youtrackApi = {
+  connect: (orgId: string, body: YouTrackConnectBody) =>
+    api
+      .post<YouTrackIntegration>(`/orgs/${orgId}/integrations/youtrack`, body)
+      .then((r) => r.data),
+
+  getStatus: (orgId: string) =>
+    api
+      .get<{ connected: boolean; integration?: YouTrackIntegration }>(
+        `/orgs/${orgId}/integrations/youtrack`,
+      )
+      .then((r) => r.data),
+
+  disconnect: (orgId: string, integrationId: string) =>
+    api.delete(`/orgs/${orgId}/integrations/youtrack/${integrationId}`),
+
+  getBoards: (orgId: string, integrationId: string) =>
+    api
+      .get<{ boards: YouTrackBoard[] }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/boards`,
+      )
+      .then((r) => r.data.boards),
+
+  getSprints: (orgId: string, integrationId: string) =>
+    api
+      .get<{ sprints: YouTrackSprint[] }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/sprints`,
+      )
+      .then((r) => r.data.sprints),
+
+  getSprintIssues: (orgId: string, integrationId: string, sprintId: string) =>
+    api
+      .get<{ issues: YouTrackIssue[] }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/sprints/${sprintId}/issues`,
+      )
+      .then((r) => r.data.issues),
+
+  runSprint: (
+    orgId: string,
+    integrationId: string,
+    sprintId: string,
+    body?: { label?: string },
+  ) =>
+    api
+      .post<{ run_id: string; status: string; tests: number }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/sprints/${sprintId}/run`,
+        body ?? {},
+      )
+      .then((r) => r.data),
+
+  listMappings: (orgId: string) =>
+    api
+      .get<{ mappings: YouTrackTicketMapping[] }>(`/orgs/${orgId}/youtrack/mappings`)
+      .then((r) => r.data.mappings),
+
+  createMapping: (
+    orgId: string,
+    body: { ticket_id: string; ticket_title: string; test_case_id: string },
+  ) =>
+    api
+      .post<YouTrackTicketMapping>(`/orgs/${orgId}/youtrack/mappings`, body)
+      .then((r) => r.data),
+
+  deleteMapping: (orgId: string, mappingId: string) =>
+    api.delete(`/orgs/${orgId}/youtrack/mappings/${mappingId}`),
+}
+
+// ── Slack ──────────────────────────────────────────────────────────────────────
+
+export type SlackSettings = {
+  webhook_url: string
+  notify_on_failure: boolean
+  notify_on_success: boolean
+}
+
+export const slackApi = {
+  getSettings: (orgId: string) =>
+    api.get<SlackSettings>(`/orgs/${orgId}/settings/slack`).then((r) => r.data),
+
+  updateSettings: (orgId: string, body: SlackSettings) =>
+    api.put<{ status: string }>(`/orgs/${orgId}/settings/slack`, body).then((r) => r.data),
+}
+
+// ── Chat history ───────────────────────────────────────────────────────────────
+
+export type ChatSession = {
+  id: string
+  org_id: string
+  user_id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export type ChatHistoryMessage = {
+  id: string
+  session_id: string
+  role: "user" | "assistant" | "system"
+  content: string
+  created_at: string
+}
+
+export const chatHistoryApi = {
+  listSessions: (orgId: string) =>
+    api
+      .get<{ sessions: ChatSession[] }>(`/orgs/${orgId}/ai/sessions`)
+      .then((r) => r.data.sessions),
+
+  createSession: (orgId: string, title?: string) =>
+    api
+      .post<ChatSession>(`/orgs/${orgId}/ai/sessions`, { title: title ?? "New chat" })
+      .then((r) => r.data),
+
+  updateTitle: (orgId: string, sessionId: string, title: string) =>
+    api.put(`/orgs/${orgId}/ai/sessions/${sessionId}`, { title }),
+
+  deleteSession: (orgId: string, sessionId: string) =>
+    api.delete(`/orgs/${orgId}/ai/sessions/${sessionId}`),
+
+  getMessages: (orgId: string, sessionId: string) =>
+    api
+      .get<{ messages: ChatHistoryMessage[] }>(
+        `/orgs/${orgId}/ai/sessions/${sessionId}/messages`,
+      )
+      .then((r) => r.data.messages),
+
+  addMessage: (orgId: string, sessionId: string, role: string, content: string) =>
+    api
+      .post<ChatHistoryMessage>(`/orgs/${orgId}/ai/sessions/${sessionId}/messages`, {
+        role,
+        content,
+      })
+      .then((r) => r.data),
+}
+
+// ── Scheduled runs ─────────────────────────────────────────────────────────────
+
+export type ScheduledRun = {
+  id: string
+  org_id: string
+  label: string
+  cron_expr: string
+  env_id: string | null
+  test_case_ids: string[]
+  folder_id: string | null
+  product: string
+  enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ScheduledRunBody = {
+  label?: string
+  cron_expr?: string
+  env_id?: string
+  folder_id?: string
+  test_case_ids?: string[]
+  product?: string
+  enabled?: boolean
+}
+
+export const scheduledRunsApi = {
+  list: (orgId: string) =>
+    api
+      .get<{ scheduled_runs: ScheduledRun[] }>(`/orgs/${orgId}/scheduled-runs`)
+      .then((r) => r.data.scheduled_runs),
+
+  create: (orgId: string, body: ScheduledRunBody) =>
+    api.post<ScheduledRun>(`/orgs/${orgId}/scheduled-runs`, body).then((r) => r.data),
+
+  update: (orgId: string, schedId: string, body: ScheduledRunBody) =>
+    api
+      .put<ScheduledRun>(`/orgs/${orgId}/scheduled-runs/${schedId}`, body)
+      .then((r) => r.data),
+
+  delete: (orgId: string, schedId: string) =>
+    api.delete(`/orgs/${orgId}/scheduled-runs/${schedId}`),
+
+  toggle: (orgId: string, schedId: string) =>
+    api
+      .post<{ enabled: boolean }>(`/orgs/${orgId}/scheduled-runs/${schedId}/toggle`, {})
+      .then((r) => r.data),
 }

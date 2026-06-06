@@ -70,7 +70,7 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 
 	runQ := queries.NewRunQueries(h.svc.DB)
-	run, err := runQ.Create(r.Context(), orgID, envID, claims.UserID, label, credsJSON)
+	run, err := runQ.Create(r.Context(), orgID, envID, &claims.UserID, label, credsJSON)
 	if err != nil {
 		writeError(w, "failed to create run", http.StatusInternalServerError)
 		return
@@ -153,10 +153,16 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	report, _ := runQ.GetReport(r.Context(), runID)
 
+	attachments, _ := runQ.ListAttachments(r.Context(), runID)
+	if attachments == nil {
+		attachments = []queries.RunAttachment{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"run":    run,
-		"items":  items,
-		"report": report,
+		"run":         run,
+		"items":       items,
+		"report":      report,
+		"attachments": attachments,
 	})
 }
 

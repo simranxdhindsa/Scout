@@ -271,7 +271,7 @@ func (h *pipelineHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	runQ := queries.NewRunQueries(h.svc.DB)
-	run, err := runQ.Create(r.Context(), orgID, nil, claims.UserID, label, credsJSON)
+	run, err := runQ.Create(r.Context(), orgID, nil, &claims.UserID, label, credsJSON)
 	if err != nil {
 		writeError(w, "failed to create run", http.StatusInternalServerError)
 		return
