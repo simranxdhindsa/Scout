@@ -341,6 +341,17 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("POST /api/v1/orgs/{orgId}/scheduled-runs/{schedId}/toggle", chain(schedH.ToggleEnabled,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
+	// ── Analytics ─────────────────────────────────────────────────────────
+	analyticsH := newAnalyticsHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/overview", chain(analyticsH.Overview,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/flaky", chain(analyticsH.FlakyTests,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/slow", chain(analyticsH.SlowTests,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/tests/{testCaseId}/history", chain(analyticsH.TestHistory,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
 	// ── Static file serving (local storage) ──────────────────────────────
 	if svc.Config.StorageDriver == "local" {
 		storageH := newStorageHandler(svc)

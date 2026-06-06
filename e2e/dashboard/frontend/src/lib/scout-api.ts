@@ -1136,3 +1136,70 @@ export const scheduledRunsApi = {
       .post<{ enabled: boolean }>(`/orgs/${orgId}/scheduled-runs/${schedId}/toggle`, {})
       .then((r) => r.data),
 }
+
+// ── Analytics ──────────────────────────────────────────────────────────────────
+
+export type AnalyticsOverview = {
+  total_test_cases: number
+  runs_last_7d: number
+  avg_pass_rate_7d: number
+  avg_duration_ms: number
+  flaky_count: number
+  total_runs_last_7d: number
+}
+
+export type FlakyTest = {
+  test_case_id: string
+  test_name: string
+  file_name: string
+  folder_name: string
+  sub_project_name: string
+  total_runs: number
+  passed_count: number
+  failed_count: number
+  pass_rate: number
+  last_run_at: string
+}
+
+export type SlowTest = {
+  test_case_id: string
+  test_name: string
+  file_name: string
+  folder_name: string
+  sub_project_name: string
+  run_count: number
+  avg_duration_ms: number
+  max_duration_ms: number
+  p95_duration_ms: number
+}
+
+export type TestRunHistoryEntry = {
+  run_id: string
+  status: "passed" | "failed" | "skipped" | "timedOut"
+  duration_ms: number | null
+  run_at: string
+}
+
+export const analyticsApi = {
+  getOverview: (orgId: string) =>
+    api
+      .get<AnalyticsOverview>(`/orgs/${orgId}/analytics/overview`)
+      .then((r) => r.data),
+
+  getFlakyTests: (orgId: string, limit = 20) =>
+    api
+      .get<{ flaky_tests: FlakyTest[] }>(`/orgs/${orgId}/analytics/flaky?limit=${limit}`)
+      .then((r) => r.data.flaky_tests),
+
+  getSlowTests: (orgId: string, limit = 20) =>
+    api
+      .get<{ slow_tests: SlowTest[] }>(`/orgs/${orgId}/analytics/slow?limit=${limit}`)
+      .then((r) => r.data.slow_tests),
+
+  getTestHistory: (orgId: string, testCaseId: string, limit = 30) =>
+    api
+      .get<{ history: TestRunHistoryEntry[] }>(
+        `/orgs/${orgId}/analytics/tests/${testCaseId}/history?limit=${limit}`,
+      )
+      .then((r) => r.data.history),
+}
