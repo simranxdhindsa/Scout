@@ -114,6 +114,10 @@ func (h *chatHistoryHandler) AddMessage(w http.ResponseWriter, r *http.Request) 
 	if body.Role == "" {
 		body.Role = "user"
 	}
+	if body.Role != "user" && body.Role != "assistant" {
+		writeError(w, "invalid role: only 'user' and 'assistant' are accepted", http.StatusBadRequest)
+		return
+	}
 	chatQ := queries.NewChatQueries(h.svc.DB)
 	session, err := chatQ.GetSession(r.Context(), sessionID)
 	if err != nil || session.OrgID != orgID || session.UserID != claims.UserID {

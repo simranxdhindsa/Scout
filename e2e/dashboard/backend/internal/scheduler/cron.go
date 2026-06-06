@@ -71,24 +71,30 @@ func (s *Service) fire(ctx context.Context, sq *queries.ScheduledRunQueries, sch
 	testCaseIDs = append(testCaseIDs, sched.TestCaseIDs...)
 
 	if len(testCaseIDs) == 0 {
-		log.Printf("[scheduler] schedule %s has no test cases — skipping (next_run_at unchanged)", sched.ID)
-		return
-	} else {
-		run, err := runQ.Create(ctx, sched.OrgID, sched.EnvID, sched.CreatedBy,
-			"[Scheduled] "+sched.Label, nil)
-		if err != nil {
-			log.Printf("[scheduler] create run for %s: %v", sched.ID, err)
-		} else {
-			for _, tcID := range testCaseIDs {
-				id := tcID
-				_, _ = runQ.CreateItem(ctx, run.ID, &id, nil)
-			}
-			s.runner.Enqueue(&runner.RunJob{RunID: run.ID, OrgID: sched.OrgID})
-			log.Printf("[scheduler] enqueued run %s for schedule %s", run.ID, sched.ID)
+		// Advance next_run_at so the schedule doesn't spam every tick; log a warning so operators notice
+		log.Printf("[scheduler] WARNING: schedule %s has no test cases — advancing next_run_at without running", sched.ID)
+		next := computeNext(sched.CronExpr)
+		if err := sq.MarkFired(ctx, sched.ID, next); err != nil {
+			log.Printf("[scheduler] mark fired %s: %v", sched.ID, err)
 		}
+		return
 	}
 
-	// Compute next run time regardless of success
+	run, err := runQ.Create(ctx, sched.OrgID, sched.EnvID, sched.CreatedBy,
+		"[Scheduled] "+sched.Label, nil)
+	if err != nil {
+		// Don't advance next_run_at on create failure — retry at next tick
+		log.Printf("[scheduler] create run for %s: %v — will retry next tick", sched.ID, err)
+		return
+	}
+
+	for _, tcID := range testCaseIDs {
+		id := tcID
+		_, _ = runQ.CreateItem(ctx, run.ID, &id, nil)
+	}
+	s.runner.Enqueue(&runner.RunJob{RunID: run.ID, OrgID: sched.OrgID})
+	log.Printf("[scheduler] enqueued run %s for schedule %s", run.ID, sched.ID)
+
 	next := computeNext(sched.CronExpr)
 	if err := sq.MarkFired(ctx, sched.ID, next); err != nil {
 		log.Printf("[scheduler] mark fired %s: %v", sched.ID, err)

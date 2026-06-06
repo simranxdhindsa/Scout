@@ -63,6 +63,10 @@ func parseScheduledRunBody(body scheduledRunBody) (
 			testCaseIDs = append(testCaseIDs, id)
 		}
 	}
+	if len(testCaseIDs) == 0 {
+		valErr = "at least one test case is required"
+		return
+	}
 	if _, err := cronexpr.Parse(cronExpr); err != nil {
 		valErr = "invalid cron expression: " + err.Error()
 		return

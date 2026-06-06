@@ -84,7 +84,7 @@ export default function AiAssistantPage() {
     }
   }
 
-  const pendingSessionRef = useRef<Promise<import("@/lib/scout-api").ChatSession> | null>(null)
+  const pendingSessionRef = useRef<Promise<ChatSession> | null>(null)
 
   const newChat = async () => {
     if (!org) return
