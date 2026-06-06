@@ -63,7 +63,13 @@ func (s *Service) Bundler() *Bundler { return s.bundler }
 
 // StartWorkers launches the background run-processing goroutines.
 func (s *Service) StartWorkers(ctx context.Context) {
-	s.queue.StartWorkers(ctx, s.processRun)
+	s.queue.StartWorkers(ctx, func(ctx context.Context, job *RunJob) {
+		if job.IsFlow {
+			s.processFlowRun(ctx, job)
+		} else {
+			s.processRun(ctx, job)
+		}
+	})
 }
 
 // Enqueue adds a run to the processing queue.

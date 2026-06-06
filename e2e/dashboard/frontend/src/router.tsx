@@ -13,7 +13,7 @@ import MembersPage from "@/pages/settings/members"
 import OrganisationsPage from "@/pages/settings/organisations"
 import LoginPage from "@/pages/login"
 import NotFoundPage from "@/pages/not-found"
-import PipelinePage from "@/pages/pipeline"
+import FlowsPage from "@/pages/flows"
 import ProjectPage from "@/pages/project"
 import ProjectsPage from "@/pages/projects"
 import RunDetailPage from "@/pages/run-detail"
@@ -35,7 +35,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <DashboardPage /> },
           { path: "runs", element: <RunsPage /> },
-          { path: "pipeline", element: <PipelinePage /> },
+          { path: "pipeline", element: <FlowsPage /> },
+          { path: "pipeline/runs/:flowRunId", element: <FlowsPage /> },
           { path: "ai-assistant", element: <AiAssistantPage /> },
           { path: "settings/environments", element: <EnvironmentsPage /> },
           { path: "settings/members", element: <MembersPage /> },

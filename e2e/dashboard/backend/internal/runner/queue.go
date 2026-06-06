@@ -12,8 +12,9 @@ import (
 // The worker derives its own context from the runner-service lifetime, not
 // from the request that enqueued the job — runs outlive HTTP requests.
 type RunJob struct {
-	RunID uuid.UUID
-	OrgID uuid.UUID
+	RunID  uuid.UUID
+	OrgID  uuid.UUID
+	IsFlow bool // when true, RunID is a flow_run ID and processFlowRun is called
 }
 
 // ActiveRun tracks a run that is currently executing.

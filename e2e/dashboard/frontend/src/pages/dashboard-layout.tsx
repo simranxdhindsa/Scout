@@ -28,6 +28,7 @@ function resolveTitle(pathname: string) {
   if (titles[pathname]) return titles[pathname]
   if (pathname.startsWith("/projects/")) return "Project"
   if (pathname.startsWith("/runs/")) return "Run"
+  if (pathname.startsWith("/dashboard/pipeline")) return "Pipeline"
   if (pathname.startsWith("/dashboard/settings")) return "Settings"
   return "Dashboard"
 }

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS flow_steps (
   product      TEXT        NOT NULL DEFAULT 'ui'
                CHECK (product IN ('ui', 'mission-control', 'studio-web')),
   test_case_id UUID        REFERENCES test_cases(id) ON DELETE SET NULL,
-  folder_id    UUID        REFERENCES folders(id) ON DELETE SET NULL,
+  folder_id    UUID        REFERENCES test_folders(id) ON DELETE SET NULL,
   -- JSON array of {"key": "COURSE_ID", "from": "SHARED_COURSE_ID"} — injected as env vars before this step
   env_inputs   JSONB       NOT NULL DEFAULT '[]',
   -- JSON array of {"from": "OUTPUT_COURSE_ID", "to": "SHARED_COURSE_ID"} — extracted from stdout after this step

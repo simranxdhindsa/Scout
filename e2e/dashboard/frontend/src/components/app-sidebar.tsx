@@ -13,9 +13,9 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import {
+  GitMergeIcon,
   LayoutDashboardIcon,
   PlayIcon,
-  GitBranchIcon,
   SparklesIcon,
   Settings2Icon,
   FolderIcon,
@@ -41,7 +41,7 @@ const data = {
     {
       title: "Pipeline",
       url: "/dashboard/pipeline",
-      icon: <GitBranchIcon />,
+      icon: <GitMergeIcon />,
     },
     {
       title: "AI Assistant",

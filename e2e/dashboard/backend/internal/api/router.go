@@ -195,6 +195,33 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{runId}/attachments", chain(reportH.Attachments,
 		svc.Auth.Authenticate))
 
+	// ── Flows (cross-platform test chains) ───────────────────────────────────────
+	flowH := newFlowHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows", chain(flowH.List,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows", chain(flowH.Create,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows/runs", chain(flowH.ListRuns,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows/runs/{flowRunId}", chain(flowH.GetRun,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows/{flowId}", chain(flowH.Get,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/flows/{flowId}", chain(flowH.Update,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/flows/{flowId}", chain(flowH.Delete,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows/{flowId}/run", chain(flowH.RunFlow,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows/{flowId}/steps", chain(flowH.AddStep,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/flows/{flowId}/steps/{stepId}", chain(flowH.UpdateStep,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/flows/{flowId}/steps/{stepId}", chain(flowH.DeleteStep,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows/{flowId}/steps/reorder", chain(flowH.ReorderSteps,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
 	// ── Pipelines ─────────────────────────────────────────────────────────
 	pipeH := newPipelineHandler(svc)
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/pipelines", chain(pipeH.List,

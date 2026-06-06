@@ -763,3 +763,133 @@ export const overviewApi = {
       })
       .then((r) => r.data.runs),
 }
+
+// ── Flows ─────────────────────────────────────────────────────────────────────
+
+export type FlowProduct = "ui" | "mission-control" | "studio-web"
+
+export type FlowStep = {
+  id: string
+  flow_id: string
+  position: number
+  name: string
+  product: FlowProduct
+  test_case_id: string | null
+  folder_id: string | null
+  env_inputs: Array<{ key: string; from: string }>
+  env_outputs: Array<{ from: string; to: string }>
+  created_at: string
+  test_case_name?: string
+  folder_name?: string
+}
+
+export type FlowStepInput = {
+  position?: number
+  name: string
+  product: FlowProduct
+  test_case_id?: string | null
+  folder_id?: string | null
+  env_inputs?: Array<{ key: string; from: string }>
+  env_outputs?: Array<{ from: string; to: string }>
+}
+
+export type Flow = {
+  id: string
+  org_id: string
+  name: string
+  description: string
+  is_template: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  step_count?: number
+}
+
+export type FlowDetail = {
+  flow: Flow
+  steps: FlowStep[]
+}
+
+export type FlowRunStatus = "queued" | "running" | "passed" | "failed" | "stopped"
+
+export type FlowStepRun = {
+  id: string
+  flow_run_id: string
+  step_id: string
+  run_id: string | null
+  status: string
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  step_name?: string
+  step_product?: FlowProduct
+  position?: number
+}
+
+export type FlowRun = {
+  id: string
+  flow_id: string
+  org_id: string
+  status: FlowRunStatus
+  started_by: string | null
+  shared_state: Record<string, string>
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+  flow_name?: string
+}
+
+export type FlowRunDetail = {
+  flow_run: FlowRun
+  step_runs: FlowStepRun[]
+}
+
+export const flowsApi = {
+  list: (orgId: string) =>
+    api
+      .get<{ flows: Flow[] }>(`/orgs/${orgId}/flows`)
+      .then((r) => r.data.flows),
+
+  create: (orgId: string, body: { name: string; description?: string }) =>
+    api.post<Flow>(`/orgs/${orgId}/flows`, body).then((r) => r.data),
+
+  get: (orgId: string, flowId: string) =>
+    api
+      .get<FlowDetail>(`/orgs/${orgId}/flows/${flowId}`)
+      .then((r) => r.data),
+
+  update: (orgId: string, flowId: string, body: { name: string; description?: string }) =>
+    api.put(`/orgs/${orgId}/flows/${flowId}`, body),
+
+  remove: (orgId: string, flowId: string) =>
+    api.delete(`/orgs/${orgId}/flows/${flowId}`),
+
+  addStep: (orgId: string, flowId: string, body: FlowStepInput) =>
+    api
+      .post<FlowStep>(`/orgs/${orgId}/flows/${flowId}/steps`, body)
+      .then((r) => r.data),
+
+  updateStep: (orgId: string, flowId: string, stepId: string, body: Partial<FlowStepInput>) =>
+    api.put(`/orgs/${orgId}/flows/${flowId}/steps/${stepId}`, body),
+
+  removeStep: (orgId: string, flowId: string, stepId: string) =>
+    api.delete(`/orgs/${orgId}/flows/${flowId}/steps/${stepId}`),
+
+  reorderSteps: (orgId: string, flowId: string, stepIds: string[]) =>
+    api.post(`/orgs/${orgId}/flows/${flowId}/steps/reorder`, { step_ids: stepIds }),
+
+  run: (orgId: string, flowId: string) =>
+    api
+      .post<{ flow_run_id: string; status: string }>(`/orgs/${orgId}/flows/${flowId}/run`, {})
+      .then((r) => r.data),
+
+  listRuns: (orgId: string, params?: { limit?: number; offset?: number }) =>
+    api
+      .get<{ runs: FlowRun[]; total: number }>(`/orgs/${orgId}/flows/runs`, { params })
+      .then((r) => r.data),
+
+  getRun: (orgId: string, flowRunId: string) =>
+    api
+      .get<FlowRunDetail>(`/orgs/${orgId}/flows/runs/${flowRunId}`)
+      .then((r) => r.data),
+}
