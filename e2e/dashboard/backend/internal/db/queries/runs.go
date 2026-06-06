@@ -12,17 +12,18 @@ import (
 // ── Models ────────────────────────────────────────────────────────────────────
 
 type TestRun struct {
-	ID             uuid.UUID  `json:"id"`
-	OrgID          uuid.UUID  `json:"org_id"`
-	PipelineID     *uuid.UUID `json:"pipeline_id"`
-	EnvironmentID  *uuid.UUID `json:"environment_id"`
-	TriggeredBy    *uuid.UUID `json:"triggered_by"`
-	Status         string     `json:"status"`
-	Label          string     `json:"label"`
-	ErrorMessage   string     `json:"error_message,omitempty"`
-	StartedAt      *time.Time `json:"started_at"`
-	CompletedAt    *time.Time `json:"completed_at"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID              uuid.UUID  `json:"id"`
+	OrgID           uuid.UUID  `json:"org_id"`
+	PipelineID      *uuid.UUID `json:"pipeline_id"`
+	EnvironmentID   *uuid.UUID `json:"environment_id"`
+	TriggeredBy     *uuid.UUID `json:"triggered_by"`
+	Status          string     `json:"status"`
+	Label           string     `json:"label"`
+	ErrorMessage    string     `json:"error_message,omitempty"`
+	StartedAt       *time.Time `json:"started_at"`
+	CompletedAt     *time.Time `json:"completed_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	EnvironmentName string     `json:"environment_name,omitempty"`
 }
 
 type RunItem struct {
@@ -137,27 +138,42 @@ func (q *RunQueries) GetCredentials(ctx context.Context, runID uuid.UUID) ([]byt
 	return creds, tx.Commit(ctx)
 }
 
-// List returns paginated runs for an org with optional status filter.
-func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, limit, offset int) ([]TestRun, error) {
-	query := `
-		SELECT id, org_id, pipeline_id, environment_id, triggered_by,
-		       status, label, COALESCE(error_message,''), started_at, completed_at, created_at
-		FROM test_runs
-		WHERE org_id = $1
-	`
+// List returns paginated runs for an org with optional status filter,
+// plus the total count matching the filter (for pagination).
+func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, limit, offset int) ([]TestRun, int, error) {
+	where := "WHERE org_id = $1"
 	args := []any{orgID}
 
 	if status != "" {
 		args = append(args, status)
-		query += fmt.Sprintf(" AND status = $%d", len(args))
+		where += fmt.Sprintf(" AND status = $%d", len(args))
 	}
 
+	// Total count for pagination
+	var total int
+	if err := q.db.QueryRow(ctx,
+		fmt.Sprintf("SELECT COUNT(*) FROM test_runs %s", where), args...,
+	).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count runs: %w", err)
+	}
+
+	countArgs := len(args)
 	args = append(args, limit, offset)
-	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	query := fmt.Sprintf(`
+		SELECT tr.id, tr.org_id, tr.pipeline_id, tr.environment_id, tr.triggered_by,
+		       tr.status, tr.label, COALESCE(tr.error_message,''),
+		       tr.started_at, tr.completed_at, tr.created_at,
+		       COALESCE(e.name, '')
+		FROM test_runs tr
+		LEFT JOIN environments e ON e.id = tr.environment_id
+		%s
+		ORDER BY tr.created_at DESC LIMIT $%d OFFSET $%d`,
+		where, countArgs+1, countArgs+2,
+	)
 
 	rows, err := q.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list runs: %w", err)
+		return nil, 0, fmt.Errorf("list runs: %w", err)
 	}
 	defer rows.Close()
 
@@ -166,13 +182,15 @@ func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, l
 		var r TestRun
 		if err := rows.Scan(
 			&r.ID, &r.OrgID, &r.PipelineID, &r.EnvironmentID, &r.TriggeredBy,
-			&r.Status, &r.Label, &r.ErrorMessage, &r.StartedAt, &r.CompletedAt, &r.CreatedAt,
+			&r.Status, &r.Label, &r.ErrorMessage,
+			&r.StartedAt, &r.CompletedAt, &r.CreatedAt,
+			&r.EnvironmentName,
 		); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		runs = append(runs, r)
 	}
-	return runs, rows.Err()
+	return runs, total, rows.Err()
 }
 
 // SetErrorMessage records why a run failed so the dashboard can surface it.

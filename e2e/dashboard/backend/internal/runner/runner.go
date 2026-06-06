@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/creack/pty"
 
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/notifications"
@@ -260,31 +257,10 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		tail = append(tail, s)
 	}
 
-	// Run via a pseudo-TTY so Node sees stdout as interactive and switches to
-	// line-buffered output. Without this the child holds output in its internal
-	// buffer and we receive nothing until the run ends.
-	ptyF, err := pty.Start(cmd)
-	if err != nil {
-		s.failRun(ctx, runID, orgID, fmt.Sprintf("start playwright: %v", err))
-		return
-	}
-	defer ptyF.Close()
-
-	scanner := bufio.NewScanner(ptyF)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	// Split on either \n or \r so progress-bar-style reporters (which redraw
-	// the same line with \r) still produce per-update frames on the WS.
-	scanner.Split(splitOnCRorLF)
-	for scanner.Scan() {
-		line := strings.TrimRight(scanner.Text(), "\r\n")
-		if line == "" {
-			continue
-		}
+	runErr := startAndStream(cmd, func(line string) {
 		s.streams.Publish(ctx, runID, "stdout", line)
 		appendTail(line)
-	}
-
-	runErr := cmd.Wait()
+	})
 
 	// Parse results even if playwright exited non-zero (failed tests)
 	result, parseErr := ParseResults(ws.ResultsPath())

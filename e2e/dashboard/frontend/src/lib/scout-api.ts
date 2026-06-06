@@ -635,7 +635,7 @@ export type Run = {
   created_at: string
   started_at: string | null
   completed_at: string | null
-  environment: { name: string } | null
+  environment_name?: string
 }
 
 export type RunsListResponse = {

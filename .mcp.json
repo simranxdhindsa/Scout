@@ -6,6 +6,18 @@
         "shadcn@latest",
         "mcp"
       ]
+    },
+    "code-review-graph": {
+      "command": "C:\\Users\\LOQ\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\code-review-graph.exe",
+      "args": [
+        "serve",
+        "--repo",
+        "C:\\dhindsa\\test-cases"
+      ],
+      "env": {
+        "PYTHONUTF8": "1"
+      },
+      "type": "stdio"
     }
   }
 }

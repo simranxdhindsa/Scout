@@ -3,8 +3,8 @@ testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  bin = "./tmp/scout-server"
-  cmd = "go build -o ./tmp/scout-server ./cmd/server/main.go"
+  bin = "./tmp/scout-server.exe"
+  cmd = "go build -o ./tmp/scout-server.exe ./cmd/server/main.go"
   delay = 500
   exclude_dir = ["tmp", "data", "testdata", "node_modules"]
   exclude_file = []

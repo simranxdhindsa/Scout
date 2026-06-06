@@ -3,12 +3,15 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   Loader2Icon,
+  PlusIcon,
   RotateCwIcon,
   SearchIcon,
   StopCircleIcon,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
+import { NewRunDialog } from "@/components/dialogs/new-run-dialog"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useActiveOrg } from "@/lib/auth"
@@ -75,6 +78,8 @@ export default function RunsPage() {
   const [total, setTotal] = useState(0)
   const [stoppingId, setStoppingId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [search, setSearch] = useState("")
+  const [newRunOpen, setNewRunOpen] = useState(false)
 
   // Reset to first page whenever the filter changes.
   useEffect(() => {
@@ -128,6 +133,13 @@ export default function RunsPage() {
     }
   }
 
+  const visibleRuns = runs === null ? null : runs.filter((r) =>
+    !search.trim() ||
+    r.label.toLowerCase().includes(search.toLowerCase()) ||
+    r.id.toLowerCase().includes(search.toLowerCase()) ||
+    (r.environment_name ?? "").toLowerCase().includes(search.toLowerCase())
+  )
+
   const start = total === 0 ? 0 : page * PAGE_SIZE + 1
   const end = Math.min(total, (page + 1) * PAGE_SIZE)
   const canPrev = page > 0
@@ -135,6 +147,14 @@ export default function RunsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {org && (
+        <NewRunDialog
+          open={newRunOpen}
+          onOpenChange={setNewRunOpen}
+          orgId={org.id}
+        />
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">Runs</h1>
         <div className="flex items-center gap-2">
@@ -152,13 +172,20 @@ export default function RunsPage() {
           <div className="relative">
             <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <Input
-              placeholder="Search..."
-              className="bg-muted/60 w-64 pl-9 pr-12"
+              placeholder="Search runs..."
+              className="bg-muted/60 w-64 pl-9"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0) }}
             />
-            <kbd className="bg-muted text-muted-foreground absolute top-1/2 right-2 -translate-y-1/2 px-1.5 py-0.5 text-[10px]">
-              ⌘K
-            </kbd>
           </div>
+          <Button
+            size="sm"
+            onClick={() => setNewRunOpen(true)}
+            disabled={!org}
+          >
+            <PlusIcon className="size-4" />
+            New Run
+          </Button>
         </div>
       </div>
 
@@ -196,7 +223,7 @@ export default function RunsPage() {
           <div className="text-right">Actions</div>
         </div>
 
-        {runs === null ? (
+        {visibleRuns === null ? (
           <ul>
             {Array.from({ length: 6 }).map((_, i) => (
               <li
@@ -215,13 +242,13 @@ export default function RunsPage() {
               </li>
             ))}
           </ul>
-        ) : runs.length === 0 ? (
+        ) : visibleRuns.length === 0 ? (
           <div className="text-muted-foreground border-border/40 border-t px-4 py-10 text-center text-sm">
-            No runs match this filter.
+            {search ? "No runs match your search." : "No runs match this filter."}
           </div>
         ) : (
           <ul>
-            {runs.map((r) => {
+            {visibleRuns.map((r) => {
               const canStop = r.status === "running" || r.status === "queued"
               return (
                 <li
@@ -243,7 +270,7 @@ export default function RunsPage() {
                     </div>
                   </div>
                   <div className="text-muted-foreground text-sm">
-                    {r.environment?.name ?? "—"}
+                    {r.environment_name || "—"}
                   </div>
                   <div className="text-sm">
                     {relativeTime(r.started_at ?? r.created_at)}

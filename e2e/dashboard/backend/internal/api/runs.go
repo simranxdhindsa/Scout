@@ -114,7 +114,7 @@ func (h *runHandler) List(w http.ResponseWriter, r *http.Request) {
 	offset := parseIntQ(r, "offset", 0)
 
 	runQ := queries.NewRunQueries(h.svc.DB)
-	runs, err := runQ.List(r.Context(), orgID, status, limit, offset)
+	runs, total, err := runQ.List(r.Context(), orgID, status, limit, offset)
 	if err != nil {
 		writeError(w, "failed to list runs", http.StatusInternalServerError)
 		return
@@ -124,6 +124,7 @@ func (h *runHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"runs":   runs,
+		"total":  total,
 		"limit":  limit,
 		"offset": offset,
 		"active": h.svc.Runner.ActiveCount(),
