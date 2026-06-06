@@ -20,6 +20,7 @@ import (
 	"github.com/apyhub/scout/internal/runner"
 	"github.com/apyhub/scout/internal/scorm"
 	"github.com/apyhub/scout/internal/storage"
+	"github.com/apyhub/scout/internal/youtrack"
 )
 
 func main() {
@@ -92,6 +93,10 @@ func main() {
 		log.Println("[scout] gitlab integration disabled (GITLAB_CLIENT_ID not set)")
 	}
 
+	// ── 10c. Initialize YouTrack integration service ──────────────────────
+	youtrackSvc := youtrack.NewService(pool)
+	log.Println("[scout] youtrack integration ready")
+
 	// ── 11. Register all HTTP routes ──────────────────────────────────────
 	// rootCtx scopes long-lived background goroutines started by the API layer
 	// (rate-limit cleanup, etc.) to the server lifetime.
@@ -108,6 +113,7 @@ func main() {
 		SCORM:         scormSvc,
 		Notifications: notifSvc,
 		GitLab:        gitLabSvc,
+		YouTrack:      youtrackSvc,
 	})
 	log.Println("[scout] routes registered")
 

@@ -893,3 +893,126 @@ export const flowsApi = {
       .get<FlowRunDetail>(`/orgs/${orgId}/flows/runs/${flowRunId}`)
       .then((r) => r.data),
 }
+
+// ── YouTrack ──────────────────────────────────────────────────────────────────
+
+export type YouTrackIntegration = {
+  id: string
+  org_id: string
+  user_id: string
+  base_url: string
+  project_id: string
+  board_id: string
+  connected: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type YouTrackBoard = {
+  id: string
+  name: string
+}
+
+export type YouTrackSprint = {
+  id: string
+  name: string
+  start: number
+  finish: number
+  isCompleted: boolean
+}
+
+export type YouTrackTicketMapping = {
+  id: string
+  org_id: string
+  ticket_id: string
+  ticket_title: string
+  test_case_id: string
+  test_case_name?: string
+  created_at: string
+}
+
+export type YouTrackIssue = {
+  id: string
+  idReadable: string
+  summary: string
+  description: string
+  ticket_key: string
+  status: string
+  priority: string
+  subsystem: string
+  mappings: YouTrackTicketMapping[]
+}
+
+export type YouTrackConnectBody = {
+  base_url: string
+  token: string
+  project_id: string
+  board_id?: string
+}
+
+export const youtrackApi = {
+  connect: (orgId: string, body: YouTrackConnectBody) =>
+    api
+      .post<YouTrackIntegration>(`/orgs/${orgId}/integrations/youtrack`, body)
+      .then((r) => r.data),
+
+  getStatus: (orgId: string) =>
+    api
+      .get<{ connected: boolean; integration?: YouTrackIntegration }>(
+        `/orgs/${orgId}/integrations/youtrack`,
+      )
+      .then((r) => r.data),
+
+  disconnect: (orgId: string, integrationId: string) =>
+    api.delete(`/orgs/${orgId}/integrations/youtrack/${integrationId}`),
+
+  getBoards: (orgId: string, integrationId: string) =>
+    api
+      .get<{ boards: YouTrackBoard[] }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/boards`,
+      )
+      .then((r) => r.data.boards),
+
+  getSprints: (orgId: string, integrationId: string) =>
+    api
+      .get<{ sprints: YouTrackSprint[] }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/sprints`,
+      )
+      .then((r) => r.data.sprints),
+
+  getSprintIssues: (orgId: string, integrationId: string, sprintId: string) =>
+    api
+      .get<{ issues: YouTrackIssue[] }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/sprints/${sprintId}/issues`,
+      )
+      .then((r) => r.data.issues),
+
+  runSprint: (
+    orgId: string,
+    integrationId: string,
+    sprintId: string,
+    body?: { label?: string },
+  ) =>
+    api
+      .post<{ run_id: string; status: string; tests: number }>(
+        `/orgs/${orgId}/integrations/youtrack/${integrationId}/sprints/${sprintId}/run`,
+        body ?? {},
+      )
+      .then((r) => r.data),
+
+  listMappings: (orgId: string) =>
+    api
+      .get<{ mappings: YouTrackTicketMapping[] }>(`/orgs/${orgId}/youtrack/mappings`)
+      .then((r) => r.data.mappings),
+
+  createMapping: (
+    orgId: string,
+    body: { ticket_id: string; ticket_title: string; test_case_id: string },
+  ) =>
+    api
+      .post<YouTrackTicketMapping>(`/orgs/${orgId}/youtrack/mappings`, body)
+      .then((r) => r.data),
+
+  deleteMapping: (orgId: string, mappingId: string) =>
+    api.delete(`/orgs/${orgId}/youtrack/mappings/${mappingId}`),
+}

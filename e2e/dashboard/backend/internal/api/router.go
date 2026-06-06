@@ -12,6 +12,7 @@ import (
 	"github.com/apyhub/scout/internal/runner"
 	"github.com/apyhub/scout/internal/scorm"
 	"github.com/apyhub/scout/internal/storage"
+	"github.com/apyhub/scout/internal/youtrack"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,6 +27,7 @@ type Services struct {
 	SCORM         *scorm.Service
 	Notifications *notifications.Service
 	GitLab        *gitlab.Service
+	YouTrack      *youtrack.Service
 }
 
 // RegisterRoutes wires all HTTP handlers to their routes and returns the root mux.
@@ -279,6 +281,29 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/scorm/generators", chain(svc.SCORM.HandleListGenerators,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/scorm/generate/{typeKey}", chain(svc.SCORM.HandleGenerate,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
+	// ── YouTrack sprint-testing integration ──────────────────────────────
+	ytH := newYouTrackHandler(svc)
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/youtrack", chain(ytH.Connect,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack", chain(ytH.GetStatus,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}", chain(ytH.Disconnect,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/boards", chain(ytH.GetBoards,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/sprints", chain(ytH.GetSprints,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/sprints/{sprintId}/issues", chain(ytH.GetSprintIssues,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/sprints/{sprintId}/run", chain(ytH.RunSprint,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/youtrack/mappings", chain(ytH.ListMappings,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/youtrack/mappings", chain(ytH.CreateMapping,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/youtrack/mappings/{mappingId}", chain(ytH.DeleteMapping,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
 	// ── Static file serving (local storage) ──────────────────────────────

@@ -19,6 +19,7 @@ import {
   SparklesIcon,
   Settings2Icon,
   FolderIcon,
+  ZapIcon,
 } from "lucide-react"
 
 const data = {
@@ -42,6 +43,11 @@ const data = {
       title: "Pipeline",
       url: "/dashboard/pipeline",
       icon: <GitMergeIcon />,
+    },
+    {
+      title: "Sprints",
+      url: "/dashboard/sprints",
+      icon: <ZapIcon />,
     },
     {
       title: "AI Assistant",
