@@ -78,7 +78,7 @@ func NewRunQueries(db *pgxpool.Pool) *RunQueries {
 }
 
 // Create inserts a new queued run record with temporary credentials.
-func (q *RunQueries) Create(ctx context.Context, orgID uuid.UUID, envID *uuid.UUID, triggeredBy uuid.UUID, label string, credentialsJSON []byte) (*TestRun, error) {
+func (q *RunQueries) Create(ctx context.Context, orgID uuid.UUID, envID *uuid.UUID, triggeredBy *uuid.UUID, label string, credentialsJSON []byte) (*TestRun, error) {
 	var r TestRun
 	err := q.db.QueryRow(ctx, `
 		INSERT INTO test_runs (org_id, environment_id, triggered_by, label, credentials_tmp)

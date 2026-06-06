@@ -332,6 +332,11 @@ func (h *flowHandler) ListRuns(w http.ResponseWriter, r *http.Request) {
 
 // GetRun handles GET /api/v1/orgs/:orgId/flows/runs/:flowRunId
 func (h *flowHandler) GetRun(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
 	flowRunID, err := uuid.Parse(r.PathValue("flowRunId"))
 	if err != nil {
 		writeError(w, "invalid flowRunId", http.StatusBadRequest)
@@ -340,6 +345,10 @@ func (h *flowHandler) GetRun(w http.ResponseWriter, r *http.Request) {
 	flowQ := queries.NewFlowQueries(h.svc.DB)
 	flowRun, err := flowQ.GetRunByID(r.Context(), flowRunID)
 	if err != nil {
+		writeError(w, "flow run not found", http.StatusNotFound)
+		return
+	}
+	if flowRun.OrgID != orgID {
 		writeError(w, "flow run not found", http.StatusNotFound)
 		return
 	}

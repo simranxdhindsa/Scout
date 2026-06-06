@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
@@ -420,14 +420,14 @@ export default function FlowsPage() {
   const [flows, setFlows] = useState<Flow[] | null>(null)
   const [tab, setTab] = useState<"flows" | "runs">("flows")
 
-  function loadFlows() {
+  const loadFlows = useCallback(() => {
     if (!org) return
     flowsApi.list(org.id).then(setFlows)
-  }
+  }, [org?.id])
 
   useEffect(() => {
     loadFlows()
-  }, [org?.id])
+  }, [loadFlows])
 
   if (!org) return null
 
@@ -479,7 +479,7 @@ export default function FlowsPage() {
                 flow={flow}
                 orgId={org.id}
                 onDeleted={loadFlows}
-                onRun={(flowRunId) => navigate(`/dashboard/flows/runs/${flowRunId}`)}
+                onRun={(flowRunId) => navigate(`/dashboard/pipeline/runs/${flowRunId}`)}
               />
             ))
           )}

@@ -223,14 +223,30 @@ func (q *FlowQueries) DeleteStep(ctx context.Context, stepID uuid.UUID) error {
 }
 
 func (q *FlowQueries) ReorderSteps(ctx context.Context, flowID uuid.UUID, stepIDs []uuid.UUID) error {
+	tx, err := q.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// First pass: offset all positions well above final range to avoid UNIQUE collisions mid-reorder.
+	const offset = 10000
 	for i, id := range stepIDs {
-		if _, err := q.db.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
+			UPDATE flow_steps SET position = $1 WHERE id = $2 AND flow_id = $3
+		`, i+1+offset, id, flowID); err != nil {
+			return err
+		}
+	}
+	// Second pass: set final positions.
+	for i, id := range stepIDs {
+		if _, err := tx.Exec(ctx, `
 			UPDATE flow_steps SET position = $1 WHERE id = $2 AND flow_id = $3
 		`, i+1, id, flowID); err != nil {
 			return err
 		}
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 // ── Flow Runs ─────────────────────────────────────────────────────────────────

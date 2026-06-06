@@ -180,7 +180,7 @@ func (s *Service) executeStepAsRun(
 ) (*uuid.UUID, string, string) {
 
 	// Create a test_run record so results are visible on the runs page
-	run, err := s.runQ.Create(ctx, orgID, nil, uuid.Nil,
+	run, err := s.runQ.Create(ctx, orgID, nil, nil,
 		fmt.Sprintf("[Flow] %s", step.Name), nil)
 	if err != nil {
 		log.Printf("[flow] create test_run for step %s: %v", step.Name, err)
@@ -263,9 +263,9 @@ func (s *Service) executeStepAsRun(
 
 	collected := strings.Join(outputLines, "\n")
 
-	// Parse results
+	// Parse results — if Playwright crashed and produced no results file, treat as failed.
 	result, _ := ParseResults(ws.ResultsPath())
-	finalStatus := "passed"
+	finalStatus := "failed"
 	if result != nil {
 		for _, tr := range result.TestResults {
 			s.updateRunItemByName(ctx, run.ID, tr)
@@ -274,8 +274,8 @@ func (s *Service) executeStepAsRun(
 			result.Passed, result.Failed, result.Skipped, result.TimedOut,
 			result.Total, result.DurationMs, "",
 			result.ConsoleErrors, result.APIErrors, result.FailedRequests, result.PageErrors)
-		if result.Failed > 0 {
-			finalStatus = "failed"
+		if result.Failed == 0 {
+			finalStatus = "passed"
 		}
 	}
 

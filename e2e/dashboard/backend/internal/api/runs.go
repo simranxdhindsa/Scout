@@ -70,7 +70,7 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 
 	runQ := queries.NewRunQueries(h.svc.DB)
-	run, err := runQ.Create(r.Context(), orgID, envID, claims.UserID, label, credsJSON)
+	run, err := runQ.Create(r.Context(), orgID, envID, &claims.UserID, label, credsJSON)
 	if err != nil {
 		writeError(w, "failed to create run", http.StatusInternalServerError)
 		return
