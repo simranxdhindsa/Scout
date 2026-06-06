@@ -13,6 +13,7 @@ export default function AuthCallbackPage() {
     const token = params.get("token")
     const error = params.get("error")
 
+    
     if (error) {
       navigate(`/login?error=${encodeURIComponent(error)}`, { replace: true })
       return

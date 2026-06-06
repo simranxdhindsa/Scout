@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom"
+import { createBrowserRouter, Navigate } from "react-router-dom"
 
 import { RedirectIfAuthed, RequireAuth } from "@/components/require-auth"
 import AiAssistantPage from "@/pages/ai-assistant"
@@ -11,7 +11,6 @@ import EnvironmentsPage from "@/pages/settings/environments"
 import IntegrationsPage from "@/pages/settings/integrations"
 import MembersPage from "@/pages/settings/members"
 import OrganisationsPage from "@/pages/settings/organisations"
-import HomePage from "@/pages/home"
 import LoginPage from "@/pages/login"
 import NotFoundPage from "@/pages/not-found"
 import PipelinePage from "@/pages/pipeline"
@@ -29,7 +28,7 @@ export const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
-      { path: "/", element: <HomePage /> },
+      { path: "/", element: <Navigate to="/dashboard" replace /> },
       {
         path: "/dashboard",
         element: <DashboardLayout />,

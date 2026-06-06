@@ -29,6 +29,15 @@ type PlaywrightConfigOptions struct {
 
 	// Trace controls when traces are captured: "on", "off", "retain-on-failure"
 	Trace string
+
+	// AuthSetupFile, when non-empty, is the absolute path to a generated login
+	// setup spec. A 'setup' project runs it before the main project, which then
+	// reuses the saved session via AuthStatePath. Both must be set to enable auth.
+	AuthSetupFile string
+
+	// AuthStatePath is where the setup saves storageState and where the main
+	// project loads it from.
+	AuthStatePath string
 }
 
 // DefaultConfigOptions returns sensible defaults matching the architecture spec.
@@ -74,6 +83,22 @@ func GenerateConfig(opts PlaywrightConfigOptions) string {
 		trace = "retain-on-failure"
 	}
 
+	// When credentials are available the runner generates a login setup spec.
+	// A dedicated 'setup' project runs it first; the main project then declares
+	// a dependency on it and loads the saved session via storageState, so every
+	// spec runs authenticated (mirrors the ardoise-tests global-setup.ts flow).
+	authEnabled := opts.AuthSetupFile != "" && opts.AuthStatePath != ""
+	var setupProject, deps, storageStateLine string
+	if authEnabled {
+		setupProject = fmt.Sprintf(`    {
+      name: 'setup',
+      testMatch: ['%s'],
+    },
+`, escapeForJS(opts.AuthSetupFile))
+		deps = "      dependencies: ['setup'],\n"
+		storageStateLine = fmt.Sprintf("        storageState: '%s',\n", escapeForJS(opts.AuthStatePath))
+	}
+
 	// Build testMatch glob or use testDir
 	var testDirSection string
 	if len(opts.TestFiles) > 0 {
@@ -111,13 +136,13 @@ export default defineConfig({
     // Credentials injected as process.env.TESTDECK_EMAIL / TESTDECK_PASSWORD
   },
   projects: [
-    {
+%s    {
       name: 'chromium',
-      use: {
+%s      use: {
         browserName: 'chromium',
         headless: true,
         viewport: { width: 1280, height: 720 },
-      },
+%s      },
     },
   ],
 });
@@ -130,7 +155,76 @@ export default defineConfig({
 		escapeForJS(opts.WorkspaceDir+"/html"),
 		screenshot,
 		trace,
+		setupProject,
+		deps,
+		storageStateLine,
 	)
+}
+
+// GenerateAuthSetup produces a Playwright "setup" spec that logs in using the
+// credentials the runner injects as env vars (TESTDECK_BASE_URL / TESTDECK_EMAIL
+// / TESTDECK_PASSWORD) and saves the authenticated session to authStatePath.
+// This mirrors the ardoise-tests global-setup.ts so dashboard runs are
+// authenticated like a local run. String concatenation (not template literals)
+// keeps the JS free of backticks so it embeds cleanly in a Go raw string.
+func GenerateAuthSetup(authStatePath string) string {
+	return fmt.Sprintf(`import { test as setup } from '@playwright/test';
+
+// Scout-generated auth setup — do not edit manually.
+// Logs in once and saves the session so every test runs authenticated.
+const authFile = '%s';
+
+setup('authenticate', async ({ page }) => {
+  const baseURL = process.env.TESTDECK_BASE_URL;
+  const email = process.env.TESTDECK_EMAIL || '';
+  const password = process.env.TESTDECK_PASSWORD || '';
+
+  await page.goto(baseURL + '/auth/signIn', { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+  // Some deployments show a pre-step button before the email/password fields.
+  const preStep = page.locator('//*[@id="__next"]/div/div/div[1]/form/div/div/button');
+  try {
+    await preStep.waitFor({ timeout: 3000 });
+    await preStep.click();
+  } catch (e) {
+    // Pre-step button not present on this deployment — proceed.
+  }
+
+  if (!email || !password) {
+    throw new Error('Scout auth setup: no credentials provided. Set username/password on the run environment.');
+  }
+
+  const emailInput = page.locator('[data-test="email-input"]');
+  await emailInput.waitFor({ timeout: 30000 });
+  await emailInput.fill(email);
+  await page.locator('[data-test="password-input"]').fill(password);
+  await page.locator('button[type="submit"][data-button="true"]').click();
+
+  // Wait until redirected away from sign-in (dashboard or onboarding).
+  try {
+    await page.waitForURL((url) => !url.pathname.includes('/auth/signIn'), { timeout: 20000 });
+  } catch (e) {
+    // Login did not complete — surface WHY instead of a bare navigation timeout.
+    const currentURL = page.url();
+    let errText = '';
+    for (const sel of ['[role="alert"]', '[data-test*="error"]', '.error', '[aria-live="assertive"]']) {
+      try {
+        const loc = page.locator(sel).first();
+        if (await loc.count()) { errText = (await loc.innerText()).trim(); if (errText) break; }
+      } catch (_) { /* ignore */ }
+    }
+    throw new Error(
+      'Scout auth setup: login did not complete (still on sign-in).' +
+      ' baseURL=' + baseURL + ' email=' + email +
+      ' finalURL=' + currentURL +
+      (errText ? ' pageError="' + errText + '"' : ' (no visible error message found)')
+    );
+  }
+
+  // Save authenticated session (cookies + localStorage) for test reuse.
+  await page.context().storageState({ path: authFile });
+});
+`, escapeForJS(authStatePath))
 }
 
 // escapeForJS escapes single quotes and backslashes in a string for safe

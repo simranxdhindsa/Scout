@@ -186,6 +186,22 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 	// Generate playwright config
 	cfgOpts := DefaultConfigOptions(ws.Dir)
 	cfgOpts.TestFiles = testFilePaths
+
+	// If credentials are available, generate a login setup so every spec runs
+	// authenticated (mirrors the ardoise-tests global-setup.ts). Without this,
+	// specs that assume a logged-in session land on /auth/signIn and fail —
+	// only self-contained specs pass. No credentials → run unauthenticated.
+	if creds["email"] != "" && creds["password"] != "" {
+		authStatePath := ws.AuthStatePath()
+		setupPath, err := ws.WriteAuthSetup(GenerateAuthSetup(authStatePath))
+		if err != nil {
+			s.streams.Publish(ctx, runID, "stderr", fmt.Sprintf("warn: could not write auth setup, running unauthenticated: %v", err))
+		} else {
+			cfgOpts.AuthSetupFile = setupPath
+			cfgOpts.AuthStatePath = authStatePath
+		}
+	}
+
 	cfgContent := GenerateConfig(cfgOpts)
 
 	if _, err := ws.WriteConfig(cfgContent); err != nil {
