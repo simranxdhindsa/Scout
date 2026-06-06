@@ -61,8 +61,12 @@ type Client struct {
 }
 
 func NewClient(baseURL, token, projectID, boardID string) *Client {
+	u := strings.TrimRight(baseURL, "/")
+	if u != "" && !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		u = "https://" + u
+	}
 	return &Client{
-		baseURL:   strings.TrimRight(baseURL, "/"),
+		baseURL:   u,
 		token:     token,
 		projectID: projectID,
 		boardID:   boardID,
@@ -220,16 +224,7 @@ func (c *Client) resolveBoard(ctx context.Context) (string, error) {
 			}
 		}
 	}
-	// Fall back to first sprint-enabled board
-	for _, b := range boards {
-		if !b.SprintsSettings.DisableSprints {
-			return b.ID, nil
-		}
-	}
-	if len(boards) > 0 {
-		return boards[0].ID, nil
-	}
-	return "", fmt.Errorf("no agile board found for project %q", c.projectID)
+	return "", fmt.Errorf("no board found for project %q — specify a boardID explicitly", c.projectID)
 }
 
 // ── Custom Field Helpers ──────────────────────────────────────────────────────

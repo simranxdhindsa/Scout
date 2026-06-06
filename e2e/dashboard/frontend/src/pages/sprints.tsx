@@ -545,13 +545,17 @@ function SprintCard({
 
         <Button
           size="sm"
-          variant={totalMapped > 0 ? "default" : "outline"}
-          disabled={running || totalMapped === 0}
+          variant={issues !== null && totalMapped > 0 ? "default" : "outline"}
+          disabled={running || (issues !== null && totalMapped === 0)}
           onClick={(e) => {
             e.stopPropagation()
             void handleRun()
           }}
-          title={totalMapped === 0 ? "Map tests to tickets first" : "Run all mapped tests"}
+          title={
+            issues !== null && totalMapped === 0
+              ? "Map tests to tickets first"
+              : "Run all mapped tests"
+          }
         >
           {running ? (
             <Loader2Icon className="h-3.5 w-3.5 animate-spin" />

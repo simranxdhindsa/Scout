@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import {
+  BellIcon,
   CheckCircle2Icon,
   Loader2Icon,
   SearchIcon,
@@ -22,14 +23,17 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useActiveOrg } from "@/lib/auth"
 import {
   gitlabApi,
+  slackApi,
   youtrackApi,
   type GitlabIntegration,
+  type SlackSettings,
   type YouTrackIntegration,
 } from "@/lib/scout-api"
 
@@ -219,6 +223,9 @@ export default function IntegrationsPage() {
 
       {/* ── YouTrack ────────────────────────────────────────────────── */}
       {org && <YouTrackSection orgId={org.id} onToast={setToast} />}
+
+      {/* ── Slack ───────────────────────────────────────────────────── */}
+      {org && <SlackSection orgId={org.id} onToast={setToast} />}
     </div>
   )
 }
@@ -372,6 +379,126 @@ function YouTrackSection({
           <Button onClick={() => void handleConnect()} disabled={saving} className="self-start">
             {saving && <Loader2Icon className="size-4 animate-spin" />}
             Connect YouTrack
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Slack Section ─────────────────────────────────────────────────────────────
+
+function SlackSection({
+  orgId,
+  onToast,
+}: {
+  orgId: string
+  onToast: (t: Toast) => void
+}) {
+  const [settings, setSettings] = useState<SlackSettings | null | undefined>(undefined)
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [notifyOnFailure, setNotifyOnFailure] = useState(true)
+  const [notifyOnSuccess, setNotifyOnSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    slackApi
+      .getSettings(orgId)
+      .then((res) => {
+        if (cancelled) return
+        setSettings(res)
+        setWebhookUrl(res.webhook_url)
+        setNotifyOnFailure(res.notify_on_failure)
+        setNotifyOnSuccess(res.notify_on_success)
+      })
+      .catch(() => {
+        if (!cancelled) setSettings(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await slackApi.updateSettings(orgId, {
+        webhook_url: webhookUrl.trim(),
+        notify_on_failure: notifyOnFailure,
+        notify_on_success: notifyOnSuccess,
+      })
+      onToast({ kind: "success", text: "Slack settings saved" })
+    } catch (err) {
+      onToast({ kind: "error", text: readError(err, "Failed to save Slack settings") })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
+      <div className="flex items-center gap-3">
+        <div className="bg-primary/10 ring-primary/20 flex size-8 shrink-0 items-center justify-center rounded ring-1">
+          <BellIcon className="text-primary size-4" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold">Slack</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Send run completion notifications to a Slack channel. Paste an
+            Incoming Webhook URL from your Slack App configuration.
+          </p>
+        </div>
+      </div>
+
+      {settings === undefined && <Skeleton className="h-20 w-full" />}
+
+      {settings !== undefined && (
+        <div className="ring-border/40 flex flex-col gap-4 p-5 ring-1">
+          <div className="space-y-1">
+            <Label htmlFor="slack-webhook-url">Webhook URL</Label>
+            <Input
+              id="slack-webhook-url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://hooks.slack.com/services/..."
+            />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="slack-notify-failure"
+                checked={notifyOnFailure}
+                onCheckedChange={(checked) =>
+                  setNotifyOnFailure(checked === true)
+                }
+              />
+              <Label htmlFor="slack-notify-failure" className="cursor-pointer font-normal">
+                Notify on failure
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="slack-notify-success"
+                checked={notifyOnSuccess}
+                onCheckedChange={(checked) =>
+                  setNotifyOnSuccess(checked === true)
+                }
+              />
+              <Label htmlFor="slack-notify-success" className="cursor-pointer font-normal">
+                Notify on success
+              </Label>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="self-start"
+          >
+            {saving && <Loader2Icon className="size-4 animate-spin" />}
+            Save
           </Button>
         </div>
       )}

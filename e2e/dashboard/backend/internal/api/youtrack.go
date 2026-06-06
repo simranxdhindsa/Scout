@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/apyhub/scout/internal/auth"
@@ -195,14 +196,20 @@ func (h *youtrackHandler) GetSprintIssues(w http.ResponseWriter, r *http.Request
 			ticketIDs[i] = iss.ID
 		}
 	}
-	mappedIDs, _ := h.svc.YouTrack.GetMappedTestCaseIDs(r.Context(), orgID, ticketIDs)
+	mappedIDs, err := h.svc.YouTrack.GetMappedTestCaseIDs(r.Context(), orgID, ticketIDs)
+	if err != nil {
+		log.Printf("[youtrack] GetMappedTestCaseIDs org=%s: %v", orgID, err)
+	}
 	mappedSet := map[uuid.UUID]bool{}
 	for _, id := range mappedIDs {
 		mappedSet[id] = true
 	}
 
 	// Load all mappings for the org to annotate per ticket
-	mappings, _ := h.svc.YouTrack.ListMappings(r.Context(), orgID)
+	mappings, err := h.svc.YouTrack.ListMappings(r.Context(), orgID)
+	if err != nil {
+		log.Printf("[youtrack] ListMappings org=%s: %v", orgID, err)
+	}
 	mappingsByTicket := map[string][]youtrack.TicketMapping{}
 	for _, m := range mappings {
 		mappingsByTicket[m.TicketID] = append(mappingsByTicket[m.TicketID], m)

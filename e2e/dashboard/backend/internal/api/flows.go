@@ -66,6 +66,11 @@ func (h *flowHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // Get handles GET /api/v1/orgs/:orgId/flows/:flowId
 func (h *flowHandler) Get(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
 	flowID, err := uuid.Parse(r.PathValue("flowId"))
 	if err != nil {
 		writeError(w, "invalid flowId", http.StatusBadRequest)
@@ -73,7 +78,7 @@ func (h *flowHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	flowQ := queries.NewFlowQueries(h.svc.DB)
 	flow, err := flowQ.GetByID(r.Context(), flowID)
-	if err != nil {
+	if err != nil || flow.OrgID != orgID {
 		writeError(w, "flow not found", http.StatusNotFound)
 		return
 	}
@@ -86,6 +91,11 @@ func (h *flowHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // Update handles PUT /api/v1/orgs/:orgId/flows/:flowId
 func (h *flowHandler) Update(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
 	flowID, err := uuid.Parse(r.PathValue("flowId"))
 	if err != nil {
 		writeError(w, "invalid flowId", http.StatusBadRequest)
@@ -100,6 +110,11 @@ func (h *flowHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	flowQ := queries.NewFlowQueries(h.svc.DB)
+	existing, err := flowQ.GetByID(r.Context(), flowID)
+	if err != nil || existing.OrgID != orgID {
+		writeError(w, "flow not found", http.StatusNotFound)
+		return
+	}
 	if err := flowQ.Update(r.Context(), flowID, body.Name, body.Description); err != nil {
 		writeError(w, "failed to update flow", http.StatusInternalServerError)
 		return
@@ -109,12 +124,22 @@ func (h *flowHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 // Delete handles DELETE /api/v1/orgs/:orgId/flows/:flowId
 func (h *flowHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
 	flowID, err := uuid.Parse(r.PathValue("flowId"))
 	if err != nil {
 		writeError(w, "invalid flowId", http.StatusBadRequest)
 		return
 	}
 	flowQ := queries.NewFlowQueries(h.svc.DB)
+	existing, err := flowQ.GetByID(r.Context(), flowID)
+	if err != nil || existing.OrgID != orgID {
+		writeError(w, "flow not found", http.StatusNotFound)
+		return
+	}
 	if err := flowQ.Delete(r.Context(), flowID); err != nil {
 		writeError(w, "failed to delete flow", http.StatusInternalServerError)
 		return
@@ -126,6 +151,11 @@ func (h *flowHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // AddStep handles POST /api/v1/orgs/:orgId/flows/:flowId/steps
 func (h *flowHandler) AddStep(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
 	flowID, err := uuid.Parse(r.PathValue("flowId"))
 	if err != nil {
 		writeError(w, "invalid flowId", http.StatusBadRequest)
@@ -169,6 +199,11 @@ func (h *flowHandler) AddStep(w http.ResponseWriter, r *http.Request) {
 	envOut, _ := json.Marshal(body.EnvOutputs)
 
 	flowQ := queries.NewFlowQueries(h.svc.DB)
+	existing, err := flowQ.GetByID(r.Context(), flowID)
+	if err != nil || existing.OrgID != orgID {
+		writeError(w, "flow not found", http.StatusNotFound)
+		return
+	}
 	step, err := flowQ.AddStep(r.Context(), flowID, body.Position, body.Name, product,
 		tcID, fID, envIn, envOut)
 	if err != nil {
@@ -180,6 +215,16 @@ func (h *flowHandler) AddStep(w http.ResponseWriter, r *http.Request) {
 
 // UpdateStep handles PUT /api/v1/orgs/:orgId/flows/:flowId/steps/:stepId
 func (h *flowHandler) UpdateStep(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
+	flowID, err := uuid.Parse(r.PathValue("flowId"))
+	if err != nil {
+		writeError(w, "invalid flowId", http.StatusBadRequest)
+		return
+	}
 	stepID, err := uuid.Parse(r.PathValue("stepId"))
 	if err != nil {
 		writeError(w, "invalid stepId", http.StatusBadRequest)
@@ -215,6 +260,11 @@ func (h *flowHandler) UpdateStep(w http.ResponseWriter, r *http.Request) {
 	envOut, _ := json.Marshal(body.EnvOutputs)
 
 	flowQ := queries.NewFlowQueries(h.svc.DB)
+	existing, err := flowQ.GetByID(r.Context(), flowID)
+	if err != nil || existing.OrgID != orgID {
+		writeError(w, "flow not found", http.StatusNotFound)
+		return
+	}
 	if err := flowQ.UpdateStep(r.Context(), stepID, body.Name, body.Product,
 		tcID, fID, envIn, envOut); err != nil {
 		writeError(w, "failed to update step", http.StatusInternalServerError)
@@ -225,12 +275,27 @@ func (h *flowHandler) UpdateStep(w http.ResponseWriter, r *http.Request) {
 
 // DeleteStep handles DELETE /api/v1/orgs/:orgId/flows/:flowId/steps/:stepId
 func (h *flowHandler) DeleteStep(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
+	flowID, err := uuid.Parse(r.PathValue("flowId"))
+	if err != nil {
+		writeError(w, "invalid flowId", http.StatusBadRequest)
+		return
+	}
 	stepID, err := uuid.Parse(r.PathValue("stepId"))
 	if err != nil {
 		writeError(w, "invalid stepId", http.StatusBadRequest)
 		return
 	}
 	flowQ := queries.NewFlowQueries(h.svc.DB)
+	existing, err := flowQ.GetByID(r.Context(), flowID)
+	if err != nil || existing.OrgID != orgID {
+		writeError(w, "flow not found", http.StatusNotFound)
+		return
+	}
 	if err := flowQ.DeleteStep(r.Context(), stepID); err != nil {
 		writeError(w, "failed to delete step", http.StatusInternalServerError)
 		return
@@ -240,6 +305,11 @@ func (h *flowHandler) DeleteStep(w http.ResponseWriter, r *http.Request) {
 
 // ReorderSteps handles POST /api/v1/orgs/:orgId/flows/:flowId/steps/reorder
 func (h *flowHandler) ReorderSteps(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(r.PathValue("orgId"))
+	if err != nil {
+		writeError(w, "invalid orgId", http.StatusBadRequest)
+		return
+	}
 	flowID, err := uuid.Parse(r.PathValue("flowId"))
 	if err != nil {
 		writeError(w, "invalid flowId", http.StatusBadRequest)
@@ -262,6 +332,11 @@ func (h *flowHandler) ReorderSteps(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, id)
 	}
 	flowQ := queries.NewFlowQueries(h.svc.DB)
+	existing, err := flowQ.GetByID(r.Context(), flowID)
+	if err != nil || existing.OrgID != orgID {
+		writeError(w, "flow not found", http.StatusNotFound)
+		return
+	}
 	if err := flowQ.ReorderSteps(r.Context(), flowID, ids); err != nil {
 		writeError(w, "failed to reorder steps", http.StatusInternalServerError)
 		return

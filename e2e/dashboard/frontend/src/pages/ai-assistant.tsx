@@ -4,17 +4,22 @@ import {
   CommandIcon,
   CopyIcon,
   Loader2Icon,
+  PanelLeftIcon,
+  PlusIcon,
   SearchIcon,
   SendIcon,
   SparklesIcon,
   SquareIcon,
+  TrashIcon,
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { useActiveOrg } from "@/lib/auth"
 import {
+  chatHistoryApi,
   streamChat,
   type ChatMessage,
+  type ChatSession,
 } from "@/lib/scout-api"
 
 const suggestions = [
@@ -23,6 +28,18 @@ const suggestions = [
   "What are common test failures?",
 ]
 
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return "Today"
+  if (diffDays === 1) return "Yesterday"
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  return `${Math.floor(diffDays / 30)}mo ago`
+}
+
 export default function AiAssistantPage() {
   const org = useActiveOrg()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -30,6 +47,16 @@ export default function AiAssistantPage() {
   const [streaming, setStreaming] = useState(false)
   const controllerRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // Load sessions on mount / org change
+  useEffect(() => {
+    if (!org) return
+    chatHistoryApi.listSessions(org.id).then(setSessions).catch(() => {})
+  }, [org])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -42,6 +69,50 @@ export default function AiAssistantPage() {
     return () => controllerRef.current?.abort()
   }, [])
 
+  const selectSession = async (session: ChatSession) => {
+    if (!org) return
+    setActiveSessionId(session.id)
+    try {
+      const historyMsgs = await chatHistoryApi.getMessages(org.id, session.id)
+      setMessages(
+        historyMsgs
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      )
+    } catch {
+      setMessages([])
+    }
+  }
+
+  const newChat = async () => {
+    if (!org) return
+    try {
+      const session = await chatHistoryApi.createSession(org.id)
+      setSessions((prev) => [session, ...prev])
+      setActiveSessionId(session.id)
+      setMessages([])
+    } catch {
+      // fallback: just clear messages, session created lazily on first send
+      setActiveSessionId(null)
+      setMessages([])
+    }
+  }
+
+  const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!org) return
+    try {
+      await chatHistoryApi.deleteSession(org.id, sessionId)
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(null)
+        setMessages([])
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const send = async (text: string) => {
     if (!org || !text.trim() || streaming) return
     const userMsg: ChatMessage = { role: "user", content: text.trim() }
@@ -51,35 +122,86 @@ export default function AiAssistantPage() {
     setInput("")
     setStreaming(true)
 
+    // Ensure we have an active session
+    let sessionId = activeSessionId
+    const isFirstMessage = messages.length === 0
+    if (!sessionId) {
+      try {
+        const session = await chatHistoryApi.createSession(org.id)
+        setSessions((prev) => [session, ...prev])
+        setActiveSessionId(session.id)
+        sessionId = session.id
+      } catch {
+        // proceed without persistence
+      }
+    }
+
+    // Save user message
+    if (sessionId) {
+      chatHistoryApi.addMessage(org.id, sessionId, "user", text.trim()).catch(() => {})
+      if (isFirstMessage) {
+        chatHistoryApi
+          .updateTitle(org.id, sessionId, text.trim().slice(0, 50))
+          .then(() => {
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === sessionId
+                  ? { ...s, title: text.trim().slice(0, 50) }
+                  : s,
+              ),
+            )
+          })
+          .catch(() => {})
+      }
+    }
+
     const controller = new AbortController()
     controllerRef.current = controller
 
     try {
+      let finalResponse = ""
       await streamChat(
         org.id,
         next.slice(0, -1), // exclude empty placeholder
         {
           onToken: (full) => {
+            finalResponse = full
             setMessages((prev) => {
               const copy = prev.slice()
               copy[copy.length - 1] = { role: "assistant", content: full }
               return copy
             })
           },
-          onDone: () => {
+          onDone: (full) => {
+            finalResponse = full
             setStreaming(false)
+            if (sessionId && full) {
+              chatHistoryApi
+                .addMessage(org.id, sessionId, "assistant", full)
+                .catch(() => {})
+            }
           },
         },
         controller.signal,
       )
+      // onDone may not fire if stream ended without [DONE], save what we have
+      if (sessionId && finalResponse && !controller.signal.aborted) {
+        // already saved in onDone; nothing extra needed
+      }
     } catch (err) {
       if (controller.signal.aborted) {
         setMessages((prev) => {
           const copy = prev.slice()
           const last = copy[copy.length - 1]
+          const stoppedContent = (last.content || "") + "\n\n_Stopped._"
+          if (sessionId) {
+            chatHistoryApi
+              .addMessage(org.id, sessionId, "assistant", stoppedContent)
+              .catch(() => {})
+          }
           copy[copy.length - 1] = {
             role: "assistant",
-            content: (last.content || "") + "\n\n_Stopped._",
+            content: stoppedContent,
           }
           return copy
         })
@@ -115,8 +237,19 @@ export default function AiAssistantPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-7rem)] flex-col gap-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">AI Assistant</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="text-muted-foreground hover:text-foreground inline-flex size-8 items-center justify-center rounded"
+            aria-label="Toggle sidebar"
+          >
+            <PanelLeftIcon className="size-4" />
+          </button>
+          <h1 className="text-3xl font-semibold tracking-tight">AI Assistant</h1>
+        </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -131,70 +264,129 @@ export default function AiAssistantPage() {
         </div>
       </div>
 
-      {!hasMessages ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
-          <div className="bg-primary/20 ring-primary/30 inline-flex size-14 items-center justify-center rounded-full ring-1">
-            <SparklesIcon className="text-primary size-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Scout AI</h2>
-            <p className="text-muted-foreground mt-1 max-w-md text-sm">
-              Ask me to analyze test failures, generate Playwright tests, or
-              explain run results.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {suggestions.map((s) => (
+      {/* Two-panel body */}
+      <div className="flex flex-1 gap-0 overflow-hidden">
+        {/* Sidebar */}
+        {sidebarOpen && (
+          <div className="border-border/40 flex w-60 shrink-0 flex-col border-r">
+            <div className="p-2">
               <button
-                key={s}
                 type="button"
-                onClick={() => send(s)}
-                disabled={!org || streaming}
-                className="bg-muted/40 ring-border/40 hover:bg-accent rounded-full px-4 py-2 text-sm ring-1 disabled:opacity-50"
+                onClick={newChat}
+                disabled={!org}
+                className="bg-muted/40 ring-border/40 hover:bg-accent flex w-full items-center gap-2 rounded px-3 py-2 text-sm ring-1 disabled:opacity-50"
               >
-                {s}
+                <PlusIcon className="size-4" />
+                New chat
               </button>
-            ))}
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-2">
+              {sessions.length === 0 ? (
+                <p className="text-muted-foreground px-3 py-4 text-center text-xs">
+                  No chats yet
+                </p>
+              ) : (
+                sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => selectSession(session)}
+                    className={`group flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm ${
+                      activeSessionId === session.id
+                        ? "bg-muted/60"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium leading-tight">
+                        {session.title || "New chat"}
+                      </div>
+                      <div className="text-muted-foreground text-xs">
+                        {formatRelativeDate(session.updated_at)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => deleteSession(session.id, e)}
+                      className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-label="Delete session"
+                    >
+                      <TrashIcon className="size-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          <ChatComposer
-            input={input}
-            setInput={setInput}
-            onKeyDown={onKeyDown}
-            onSend={() => send(input)}
-            onStop={stop}
-            streaming={streaming}
-            disabled={!org}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-1 flex-col gap-4">
-          <div
-            ref={scrollRef}
-            className="ring-border/40 bg-card/30 flex max-h-[60vh] flex-1 flex-col gap-4 overflow-y-auto p-4 ring-1"
-          >
-            {messages.map((m, i) => (
-              <MessageBubble
-                key={i}
-                message={m}
-                streaming={
-                  streaming &&
-                  i === messages.length - 1 &&
-                  m.role === "assistant"
-                }
+        )}
+
+        {/* Chat panel */}
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {!hasMessages ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
+              <div className="bg-primary/20 ring-primary/30 inline-flex size-14 items-center justify-center rounded-full ring-1">
+                <SparklesIcon className="text-primary size-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Scout AI</h2>
+                <p className="text-muted-foreground mt-1 max-w-md text-sm">
+                  Ask me to analyze test failures, generate Playwright tests, or
+                  explain run results.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => send(s)}
+                    disabled={!org || streaming}
+                    className="bg-muted/40 ring-border/40 hover:bg-accent rounded-full px-4 py-2 text-sm ring-1 disabled:opacity-50"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <ChatComposer
+                input={input}
+                setInput={setInput}
+                onKeyDown={onKeyDown}
+                onSend={() => send(input)}
+                onStop={stop}
+                streaming={streaming}
+                disabled={!org}
               />
-            ))}
-          </div>
-          <ChatComposer
-            input={input}
-            setInput={setInput}
-            onKeyDown={onKeyDown}
-            onSend={() => send(input)}
-            onStop={stop}
-            streaming={streaming}
-            disabled={!org}
-          />
+            </div>
+          ) : (
+            <>
+              <div
+                ref={scrollRef}
+                className="ring-border/40 bg-card/30 flex max-h-[60vh] flex-1 flex-col gap-4 overflow-y-auto p-4 ring-1"
+              >
+                {messages.map((m, i) => (
+                  <MessageBubble
+                    key={i}
+                    message={m}
+                    streaming={
+                      streaming &&
+                      i === messages.length - 1 &&
+                      m.role === "assistant"
+                    }
+                  />
+                ))}
+              </div>
+              <ChatComposer
+                input={input}
+                setInput={setInput}
+                onKeyDown={onKeyDown}
+                onSend={() => send(input)}
+                onStop={stop}
+                streaming={streaming}
+                disabled={!org}
+              />
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

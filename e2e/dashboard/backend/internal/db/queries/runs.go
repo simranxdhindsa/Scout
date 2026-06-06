@@ -255,6 +255,16 @@ func (q *RunQueries) UpdateItem(ctx context.Context, id uuid.UUID, status string
 	return err
 }
 
+// FailItems marks all queued run_items for a run as failed.
+// Called when the run itself fails before any test executes.
+func (q *RunQueries) FailItems(ctx context.Context, runID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, `
+		UPDATE run_items SET status = 'failed', completed_at = NOW()
+		WHERE run_id = $1 AND status = 'queued'
+	`, runID)
+	return err
+}
+
 // ListItems returns all items for a run with test case name joined.
 func (q *RunQueries) ListItems(ctx context.Context, runID uuid.UUID) ([]RunItem, error) {
 	rows, err := q.db.Query(ctx, `

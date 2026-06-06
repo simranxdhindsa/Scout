@@ -11,6 +11,7 @@ import EnvironmentsPage from "@/pages/settings/environments"
 import IntegrationsPage from "@/pages/settings/integrations"
 import MembersPage from "@/pages/settings/members"
 import OrganisationsPage from "@/pages/settings/organisations"
+import ScheduledRunsPage from "@/pages/settings/scheduled-runs"
 import LoginPage from "@/pages/login"
 import NotFoundPage from "@/pages/not-found"
 import FlowsPage from "@/pages/flows"
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
           { path: "settings/ai-config", element: <AiConfigPage /> },
           { path: "settings/integrations", element: <IntegrationsPage /> },
           { path: "settings/organisations", element: <OrganisationsPage /> },
+          { path: "settings/scheduled-runs", element: <ScheduledRunsPage /> },
         ],
       },
       {

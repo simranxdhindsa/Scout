@@ -1016,3 +1016,123 @@ export const youtrackApi = {
   deleteMapping: (orgId: string, mappingId: string) =>
     api.delete(`/orgs/${orgId}/youtrack/mappings/${mappingId}`),
 }
+
+// ── Slack ──────────────────────────────────────────────────────────────────────
+
+export type SlackSettings = {
+  webhook_url: string
+  notify_on_failure: boolean
+  notify_on_success: boolean
+}
+
+export const slackApi = {
+  getSettings: (orgId: string) =>
+    api.get<SlackSettings>(`/orgs/${orgId}/settings/slack`).then((r) => r.data),
+
+  updateSettings: (orgId: string, body: SlackSettings) =>
+    api.put<{ status: string }>(`/orgs/${orgId}/settings/slack`, body).then((r) => r.data),
+}
+
+// ── Chat history ───────────────────────────────────────────────────────────────
+
+export type ChatSession = {
+  id: string
+  org_id: string
+  user_id: string
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export type ChatHistoryMessage = {
+  id: string
+  session_id: string
+  role: "user" | "assistant" | "system"
+  content: string
+  created_at: string
+}
+
+export const chatHistoryApi = {
+  listSessions: (orgId: string) =>
+    api
+      .get<{ sessions: ChatSession[] }>(`/orgs/${orgId}/ai/sessions`)
+      .then((r) => r.data.sessions),
+
+  createSession: (orgId: string, title?: string) =>
+    api
+      .post<ChatSession>(`/orgs/${orgId}/ai/sessions`, { title: title ?? "New chat" })
+      .then((r) => r.data),
+
+  updateTitle: (orgId: string, sessionId: string, title: string) =>
+    api.put(`/orgs/${orgId}/ai/sessions/${sessionId}`, { title }),
+
+  deleteSession: (orgId: string, sessionId: string) =>
+    api.delete(`/orgs/${orgId}/ai/sessions/${sessionId}`),
+
+  getMessages: (orgId: string, sessionId: string) =>
+    api
+      .get<{ messages: ChatHistoryMessage[] }>(
+        `/orgs/${orgId}/ai/sessions/${sessionId}/messages`,
+      )
+      .then((r) => r.data.messages),
+
+  addMessage: (orgId: string, sessionId: string, role: string, content: string) =>
+    api
+      .post<ChatHistoryMessage>(`/orgs/${orgId}/ai/sessions/${sessionId}/messages`, {
+        role,
+        content,
+      })
+      .then((r) => r.data),
+}
+
+// ── Scheduled runs ─────────────────────────────────────────────────────────────
+
+export type ScheduledRun = {
+  id: string
+  org_id: string
+  label: string
+  cron_expr: string
+  env_id: string | null
+  test_case_ids: string[]
+  folder_id: string | null
+  product: string
+  enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ScheduledRunBody = {
+  label?: string
+  cron_expr?: string
+  env_id?: string
+  folder_id?: string
+  test_case_ids?: string[]
+  product?: string
+  enabled?: boolean
+}
+
+export const scheduledRunsApi = {
+  list: (orgId: string) =>
+    api
+      .get<{ scheduled_runs: ScheduledRun[] }>(`/orgs/${orgId}/scheduled-runs`)
+      .then((r) => r.data.scheduled_runs),
+
+  create: (orgId: string, body: ScheduledRunBody) =>
+    api.post<ScheduledRun>(`/orgs/${orgId}/scheduled-runs`, body).then((r) => r.data),
+
+  update: (orgId: string, schedId: string, body: ScheduledRunBody) =>
+    api
+      .put<ScheduledRun>(`/orgs/${orgId}/scheduled-runs/${schedId}`, body)
+      .then((r) => r.data),
+
+  delete: (orgId: string, schedId: string) =>
+    api.delete(`/orgs/${orgId}/scheduled-runs/${schedId}`),
+
+  toggle: (orgId: string, schedId: string) =>
+    api
+      .post<{ enabled: boolean }>(`/orgs/${orgId}/scheduled-runs/${schedId}/toggle`, {})
+      .then((r) => r.data),
+}

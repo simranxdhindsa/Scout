@@ -18,6 +18,7 @@ import (
 	"github.com/apyhub/scout/internal/gitlab"
 	"github.com/apyhub/scout/internal/notifications"
 	"github.com/apyhub/scout/internal/runner"
+	"github.com/apyhub/scout/internal/scheduler"
 	"github.com/apyhub/scout/internal/scorm"
 	"github.com/apyhub/scout/internal/storage"
 	"github.com/apyhub/scout/internal/youtrack"
@@ -102,6 +103,11 @@ func main() {
 	// (rate-limit cleanup, etc.) to the server lifetime.
 	rootCtx, rootCancel := context.WithCancel(context.Background())
 	defer rootCancel()
+
+	// ── 11b. Start scheduled-run cron engine ─────────────────────────────
+	schedulerSvc := scheduler.NewService(pool, runnerSvc)
+	schedulerSvc.Start(rootCtx)
+	log.Println("[scout] scheduler started")
 
 	mux := api.RegisterRoutes(rootCtx, api.Services{
 		Config:        cfg,

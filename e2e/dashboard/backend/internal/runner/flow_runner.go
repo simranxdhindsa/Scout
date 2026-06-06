@@ -274,7 +274,7 @@ func (s *Service) executeStepAsRun(
 			result.Passed, result.Failed, result.Skipped, result.TimedOut,
 			result.Total, result.DurationMs, "",
 			result.ConsoleErrors, result.APIErrors, result.FailedRequests, result.PageErrors)
-		if result.Failed == 0 {
+		if result.Failed == 0 && result.TimedOut == 0 {
 			finalStatus = "passed"
 		}
 	}

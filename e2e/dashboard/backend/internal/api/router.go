@@ -306,6 +306,41 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/youtrack/mappings/{mappingId}", chain(ytH.DeleteMapping,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
+	// ── Slack settings ────────────────────────────────────────────────────
+	slackH := newSlackHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/settings/slack", chain(slackH.GetSettings,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/settings/slack", chain(slackH.UpdateSettings,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+
+	// ── AI chat history ───────────────────────────────────────────────────
+	chatHistH := newChatHistoryHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/ai/sessions", chain(chatHistH.ListSessions,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/ai/sessions", chain(chatHistH.CreateSession,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/ai/sessions/{sessionId}", chain(chatHistH.UpdateSessionTitle,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/ai/sessions/{sessionId}", chain(chatHistH.DeleteSession,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/ai/sessions/{sessionId}/messages", chain(chatHistH.GetMessages,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/ai/sessions/{sessionId}/messages", chain(chatHistH.AddMessage,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
+	// ── Scheduled runs ────────────────────────────────────────────────────
+	schedH := newScheduledRunHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/scheduled-runs", chain(schedH.List,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/scheduled-runs", chain(schedH.Create,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/scheduled-runs/{schedId}", chain(schedH.Update,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/scheduled-runs/{schedId}", chain(schedH.Delete,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/scheduled-runs/{schedId}/toggle", chain(schedH.ToggleEnabled,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
 	// ── Static file serving (local storage) ──────────────────────────────
 	if svc.Config.StorageDriver == "local" {
 		storageH := newStorageHandler(svc)

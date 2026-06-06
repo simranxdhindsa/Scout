@@ -15,6 +15,7 @@ import (
 
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/notifications"
+	"github.com/apyhub/scout/internal/slack"
 	"github.com/apyhub/scout/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -417,6 +418,7 @@ func (s *Service) failRun(ctx context.Context, runID, orgID uuid.UUID, reason st
 	s.streams.Publish(ctx, runID, "status", "failed")
 	_ = s.runQ.SetErrorMessage(ctx, runID, reason)
 	_ = s.runQ.UpdateStatus(ctx, runID, "failed")
+	_ = s.runQ.FailItems(ctx, runID)
 	s.notifyCompletion(ctx, runID, orgID, "failed", nil)
 }
 
@@ -565,9 +567,55 @@ func (s *Service) notifyCompletion(ctx context.Context, runID, orgID uuid.UUID, 
 		notifType = "run_failed"
 	}
 
+	passed, failed, total := 0, 0, 0
 	if result != nil {
+		passed = result.Passed
+		failed = result.Failed
+		total = result.Total
 		msg = fmt.Sprintf("Passed: %d / %d · Duration: %dms", result.Passed, result.Total, result.DurationMs)
 	}
 
 	_ = s.notif.NotifyOrg(ctx, orgID, &runID, notifType, title, msg, nil)
+
+	// Slack webhook notification
+	s.sendSlackNotification(ctx, orgID, runID, status, passed, failed, total)
+}
+
+func (s *Service) sendSlackNotification(ctx context.Context, orgID, runID uuid.UUID, status string, passed, failed, total int) {
+	var webhookURL string
+	var notifyOnFailure, notifyOnSuccess bool
+	err := s.db.QueryRow(ctx,
+		`SELECT COALESCE(slack_webhook_url,''),
+		        COALESCE(slack_notify_on_failure, TRUE),
+		        COALESCE(slack_notify_on_success, FALSE)
+		 FROM organizations WHERE id = $1`, orgID,
+	).Scan(&webhookURL, &notifyOnFailure, &notifyOnSuccess)
+	if err != nil || webhookURL == "" {
+		return
+	}
+	if status == "failed" && !notifyOnFailure {
+		return
+	}
+	if status != "failed" && !notifyOnSuccess {
+		return
+	}
+
+	run, _ := s.runQ.GetByID(ctx, runID)
+	label := "Run"
+	if run != nil {
+		label = run.Label
+	}
+
+	dashURL := os.Getenv("SCOUT_DASHBOARD_URL")
+	if err := slack.Notify(ctx, webhookURL, slack.RunSummary{
+		Label:   label,
+		Status:  status,
+		Passed:  passed,
+		Failed:  failed,
+		Total:   total,
+		RunID:   runID.String(),
+		DashURL: dashURL,
+	}); err != nil {
+		log.Printf("[runner] slack notify: %v", err)
+	}
 }
