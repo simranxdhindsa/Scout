@@ -13,6 +13,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import {
+  BarChart2Icon,
   CalendarClockIcon,
   GitMergeIcon,
   LayoutDashboardIcon,
@@ -54,6 +55,11 @@ const data = {
       title: "AI Assistant",
       url: "/dashboard/ai-assistant",
       icon: <SparklesIcon />,
+    },
+    {
+      title: "Analytics",
+      url: "/dashboard/analytics",
+      icon: <BarChart2Icon />,
     },
     {
       title: "Projects",
