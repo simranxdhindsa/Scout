@@ -71,7 +71,8 @@ func (q *AnalyticsQueries) GetOverview(ctx context.Context, orgID uuid.UUID) (*A
 		FROM test_cases tc
 		JOIN test_folders tf ON tf.id = tc.folder_id
 		JOIN sub_projects sp ON sp.id = tf.sub_project_id
-		WHERE sp.org_id = $1
+		JOIN products p ON p.id = sp.product_id
+		WHERE p.org_id = $1
 	`, orgID).Scan(&ov.TotalTestCases)
 
 	// Runs + avg pass rate in last 7 days
@@ -106,9 +107,10 @@ func (q *AnalyticsQueries) GetOverview(ctx context.Context, orgID uuid.UUID) (*A
 		  FROM test_cases tc
 		  JOIN test_folders tf ON tf.id = tc.folder_id
 		  JOIN sub_projects sp ON sp.id = tf.sub_project_id
+		  JOIN products p ON p.id = sp.product_id
 		  JOIN run_items ri ON ri.test_case_id = tc.id
 		  JOIN test_runs tr ON tr.id = ri.run_id
-		  WHERE sp.org_id = $1
+		  WHERE p.org_id = $1
 		    AND tr.created_at > NOW() - INTERVAL '30 days'
 		    AND ri.status IN ('passed','failed')
 		  GROUP BY tc.id
@@ -151,9 +153,10 @@ func (q *AnalyticsQueries) GetFlakyTests(ctx context.Context, orgID uuid.UUID, l
 		FROM test_cases tc
 		JOIN test_folders tf  ON tf.id  = tc.folder_id
 		JOIN sub_projects sp  ON sp.id  = tf.sub_project_id
+		JOIN products p       ON p.id   = sp.product_id
 		JOIN run_items ri     ON ri.test_case_id = tc.id
 		JOIN test_runs tr     ON tr.id  = ri.run_id
-		WHERE sp.org_id = $1
+		WHERE p.org_id = $1
 		  AND tr.created_at > NOW() - INTERVAL '30 days'
 		  AND ri.status IN ('passed','failed')
 		GROUP BY tc.id, tc.name, tc.file_name, tf.name, sp.name
@@ -206,9 +209,10 @@ func (q *AnalyticsQueries) GetSlowTests(ctx context.Context, orgID uuid.UUID, li
 		FROM test_cases tc
 		JOIN test_folders tf  ON tf.id  = tc.folder_id
 		JOIN sub_projects sp  ON sp.id  = tf.sub_project_id
+		JOIN products p       ON p.id   = sp.product_id
 		JOIN run_items ri     ON ri.test_case_id = tc.id
 		JOIN test_runs tr     ON tr.id  = ri.run_id
-		WHERE sp.org_id = $1
+		WHERE p.org_id = $1
 		  AND ri.duration_ms IS NOT NULL
 		  AND ri.duration_ms > 0
 		  AND tr.created_at > NOW() - INTERVAL '30 days'

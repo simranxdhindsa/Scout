@@ -22,6 +22,7 @@ const titles: Record<string, string> = {
   "/dashboard/pipeline": "Pipeline",
   "/dashboard/sprints": "Sprints",
   "/dashboard/ai-assistant": "AI Assistant",
+  "/dashboard/analytics": "Analytics",
   "/projects": "Projects",
 }
 

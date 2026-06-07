@@ -19,6 +19,7 @@ import SprintsPage from "@/pages/sprints"
 import ProjectPage from "@/pages/project"
 import ProjectsPage from "@/pages/projects"
 import RunDetailPage from "@/pages/run-detail"
+import AnalyticsPage from "@/pages/analytics"
 import RunsPage from "@/pages/runs"
 
 export const router = createBrowserRouter([
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: "settings/integrations", element: <IntegrationsPage /> },
           { path: "settings/organisations", element: <OrganisationsPage /> },
           { path: "settings/scheduled-runs", element: <ScheduledRunsPage /> },
+          { path: "analytics", element: <AnalyticsPage /> },
         ],
       },
       {
