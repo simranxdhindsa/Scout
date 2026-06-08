@@ -156,6 +156,29 @@ func (s *Service) ListUserRepos(ctx context.Context, integrationID uuid.UUID) ([
 	return all, nil
 }
 
+// getProject fetches a single GitLab project — used to resolve the repo's
+// real default branch when the configured branch is missing or invalid.
+func (s *Service) getProject(ctx context.Context, integ *Integration, repoID int64) (*GitLabProject, error) {
+	var p GitLabProject
+	if err := s.authedGet(ctx, integ, fmt.Sprintf("/projects/%d", repoID), &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// branchExists reports whether branch resolves on the repo (404 → false).
+func (s *Service) branchExists(ctx context.Context, integ *Integration, repoID int64, branch string) bool {
+	if branch == "" {
+		return false
+	}
+	var b struct {
+		Name string `json:"name"`
+	}
+	err := s.authedGet(ctx, integ,
+		fmt.Sprintf("/projects/%d/repository/branches/%s", repoID, url.PathEscape(branch)), &b)
+	return err == nil
+}
+
 // UpdateSettings saves the chosen repo, branch, subfolder path and subproject for an integration.
 func (s *Service) UpdateSettings(ctx context.Context, id uuid.UUID, subprojectID *uuid.UUID, repoID int64, repoName, repoURL, branch, repoPath string) error {
 	return s.glDB.updateRepo(ctx, id, repoID, repoName, repoURL, branch, repoPath, subprojectID)
@@ -227,6 +250,23 @@ func (s *Service) SyncProductRepo(ctx context.Context, orgID, productID, callerU
 		return nil, fmt.Errorf("connect your GitLab account to this repository in Settings → Integrations before syncing")
 	}
 
+	// Resolve the branch against the repo's real default. An unset or stale
+	// branch — e.g. the create-time default of "main" on a repo whose default
+	// is "master" — makes the tree/file endpoints 404. Fall back to the actual
+	// default branch and persist the correction so the UI and future syncs are right.
+	if proj, perr := s.getProject(ctx, integ, repoID); perr == nil && proj.DefaultBranch != "" {
+		if branch == "" || (branch != proj.DefaultBranch && !s.branchExists(ctx, integ, repoID, branch)) {
+			log.Printf("[gitlab] branch %q invalid for repo %d; using default %q", branch, repoID, proj.DefaultBranch)
+			branch = proj.DefaultBranch
+			if _, uerr := s.db.Exec(ctx,
+				`UPDATE product_gitlab_links SET branch = $2, updated_at = NOW() WHERE product_id = $1`,
+				productID, branch,
+			); uerr != nil {
+				log.Printf("[gitlab] warn: persist corrected branch: %v", uerr)
+			}
+		}
+	}
+
 	return s.syncRepoWith(ctx, integ, *spID, repoID, branch, repoPath)
 }
 
@@ -247,6 +287,10 @@ func (s *Service) syncRepoWith(ctx context.Context, integ *Integration, subproje
 	// List all spec files from the repo
 	specPaths, err := s.listSpecFiles(ctx, integ)
 	if err != nil {
+		if strings.Contains(err.Error(), "returned 404") || strings.Contains(err.Error(), "not found") {
+			return nil, fmt.Errorf("repository, branch %q, or subfolder %q not found on GitLab — check the project's GitLab settings: %w",
+				branch, repoPath, err)
+		}
 		return nil, fmt.Errorf("list spec files: %w", err)
 	}
 
