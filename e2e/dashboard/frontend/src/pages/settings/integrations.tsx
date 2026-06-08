@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react"
 import {
-  BellIcon,
   CheckCircle2Icon,
   Loader2Icon,
   SearchIcon,
   Trash2Icon,
   XIcon,
-  ZapIcon,
 } from "lucide-react"
 
 import GitlabIcon from "@/assets/GitlabIcon"
+import SlackIcon from "@/assets/SlackIcon"
+import YoutrackIcon from "@/assets/YoutrackIcon"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -292,9 +292,7 @@ function YouTrackSection({
   return (
     <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
       <div className="flex items-center gap-3">
-        <div className="bg-primary/10 ring-primary/20 flex size-8 shrink-0 items-center justify-center rounded ring-1">
-          <ZapIcon className="text-primary size-4" />
-        </div>
+        <YoutrackIcon className="size-8 shrink-0" />
         <div>
           <h2 className="text-base font-semibold">YouTrack</h2>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -439,9 +437,7 @@ function SlackSection({
   return (
     <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
       <div className="flex items-center gap-3">
-        <div className="bg-primary/10 ring-primary/20 flex size-8 shrink-0 items-center justify-center rounded ring-1">
-          <BellIcon className="text-primary size-4" />
-        </div>
+        <SlackIcon className="size-8 shrink-0" />
         <div>
           <h2 className="text-base font-semibold">Slack</h2>
           <p className="text-muted-foreground mt-1 text-sm">
