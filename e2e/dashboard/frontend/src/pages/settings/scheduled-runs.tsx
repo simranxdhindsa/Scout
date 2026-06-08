@@ -8,6 +8,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -26,8 +27,6 @@ import {
   type ScheduledRun,
   type ScheduledRunBody,
 } from "@/lib/scout-api"
-
-type Toast = { kind: "success" | "error"; text: string }
 
 type ApiError = { response?: { data?: { error?: string } } }
 function readError(err: unknown, fallback: string) {
@@ -239,7 +238,6 @@ function ScheduleRow({
 export default function ScheduledRunsPage() {
   const org = useActiveOrg()
   const [schedules, setSchedules] = useState<ScheduledRun[] | null>(null)
-  const [toast, setToast] = useState<Toast | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<ScheduledRun | undefined>()
 
@@ -253,20 +251,14 @@ export default function ScheduledRunsPage() {
 
   useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 3500)
-    return () => window.clearTimeout(id)
-  }, [toast])
-
   const handleCreate = async (body: ScheduledRunBody) => {
     if (!org) return
     try {
       await scheduledRunsApi.create(org.id, body)
-      setToast({ kind: "success", text: "Schedule created" })
+      toast.success("Schedule created")
       load()
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to create schedule") })
+      toast.error(readError(err, "Failed to create schedule"))
       throw err
     }
   }
@@ -275,10 +267,10 @@ export default function ScheduledRunsPage() {
     if (!org) return
     try {
       await scheduledRunsApi.update(org.id, schedId, body)
-      setToast({ kind: "success", text: "Schedule updated" })
+      toast.success("Schedule updated")
       load()
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to update schedule") })
+      toast.error(readError(err, "Failed to update schedule"))
       throw err
     }
   }
@@ -291,7 +283,7 @@ export default function ScheduledRunsPage() {
         prev ? prev.map((s) => s.id === sched.id ? { ...s, enabled: !s.enabled } : s) : prev
       )
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to toggle schedule") })
+      toast.error(readError(err, "Failed to toggle schedule"))
     }
   }
 
@@ -300,9 +292,9 @@ export default function ScheduledRunsPage() {
     try {
       await scheduledRunsApi.delete(org.id, schedId)
       setSchedules((prev) => prev ? prev.filter((s) => s.id !== schedId) : prev)
-      setToast({ kind: "success", text: "Schedule deleted" })
+      toast.success("Schedule deleted")
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to delete schedule") })
+      toast.error(readError(err, "Failed to delete schedule"))
     }
   }
 
@@ -326,18 +318,6 @@ export default function ScheduledRunsPage() {
           New schedule
         </Button>
       </div>
-
-      {toast && (
-        <div
-          className={`flex items-center gap-2 px-4 py-2 text-sm ring-1 ${
-            toast.kind === "success"
-              ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/30"
-              : "bg-rose-500/10 text-rose-200 ring-rose-500/30"
-          }`}
-        >
-          {toast.text}
-        </div>
-      )}
 
       {schedules === null ? (
         <div className="flex flex-col gap-2">

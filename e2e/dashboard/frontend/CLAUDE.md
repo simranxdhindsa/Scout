@@ -26,7 +26,7 @@ There is no test runner configured.
 - **Axios client (`src/lib/api.ts`):** baseURL `${API_BASE_URL}/api/v1`. Request interceptor attaches the bearer header; response interceptor clears the cookie and redirects to `/login` on 401. Do **not** create separate clients — every call should go through the exported `api` (or `streamChat` for SSE).
 - **Zustand auth store (`src/lib/auth.ts`, `useAuthStore`):** single source of truth for `user`, `orgs`, `isPlatformAdmin`, `isLoading`, `isAuthenticated`. Pages read org/user via `useAuthStore((s) => s.orgs[0] ?? null)` etc. — do **not** re-fetch `/auth/me` per page. `loadMe()` is kicked off once by `AuthBootstrap` in `main.tsx`; `logout()` POSTs `/auth/logout`, clears the cookie, and hard-navigates to `/login`.
 - **Route guards (`src/components/require-auth.tsx`):** `RequireAuth` wraps protected routes (shows a centered spinner while `isLoading`, redirects to `/login?redirect=<path>` if not authed). `RedirectIfAuthed` wraps `/login` so already-signed-in users bounce to `/dashboard`. `/auth/callback` stays unguarded.
-- **Typed API helpers (`src/lib/scout-api.ts`):** wrappers for every backend area — `authApi`, `runsApi`, `pipelinesApi`, `overviewApi`, `environmentsApi`, `membersApi`, `archiveApi`, `aiConfigApi`, `gitlabApi`, `notificationsApi`, plus `streamChat` (SSE fetch helper) and the `AI_MODELS` / `AI_CONFIG_DEFAULTS` constants. Add new endpoints here as typed wrappers, not inline in pages.
+- **Typed API helpers (`src/lib/scout-api.ts`):** wrappers for every backend area — `authApi`, `orgsApi`, `productsApi`, `subProjectsApi`, `foldersApi`, `testsApi`, `runsApi`, `pipelinesApi`, `flowsApi`, `overviewApi`, `analyticsApi`, `environmentsApi`, `membersApi`, `adminUsersApi`, `adminOrgMembersApi`, `archiveApi`, `aiConfigApi`, `chatHistoryApi`, `gitlabApi`, `youtrackApi`, `slackApi`, `scheduledRunsApi`, `notificationsApi`, plus `streamChat` (SSE fetch helper) and the `AI_MODELS` / `AI_CONFIG_DEFAULTS` constants. Add new endpoints here as typed wrappers, not inline in pages.
 
 ## App layout
 
@@ -39,7 +39,7 @@ There is no test runner configured.
 
 - **Polling:** pages that poll (`dashboard`, `runs`, `notifications-bell`) use a `useEffect` with `setInterval`, a `cancelled` flag, and clear the interval on unmount. Skeletons render only on first load (state is `null` vs `[]`) so background refreshes don't flash placeholders.
 - **Dialogs:** built on `src/components/ui/dialog.tsx` (radix-ui-backed). Reusable dialog forms live under `src/components/dialogs/` (e.g. `add-pipeline-dialog.tsx`, `add-project-dialog.tsx`). New cross-page modal forms should go there.
-- **Toasts:** there is no global toast system yet — settings pages use a local in-page banner that auto-dismisses after 3.5 s. If you need one, propose adding a shared component instead of duplicating the pattern further.
+- **Toasts:** use **sonner** (`toast.success(...)` / `toast.error(...)` from `sonner`). The `<Toaster />` (`src/components/ui/sonner.tsx`, wired to the app `ThemeProvider`) is mounted once in `src/main.tsx`. Don't reintroduce the old local in-page banner pattern.
 - **Error surfacing:** API errors are read via `(err as { response?: { data?: { error?: string } } }).response?.data?.error` — most pages have a local `readError(err, fallback)` helper.
 - **Streaming chat (`ai-assistant.tsx`):** uses `fetch` (not axios) because axios doesn't stream. Bypass `api` and call `streamChat` directly; it still pulls the token via `getToken()` and handles 401 → `/login`.
 

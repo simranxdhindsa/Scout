@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react"
 import {
   BotIcon,
-  CheckCircle2Icon,
   Loader2Icon,
   SaveIcon,
   SearchIcon,
-  XIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,8 +27,6 @@ import {
   type AiConfig,
 } from "@/lib/scout-api"
 
-type Toast = { kind: "success" | "error"; text: string }
-
 type ApiError = { response?: { data?: { error?: string } } }
 
 function readError(err: unknown, fallback: string) {
@@ -41,7 +38,6 @@ export default function AiConfigPage() {
   const [config, setConfig] = useState<AiConfig | null>(null)
   const [draft, setDraft] = useState<AiConfig>(AI_CONFIG_DEFAULTS)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<Toast | null>(null)
 
   useEffect(() => {
     if (!org) return
@@ -56,12 +52,6 @@ export default function AiConfigPage() {
         setDraft(AI_CONFIG_DEFAULTS)
       })
   }, [org])
-
-  useEffect(() => {
-    if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 3500)
-    return () => window.clearTimeout(id)
-  }, [toast])
 
   const isDirty =
     !!config &&
@@ -82,9 +72,9 @@ export default function AiConfigPage() {
       })
       setConfig(saved)
       setDraft(saved)
-      setToast({ kind: "success", text: "AI config saved" })
+      toast.success("AI config saved")
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to save config") })
+      toast.error(readError(err, "Failed to save config"))
     } finally {
       setSaving(false)
     }
@@ -111,23 +101,6 @@ export default function AiConfigPage() {
           </div>
         </div>
       </div>
-
-      {toast ? (
-        <div
-          className={`flex items-center gap-2 px-4 py-2 text-sm ring-1 ${
-            toast.kind === "success"
-              ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/30"
-              : "bg-rose-500/10 text-rose-200 ring-rose-500/30"
-          }`}
-        >
-          {toast.kind === "success" ? (
-            <CheckCircle2Icon className="size-4" />
-          ) : (
-            <XIcon className="size-4" />
-          )}
-          {toast.text}
-        </div>
-      ) : null}
 
       <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
         <div className="flex items-start gap-4">
