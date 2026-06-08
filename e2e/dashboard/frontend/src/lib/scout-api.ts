@@ -363,10 +363,10 @@ export type GitlabIntegrationUpdate = {
 export const gitlabApi = {
   list: (orgId: string) =>
     api
-      .get<{ integrations: GitlabIntegration[] }>(
+      .get<{ integrations: GitlabIntegration[] | null }>(
         `/orgs/${orgId}/integrations/gitlab`,
       )
-      .then((r) => r.data.integrations),
+      .then((r) => r.data.integrations ?? []),
   listRepos: (orgId: string, integrationId: string) =>
     api
       .get<{ repos: GitlabRepo[] }>(

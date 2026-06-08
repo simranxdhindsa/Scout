@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/apyhub/scout/internal/auth"
+	"github.com/apyhub/scout/internal/gitlab"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -106,6 +107,9 @@ func (h *gitLabHandler) ListIntegrations(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		writeError(w, "failed to list integrations", http.StatusInternalServerError)
 		return
+	}
+	if list == nil {
+		list = []gitlab.Integration{}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{"integrations": list})
