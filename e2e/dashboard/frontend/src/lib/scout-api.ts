@@ -576,57 +576,6 @@ export const environmentsApi = {
     api.delete(`/orgs/${orgId}/environments/${envId}`),
 }
 
-export type PipelineTargetType = "subproject" | "folder" | "test" | "product"
-
-export type PipelineStep = {
-  id: string
-  target_type: PipelineTargetType
-  target_id: string
-  target_label: string
-  order: number
-}
-
-export type PipelineStepInput = {
-  target_type: PipelineTargetType
-  target_id: string
-  order: number
-}
-
-export type Pipeline = {
-  id: string
-  name: string
-  description: string | null
-  created_at: string
-  steps: PipelineStep[]
-}
-
-export const pipelinesApi = {
-  list: (orgId: string) =>
-    api
-      .get<{ pipelines: Pipeline[] }>(`/orgs/${orgId}/pipelines`)
-      .then((r) => r.data.pipelines),
-  create: (
-    orgId: string,
-    body: { name: string; description: string | null; steps: PipelineStepInput[] },
-  ) =>
-    api
-      .post<Pipeline>(`/orgs/${orgId}/pipelines`, body)
-      .then((r) => r.data),
-  update: (
-    orgId: string,
-    pipelineId: string,
-    body: {
-      name: string
-      description: string | null
-      steps: PipelineStepInput[]
-    },
-  ) =>
-    api
-      .put<Pipeline>(`/orgs/${orgId}/pipelines/${pipelineId}`, body)
-      .then((r) => r.data),
-  remove: (orgId: string, pipelineId: string) =>
-    api.delete(`/orgs/${orgId}/pipelines/${pipelineId}`),
-}
 
 export type Run = {
   id: string

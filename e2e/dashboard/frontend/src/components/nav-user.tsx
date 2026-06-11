@@ -22,6 +22,7 @@ import { ChevronsUpDownIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIco
 
 import type { ReactNode } from "react"
 
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/lib/auth"
 
 function RoleBadge({ children }: { children: ReactNode }) {
@@ -50,6 +51,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const storeUser = useAuthStore((s) => s.user)
+  const isLoading = useAuthStore((s) => s.isLoading)
   const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin)
   const logout = useAuthStore((s) => s.logout)
 
@@ -60,6 +62,22 @@ export function NavUser({
         avatar: storeUser.avatar_url,
       }
     : userProp ?? { name: "", email: "", avatar: "" }
+
+  if (isLoading && !storeUser) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div className="flex items-center gap-2 px-2 py-2">
+            <Skeleton className="h-8 w-8 rounded-none" />
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
 
   return (
     <SidebarMenu>

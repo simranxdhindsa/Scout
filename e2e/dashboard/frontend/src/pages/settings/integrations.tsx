@@ -3,7 +3,6 @@ import {
   BellIcon,
   CheckCircle2Icon,
   Loader2Icon,
-  SearchIcon,
   Trash2Icon,
   XIcon,
   ZapIcon,
@@ -141,18 +140,6 @@ export default function IntegrationsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">Integrations</h1>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-              placeholder="Search..."
-              className="bg-muted/60 w-64 pl-9 pr-12"
-            />
-            <kbd className="bg-muted text-muted-foreground absolute top-1/2 right-2 -translate-y-1/2 px-1.5 py-0.5 text-[10px]">
-              ⌘K
-            </kbd>
-          </div>
-        </div>
       </div>
 
       {toast ? (
