@@ -85,7 +85,9 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	for _, tcID := range testCaseIDs {
 		id := tcID
-		_, _ = runQ.CreateItem(r.Context(), run.ID, &id, nil)
+		if _, err := runQ.CreateItem(r.Context(), run.ID, &id, nil); err != nil {
+			log.Printf("[runs] create item for test %s in run %s: %v", id, run.ID, err)
+		}
 	}
 
 	// Enqueue the run
@@ -146,7 +148,10 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, _ := runQ.ListItems(r.Context(), runID)
+	items, itemsErr := runQ.ListItems(r.Context(), runID)
+	if itemsErr != nil {
+		log.Printf("[runs] list items for run %s: %v", runID, itemsErr)
+	}
 	if items == nil {
 		items = []queries.RunItem{}
 	}
