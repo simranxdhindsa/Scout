@@ -650,6 +650,7 @@ export type StartRunBody = {
   environment_id?: string
   credentials?: Record<string, string>
   label?: string
+  headed?: boolean
 }
 
 export type StartRunResponse = {

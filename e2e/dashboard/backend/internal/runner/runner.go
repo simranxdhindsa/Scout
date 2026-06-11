@@ -195,6 +195,7 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 	// Generate playwright config
 	cfgOpts := DefaultConfigOptions(ws.Dir)
 	cfgOpts.TestFiles = testFilePaths
+	cfgOpts.Headed = job.Headed
 
 	// If credentials are available, generate a login setup so every spec runs
 	// authenticated (mirrors the ardoise-tests global-setup.ts). Without this,
