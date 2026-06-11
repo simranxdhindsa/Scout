@@ -195,6 +195,7 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 	// Generate playwright config
 	cfgOpts := DefaultConfigOptions(ws.Dir)
 	cfgOpts.TestFiles = testFilePaths
+	cfgOpts.Headed = job.Headed
 
 	// If credentials are available, generate a login setup so every spec runs
 	// authenticated (mirrors the ardoise-tests global-setup.ts). Without this,
@@ -458,6 +459,22 @@ func (s *Service) getEnvCredentials(ctx context.Context, envID uuid.UUID) (usern
 	return username, password
 }
 
+// fileNamesMatch returns true if a and b refer to the same file ignoring
+// extensions — handles the common case where a test case is stored as
+// "dashboard.spec" but the Playwright report uses "dashboard.spec.ts".
+func fileNamesMatch(a, b string) bool {
+	stripExt := func(s string) string {
+		for {
+			ext := filepath.Ext(s)
+			if ext == "" {
+				return s
+			}
+			s = strings.TrimSuffix(s, ext)
+		}
+	}
+	return a == b || stripExt(filepath.Base(a)) == stripExt(filepath.Base(b))
+}
+
 func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr ParsedTestResult) {
 	// Match run item by test case file name heuristic
 	items, err := s.runQ.ListItems(ctx, runID)
@@ -472,7 +489,7 @@ func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr P
 		if err != nil {
 			continue
 		}
-		if tc.FileName == tr.FileName || tc.Name == tr.Title {
+		if fileNamesMatch(tc.FileName, tr.FileName) || tc.Name == tr.Title {
 			_ = s.runQ.UpdateItem(ctx, item.ID, tr.Status, tr.DurationMs, tr.ErrorMessage, tr.ErrorStack)
 			return
 		}

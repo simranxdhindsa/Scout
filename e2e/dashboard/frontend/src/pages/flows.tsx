@@ -24,11 +24,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { useActiveOrg } from "@/lib/auth"
 import {
   flowsApi,
+  foldersApi,
+  productsApi,
+  subProjectsApi,
   type Flow,
+  type Folder,
   type FlowProduct,
   type FlowRun,
   type FlowRunStatus,
   type FlowStep,
+  type Product,
 } from "@/lib/scout-api"
 
 const statusMeta: Record<FlowRunStatus, { label: string; cls: string; icon: React.ReactNode }> = {

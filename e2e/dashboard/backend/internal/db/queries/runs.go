@@ -141,18 +141,18 @@ func (q *RunQueries) GetCredentials(ctx context.Context, runID uuid.UUID) ([]byt
 // List returns paginated runs for an org with optional status filter,
 // plus the total count matching the filter (for pagination).
 func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, limit, offset int) ([]TestRun, int, error) {
-	where := "WHERE org_id = $1"
+	where := "WHERE tr.org_id = $1"
 	args := []any{orgID}
 
 	if status != "" {
 		args = append(args, status)
-		where += fmt.Sprintf(" AND status = $%d", len(args))
+		where += fmt.Sprintf(" AND tr.status = $%d", len(args))
 	}
 
-	// Total count for pagination
+	// Total count for pagination — must alias tr to match the WHERE clause
 	var total int
 	if err := q.db.QueryRow(ctx,
-		fmt.Sprintf("SELECT COUNT(*) FROM test_runs %s", where), args...,
+		fmt.Sprintf("SELECT COUNT(*) FROM test_runs tr LEFT JOIN environments e ON e.id = tr.environment_id %s", where), args...,
 	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count runs: %w", err)
 	}

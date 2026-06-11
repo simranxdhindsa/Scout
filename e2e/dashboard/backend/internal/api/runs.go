@@ -36,6 +36,7 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 		EnvironmentID string            `json:"environment_id"`
 		Credentials   map[string]string `json:"credentials"`    // {email, password} — in-memory only
 		Label         string            `json:"label"`
+		Headed        bool              `json:"headed"`         // when true, Playwright runs with a visible browser
 	}
 	if err := decodeBody(r, &body); err != nil {
 		writeError(w, "invalid body", http.StatusBadRequest)
@@ -85,13 +86,16 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	for _, tcID := range testCaseIDs {
 		id := tcID
-		_, _ = runQ.CreateItem(r.Context(), run.ID, &id, nil)
+		if _, err := runQ.CreateItem(r.Context(), run.ID, &id, nil); err != nil {
+			log.Printf("[runs] create item for test %s in run %s: %v", id, run.ID, err)
+		}
 	}
 
 	// Enqueue the run
 	h.svc.Runner.Enqueue(&runner.RunJob{
-		RunID: run.ID,
-		OrgID: orgID,
+		RunID:  run.ID,
+		OrgID:  orgID,
+		Headed: body.Headed,
 	})
 
 	writeJSON(w, http.StatusCreated, map[string]any{
@@ -146,7 +150,10 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, _ := runQ.ListItems(r.Context(), runID)
+	items, itemsErr := runQ.ListItems(r.Context(), runID)
+	if itemsErr != nil {
+		log.Printf("[runs] list items for run %s: %v", runID, itemsErr)
+	}
 	if items == nil {
 		items = []queries.RunItem{}
 	}
