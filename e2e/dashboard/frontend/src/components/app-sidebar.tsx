@@ -21,6 +21,7 @@ import {
   SparklesIcon,
   Settings2Icon,
   FolderIcon,
+  FileCodeIcon,
   ZapIcon,
 } from "lucide-react"
 
@@ -55,6 +56,11 @@ const data = {
       title: "Analytics",
       url: "/dashboard/analytics",
       icon: <BarChart2Icon />,
+    },
+    {
+      title: "Specs",
+      url: "/dashboard/specs",
+      icon: <FileCodeIcon />,
     },
     {
       title: "Projects",

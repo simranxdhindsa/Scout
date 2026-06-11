@@ -107,8 +107,13 @@ function EditForm({
       .then((list) => {
         if (cancelled) return
         setIntegrations(list)
-        // Default to the user's first connection when the product isn't already linked.
-        setIntegrationId((cur) => (cur === "" && list.length > 0 ? list[0].id : cur))
+        // If the stored integration_id is stale (e.g. user disconnected + reconnected
+        // GitLab, creating a new record), fall back to the first available integration.
+        setIntegrationId((cur) => {
+          if (list.length === 0) return cur
+          if (cur === "" || !list.some((i) => i.id === cur)) return list[0].id
+          return cur
+        })
       })
       .catch(() => {
         if (!cancelled) setIntegrations([])

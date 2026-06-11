@@ -1153,3 +1153,28 @@ export const analyticsApi = {
       )
       .then((r) => r.data.history),
 }
+
+// ── Local Spec Browser ─────────────────────────────────────────────────────────
+
+export type SpecNode = {
+  name: string
+  path: string
+  is_dir: boolean
+  children?: SpecNode[]
+}
+
+export const specsApi = {
+  tree: (orgId: string): Promise<{ nodes: SpecNode[] }> =>
+    api.get(`/orgs/${orgId}/specs`).then((r) => r.data),
+
+  run: (
+    orgId: string,
+    body: {
+      paths: string[]
+      environment_id?: string
+      label?: string
+      headed?: boolean
+    },
+  ): Promise<{ run_id: string; status: string; label: string }> =>
+    api.post(`/orgs/${orgId}/specs/run`, body).then((r) => r.data),
+}

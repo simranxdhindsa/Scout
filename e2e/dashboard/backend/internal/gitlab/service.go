@@ -224,7 +224,23 @@ func (s *Service) SyncProductRepo(ctx context.Context, orgID, productID, callerU
 
 	integ, err := s.glDB.findByOrgUserRepo(ctx, orgID, callerUserID, repoID)
 	if err != nil {
-		return nil, fmt.Errorf("connect your GitLab account to this repository in Settings → Integrations before syncing")
+		// Fallback: user may have disconnected and reconnected GitLab, creating a
+		// new integration record with repo_id=0 while the product link still has the
+		// old repo_id. Use any active integration for this org+user.
+		integ, err = s.glDB.findByOrgAndUser(ctx, orgID, callerUserID)
+		if err != nil {
+			return nil, fmt.Errorf("connect your GitLab account in Settings → Integrations before syncing")
+		}
+		// Self-heal: only update the stale integration_id when the found integration
+		// is a placeholder (repo_id=0) — i.e. the user reconnected OAuth without
+		// configuring a specific repo on it. If the integration is for a different
+		// specific repo, do not overwrite the product link.
+		if integ.RepoID == 0 {
+			_, _ = s.db.Exec(ctx,
+				`UPDATE product_gitlab_links SET integration_id = $2 WHERE product_id = $1`,
+				productID, integ.ID,
+			)
+		}
 	}
 
 	return s.syncRepoWith(ctx, integ, *spID, repoID, branch, repoPath)

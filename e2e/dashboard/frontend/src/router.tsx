@@ -21,6 +21,7 @@ import ProjectsPage from "@/pages/projects"
 import RunDetailPage from "@/pages/run-detail"
 import AnalyticsPage from "@/pages/analytics"
 import RunsPage from "@/pages/runs"
+import SpecsPage from "@/pages/specs"
 
 export const router = createBrowserRouter([
   { path: "/auth/callback", element: <AuthCallbackPage /> },
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
           { path: "settings/organisations", element: <OrganisationsPage /> },
           { path: "settings/scheduled-runs", element: <ScheduledRunsPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
+          { path: "specs", element: <SpecsPage /> },
         ],
       },
       {

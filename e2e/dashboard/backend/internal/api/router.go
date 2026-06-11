@@ -352,6 +352,13 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/tests/{testCaseId}/history", chain(analyticsH.TestHistory,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
+	// ── Local spec file browser ───────────────────────────────────────────
+	specsH := newSpecsHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/specs", chain(specsH.Tree,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/specs/run", chain(specsH.Run,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
 	// ── Static file serving (local storage) ──────────────────────────────
 	if svc.Config.StorageDriver == "local" {
 		storageH := newStorageHandler(svc)

@@ -9,8 +9,8 @@ import {
   ArrowLeftIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  FileTextIcon,
   FolderIcon,
+  FolderOpenIcon,
   GitBranchIcon,
   Loader2Icon,
   PlayIcon,
@@ -210,6 +210,30 @@ export default function ProjectPage() {
         }}
       />
     </div>
+  )
+}
+
+function FileIcon({ fileName }: { fileName: string }) {
+  const isTs = /\.(ts|tsx)$/.test(fileName)
+  const isJs = /\.(js|jsx)$/.test(fileName)
+  if (isTs) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-blue-600 text-[7px] font-bold text-white">
+        TS
+      </span>
+    )
+  }
+  if (isJs) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-amber-500 text-[7px] font-bold text-white">
+        JS
+      </span>
+    )
+  }
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-zinc-500 text-[7px] font-bold text-white">
+      F
+    </span>
   )
 }
 
@@ -573,21 +597,24 @@ function FolderTreeSection({
               </SelectContent>
             </Select>
           )}
-          {onSync ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSync}
-              disabled={syncing}
-            >
-              {syncing ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                <RefreshCwIcon className="size-4" />
-              )}
-              {syncing ? "Syncing…" : "Sync"}
-            </Button>
-          ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onSync ?? undefined}
+            disabled={!onSync || syncing}
+            title={
+              onSync
+                ? "Sync test files from GitLab"
+                : "No GitLab configured — add it in project settings"
+            }
+          >
+            {syncing ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <RefreshCwIcon className="size-4" />
+            )}
+            {syncing ? "Syncing…" : "Sync"}
+          </Button>
           <Button
             size="sm"
             onClick={() => {
@@ -702,7 +729,11 @@ function FolderNode({
           ) : (
             <ChevronRightIcon className="text-muted-foreground size-3.5 shrink-0" />
           )}
-          <FolderIcon className="text-muted-foreground size-4 shrink-0" />
+          {open ? (
+            <FolderOpenIcon className="size-4 shrink-0 text-amber-400" />
+          ) : (
+            <FolderIcon className="size-4 shrink-0 text-amber-400" />
+          )}
           <span className="truncate font-mono text-xs">{node.name}</span>
         </button>
         <button
@@ -787,7 +818,7 @@ function TestRow({
         className="flex flex-1 items-center gap-1.5 py-1 text-left text-sm"
       >
         <span className="size-3.5 shrink-0" />
-        <FileTextIcon className="text-muted-foreground size-4 shrink-0" />
+        <FileIcon fileName={test.file_name} />
         <span className="truncate font-mono text-xs">{test.file_name}</span>
       </button>
       <button
@@ -870,7 +901,7 @@ function FileViewer({ testId }: { testId: string | null }) {
   return (
     <div className="flex min-w-0 flex-col">
       <div className="border-border/40 flex items-center gap-2 border-b px-3 py-2">
-        <FileTextIcon className="text-muted-foreground size-4" />
+        <FileIcon fileName={test.file_name} />
         <span className="truncate text-sm font-semibold">{test.name}</span>
         <span className="text-muted-foreground ml-auto font-mono text-xs">
           v{test.version}

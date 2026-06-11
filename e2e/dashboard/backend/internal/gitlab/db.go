@@ -123,6 +123,23 @@ func (q *gitLabDB) findByOrgUserRepo(ctx context.Context, orgID, userID uuid.UUI
 	return i, nil
 }
 
+// findByOrgAndUser returns any active integration for the caller in this org.
+// Used as a fallback for sync when the product link's repo_id doesn't match
+// the integration record (e.g. after the user disconnects and reconnects GitLab).
+func (q *gitLabDB) findByOrgAndUser(ctx context.Context, orgID, userID uuid.UUID) (*Integration, error) {
+	i, err := scanIntegration(q.db.QueryRow(ctx, `
+		SELECT `+integrationCols+`
+		FROM gitlab_integrations
+		WHERE org_id = $1 AND user_id = $2
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`, orgID, userID))
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
 func (q *gitLabDB) upsert(ctx context.Context, orgID, userID uuid.UUID, gitlabUserID, username, avatar, accessToken, refreshToken string, expiresAt *time.Time, repoID int64, repoName, repoURL, branch string) (*Integration, error) {
 	var refresh *string
 	if refreshToken != "" {
