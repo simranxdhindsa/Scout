@@ -19,23 +19,25 @@ func orgIDForSubProject(ctx context.Context, db *pgxpool.Pool, spID uuid.UUID) (
 	return id, err == nil
 }
 
-// orgIDForFolder resolves org_id by walking folder → sub_project.
+// orgIDForFolder resolves org_id by walking folder → sub_project → product.
 func orgIDForFolder(ctx context.Context, db *pgxpool.Pool, folderID uuid.UUID) (uuid.UUID, bool) {
 	var id uuid.UUID
 	err := db.QueryRow(ctx, `
-		SELECT sp.org_id FROM test_folders f
+		SELECT p.org_id FROM test_folders f
 		JOIN sub_projects sp ON sp.id = f.sub_project_id
+		JOIN products p ON p.id = sp.product_id
 		WHERE f.id = $1`, folderID).Scan(&id)
 	return id, err == nil
 }
 
-// orgIDForTest resolves org_id by walking test_case → folder → sub_project.
+// orgIDForTest resolves org_id by walking test_case → folder → sub_project → product.
 func orgIDForTest(ctx context.Context, db *pgxpool.Pool, testID uuid.UUID) (uuid.UUID, bool) {
 	var id uuid.UUID
 	err := db.QueryRow(ctx, `
-		SELECT sp.org_id FROM test_cases tc
+		SELECT p.org_id FROM test_cases tc
 		JOIN test_folders f ON f.id = tc.folder_id
 		JOIN sub_projects sp ON sp.id = f.sub_project_id
+		JOIN products p ON p.id = sp.product_id
 		WHERE tc.id = $1`, testID).Scan(&id)
 	return id, err == nil
 }

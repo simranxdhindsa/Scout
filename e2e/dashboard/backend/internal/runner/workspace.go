@@ -17,8 +17,16 @@ type Workspace struct {
 }
 
 // NewWorkspace creates the temp directory for a run.
-func NewWorkspace(runID uuid.UUID) (*Workspace, error) {
-	dir := filepath.Join(os.TempDir(), fmt.Sprintf("scout-run-%s", runID.String()))
+// If baseDir is non-empty the workspace is created inside it (e.g. the
+// Playwright project root) so Node can resolve @playwright/test naturally by
+// walking up to the project's node_modules. Falls back to os.TempDir() when
+// baseDir is empty.
+func NewWorkspace(runID uuid.UUID, baseDir string) (*Workspace, error) {
+	root := baseDir
+	if root == "" {
+		root = os.TempDir()
+	}
+	dir := filepath.Join(root, fmt.Sprintf(".scout-runs-%s", runID.String()))
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create workspace dir: %w", err)
@@ -111,17 +119,6 @@ func (w *Workspace) ListFiles(dir, ext string) []string {
 	return files
 }
 
-// LinkNodeModules creates a directory junction/symlink at <workspace>/node_modules
-// pointing at the given absolute path so the generated playwright.config.ts can
-// resolve `@playwright/test` when Node walks up from the workspace.
-// Uses platform-specific linkDir: junction on Windows (no admin required), symlink on Unix.
-func (w *Workspace) LinkNodeModules(target string) error {
-	if target == "" {
-		return fmt.Errorf("empty node_modules target")
-	}
-	link := filepath.Join(w.Dir, "node_modules")
-	return linkDir(link, target)
-}
 
 // FindPlaywrightProjectDir walks up from `start` looking for a directory
 // containing `node_modules/@playwright/test`. Returns that directory, or "".
