@@ -9,9 +9,13 @@ import (
 )
 
 // orgIDForSubProject returns the org_id for a given sub_project row.
+// sub_projects has no direct org_id column — it joins through products.
 func orgIDForSubProject(ctx context.Context, db *pgxpool.Pool, spID uuid.UUID) (uuid.UUID, bool) {
 	var id uuid.UUID
-	err := db.QueryRow(ctx, `SELECT org_id FROM sub_projects WHERE id = $1`, spID).Scan(&id)
+	err := db.QueryRow(ctx, `
+		SELECT p.org_id FROM sub_projects sp
+		JOIN products p ON p.id = sp.product_id
+		WHERE sp.id = $1`, spID).Scan(&id)
 	return id, err == nil
 }
 
