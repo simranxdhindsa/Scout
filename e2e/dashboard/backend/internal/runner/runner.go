@@ -154,8 +154,17 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// Create temp workspace
-	ws, err := NewWorkspace(runID)
+	// Resolve Playwright project dir early so the workspace lives inside it.
+	// This lets Node find @playwright/test naturally by walking up to node_modules,
+	// avoiding junction/NODE_PATH resolution issues on Windows.
+	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
+	if playwrightProjectDir == "" {
+		cwd, _ := os.Getwd()
+		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
+	}
+
+	// Create temp workspace inside the playwright project dir (or os.TempDir as fallback)
+	ws, err := NewWorkspace(runID, playwrightProjectDir)
 	if err != nil {
 		s.failRun(ctx, runID, orgID, fmt.Sprintf("create workspace: %v", err))
 		return
@@ -219,28 +228,20 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// The generated config imports `@playwright/test`. The workspace is in /tmp
-	// with no node_modules, so Node can't resolve that import. Symlink the host
-	// scout repo's node_modules into the workspace so module resolution works.
-	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
-	if playwrightProjectDir == "" {
-		cwd, _ := os.Getwd()
-		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
-	}
+	// Verify the playwright project dir was found (resolved earlier for workspace placement).
 	if playwrightProjectDir == "" {
 		s.failRun(ctx, runID, orgID,
 			"could not locate node_modules/@playwright/test — set SCOUT_PLAYWRIGHT_PROJECT_DIR to the repo root that has Playwright installed")
 		return
 	}
-	if err := ws.LinkNodeModules(filepath.Join(playwrightProjectDir, "node_modules")); err != nil {
-		s.failRun(ctx, runID, orgID, fmt.Sprintf("link node_modules: %v", err))
-		return
-	}
-
 	// Build the playwright command
-	cmd := exec.CommandContext(ctx, "npx", "playwright", "test",
+	pwArgs := []string{"playwright", "test",
 		"--config", filepath.Join(ws.Dir, "playwright.config.ts"),
-	)
+	}
+	if job.Headed {
+		pwArgs = append(pwArgs, "--headed")
+	}
+	cmd := exec.CommandContext(ctx, "npx", pwArgs...)
 	cmd.Dir = playwrightProjectDir
 
 	// Inject env vars at OS process level — never written to any file on disk.

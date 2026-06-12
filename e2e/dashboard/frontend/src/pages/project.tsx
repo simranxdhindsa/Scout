@@ -13,6 +13,7 @@ import {
   FolderOpenIcon,
   GitBranchIcon,
   Loader2Icon,
+  MonitorIcon,
   PlayIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -422,6 +423,7 @@ function FolderTreeSection({
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [busyTarget, setBusyTarget] = useState<string | null>(null)
+  const [headed, setHeaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -552,6 +554,7 @@ function FolderTreeSection({
         target_ids: [target_id],
         environment_id: envId,
         label,
+        headed,
       })
       navigate(`/runs/${run_id}`)
     } catch (err) {
@@ -615,6 +618,23 @@ function FolderTreeSection({
             )}
             {syncing ? "Syncing…" : "Sync"}
           </Button>
+          <button
+            type="button"
+            onClick={() => setHeaded((h) => !h)}
+            className={`flex items-center gap-2 border px-3 py-1.5 text-sm transition-colors ${
+              headed
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <MonitorIcon className="size-4 shrink-0" />
+            <span className="hidden sm:inline">Watch live</span>
+            <div
+              className={`size-3.5 rounded-full border-2 transition-colors ${
+                headed ? "border-primary bg-primary" : "border-muted-foreground"
+              }`}
+            />
+          </button>
           <Button
             size="sm"
             onClick={() => {

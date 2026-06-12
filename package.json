@@ -16,7 +16,7 @@
     "dev": "concurrently --kill-others --names \"go,vite\" --prefix-colors \"cyan,magenta\" \"cd e2e/dashboard/backend && air\" \"cd e2e/dashboard/frontend && npm run dev\"",
     "kill": "npx kill-port 8080",
     "restart": "npx kill-port 8080 && cls && cd e2e/dashboard/backend && air",
-    "be": "cls && cd e2e/dashboard/backend && air",
+    "be": "cls && npx kill-port 8080 && cd e2e/dashboard/backend && air",
     "fe": "cls && cd e2e/dashboard/frontend && npm run dev",
     "pw:dashboard:backend": "cd e2e/dashboard/backend && air",
     "pw:dashboard:frontend": "cd e2e/dashboard/frontend && npm run dev",
