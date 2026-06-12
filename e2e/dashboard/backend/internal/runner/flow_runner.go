@@ -192,8 +192,20 @@ func (s *Service) executeStepAsRun(
 	}
 	_ = s.runQ.UpdateStatus(ctx, run.ID, "running")
 
-	// Create workspace + write test files
-	ws, err := NewWorkspace(run.ID)
+	// Locate playwright project dir first so workspace lives inside it,
+	// allowing Node to find @playwright/test naturally via node_modules walk-up.
+	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
+	if playwrightProjectDir == "" {
+		cwd, _ := os.Getwd()
+		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
+	}
+	if playwrightProjectDir == "" {
+		s.failRun(ctx, run.ID, orgID, "cannot locate node_modules/@playwright/test")
+		return &run.ID, "", "failed"
+	}
+
+	// Create workspace inside the playwright project dir
+	ws, err := NewWorkspace(run.ID, playwrightProjectDir)
 	if err != nil {
 		s.failRun(ctx, run.ID, orgID, fmt.Sprintf("workspace: %v", err))
 		return &run.ID, "", "failed"
@@ -218,21 +230,6 @@ func (s *Service) executeStepAsRun(
 	}
 	if len(testFilePaths) == 0 {
 		s.failRun(ctx, run.ID, orgID, "no test files")
-		return &run.ID, "", "failed"
-	}
-
-	// Locate playwright project dir
-	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
-	if playwrightProjectDir == "" {
-		cwd, _ := os.Getwd()
-		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
-	}
-	if playwrightProjectDir == "" {
-		s.failRun(ctx, run.ID, orgID, "cannot locate node_modules/@playwright/test")
-		return &run.ID, "", "failed"
-	}
-	if err := ws.LinkNodeModules(filepath.Join(playwrightProjectDir, "node_modules")); err != nil {
-		s.failRun(ctx, run.ID, orgID, fmt.Sprintf("link node_modules: %v", err))
 		return &run.ID, "", "failed"
 	}
 
