@@ -14,12 +14,14 @@ import {
   GitBranchIcon,
   Loader2Icon,
   PlayIcon,
-  PlusIcon,
   RefreshCwIcon,
   SettingsIcon,
+  UploadIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog"
+import { UploadZipDialog } from "@/components/dialogs/upload-zip-dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -45,10 +47,23 @@ import {
   testsApi,
   type Environment,
   type Folder,
+  type ImportResult,
   type Product,
   type SubProject,
   type TestCase,
 } from "@/lib/scout-api"
+
+// importToast surfaces an import summary as a single sonner toast.
+function importToast(res: ImportResult) {
+  const parts = [`${res.added} added`, `${res.updated} updated`]
+  if (res.skipped > 0) parts.push(`${res.skipped} skipped`)
+  if (res.deleted > 0) parts.push(`${res.deleted} removed`)
+  if (res.added + res.updated === 0) {
+    toast.error(`No tests imported (${parts.join(" · ")})`)
+  } else {
+    toast.success(`Imported: ${parts.join(" · ")}`)
+  }
+}
 
 function readError(err: unknown, fallback: string) {
   return (
@@ -272,7 +287,7 @@ function ProjectContents({
 
   const [subProjects, setSubProjects] = useState<SubProject[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   useEffect(() => {
     if (!orgId) return
@@ -304,24 +319,23 @@ function ProjectContents({
     }
   }, [subProjects, spSlug, navigate, product.slug])
 
-  const handleInitialize = async () => {
-    if (!orgId) return
-    setCreating(true)
-    setError(null)
-    try {
-      const created = await subProjectsApi.create(orgId, product.id, {
+  // Upload a zip from the empty state: ensure a "Default" sub-project exists,
+  // import the specs into it, then refresh + navigate to it.
+  const handleUploadEmpty = async (file: File): Promise<ImportResult> => {
+    if (!orgId) throw new Error("no organisation")
+    let target = subProjects?.[0]
+    if (!target) {
+      target = await subProjectsApi.create(orgId, product.id, {
         name: "Default",
         slug: "default",
       })
-      setSubProjects((prev) => (prev ? [...prev, created] : [created]))
-      navigate(`/projects/${product.slug}?sp=${created.slug}`, {
-        replace: true,
-      })
-    } catch (err) {
-      setError(readError(err, "Failed to initialize project"))
-    } finally {
-      setCreating(false)
     }
+    const res = await subProjectsApi.importZip(target.id, file)
+    const list = await subProjectsApi.list(orgId, product.id)
+    setSubProjects(list)
+    importToast(res)
+    navigate(`/projects/${product.slug}?sp=${target.slug}`, { replace: true })
+    return res
   }
 
   if (subProjects === null) {
@@ -344,7 +358,7 @@ function ProjectContents({
         {error ? <p className="text-destructive text-xs">{error}</p> : null}
         <div className="flex gap-2">
           {onSync ? (
-            <Button onClick={onSync} disabled={syncing || creating}>
+            <Button onClick={onSync} disabled={syncing}>
               {syncing ? (
                 <Loader2Icon className="size-4 animate-spin" />
               ) : (
@@ -355,17 +369,18 @@ function ProjectContents({
           ) : null}
           <Button
             variant={onSync ? "outline" : "default"}
-            onClick={handleInitialize}
-            disabled={creating || syncing}
+            onClick={() => setUploadOpen(true)}
+            disabled={syncing}
           >
-            {creating ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <PlusIcon className="size-4" />
-            )}
-            Initialize project
+            <UploadIcon className="size-4" />
+            Upload zip
           </Button>
         </div>
+        <UploadZipDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          onUpload={handleUploadEmpty}
+        />
       </div>
     )
   }
@@ -414,6 +429,8 @@ function FolderTreeSection({
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batchRunning, setBatchRunning] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [localReload, setLocalReload] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -468,7 +485,7 @@ function FolderTreeSection({
     return () => {
       cancelled = true
     }
-  }, [spId, reloadKey])
+  }, [spId, reloadKey, localReload])
 
   useEffect(() => {
     let cancelled = false
@@ -657,6 +674,14 @@ function FolderTreeSection({
           ) : null}
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => setUploadOpen(true)}
+          >
+            <UploadIcon className="size-4" />
+            Upload zip
+          </Button>
+          <Button
+            size="sm"
             onClick={() => {
               if (rootFolderId) startRun("folder", rootFolderId, "Run all")
             }}
@@ -713,7 +738,7 @@ function FolderTreeSection({
         </p>
       ) : null}
 
-      <div className="bg-muted/30 ring-border/40 grid min-h-[40vh] grid-cols-1 ring-1 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
+      <div className="bg-muted/30 ring-border/40 grid min-h-[40vh] grid-cols-1 ring-1 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         <div className="border-border/40 overflow-auto border-b py-2 md:border-r md:border-b-0">
           {folders.length === 0 ? (
             <div className="text-muted-foreground p-6 text-center text-sm">
@@ -743,6 +768,17 @@ function FolderTreeSection({
           <FileViewer testId={selectedTestId} />
         </div>
       </div>
+
+      <UploadZipDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onUpload={async (file) => {
+          const res = await subProjectsApi.importZip(spId, file)
+          importToast(res)
+          setLocalReload((n) => n + 1)
+          return res
+        }}
+      />
     </div>
   )
 }

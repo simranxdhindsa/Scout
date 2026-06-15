@@ -174,6 +174,11 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("POST /api/v1/tests/{testId}/archive-request", chain(testH.ArchiveRequest,
 		svc.Auth.Authenticate))
 
+	// ── Imports ───────────────────────────────────────────────────────────
+	importH := newImportHandler(svc)
+	mux.HandleFunc("POST /api/v1/subprojects/{spId}/import-zip", chain(importH.ImportZip,
+		svc.Auth.Authenticate))
+
 	// ── Runs ──────────────────────────────────────────────────────────────
 	runH := newRunHandler(svc)
 	mux.HandleFunc("POST /api/v1/orgs/{orgId}/runs", chain(runH.Start,

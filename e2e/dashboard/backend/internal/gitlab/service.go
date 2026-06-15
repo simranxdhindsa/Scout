@@ -9,15 +9,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/apyhub/scout/internal/config"
-	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/runner"
-	"github.com/jackc/pgx/v5"
+	"github.com/apyhub/scout/internal/specimport"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -186,11 +183,11 @@ func (s *Service) UpdateSettings(ctx context.Context, id uuid.UUID, subprojectID
 
 // SyncResult holds the outcome of a repo sync.
 type SyncResult struct {
-	Added        int      `json:"added"`
-	Updated      int      `json:"updated"`
-	Skipped      int      `json:"skipped"`
-	Deleted      int      `json:"deleted"`
-	SkipReasons  []string `json:"skip_reasons,omitempty"`
+	Added       int      `json:"added"`
+	Updated     int      `json:"updated"`
+	Skipped     int      `json:"skipped"`
+	Deleted     int      `json:"deleted"`
+	SkipReasons []string `json:"skip_reasons,omitempty"`
 }
 
 // SyncRepo pulls *.spec.ts files from the integration's configured repo and
@@ -214,10 +211,10 @@ func (s *Service) SyncRepo(ctx context.Context, integrationID uuid.UUID) (*SyncR
 // to read the repo. The repo + subproject come from product_gitlab_links.
 func (s *Service) SyncProductRepo(ctx context.Context, orgID, productID, callerUserID uuid.UUID) (*SyncResult, error) {
 	var (
-		repoID    int64
-		branch    string
-		repoPath  string
-		spID      *uuid.UUID
+		repoID   int64
+		branch   string
+		repoPath string
+		spID     *uuid.UUID
 	)
 	err := s.db.QueryRow(ctx, `
 		SELECT repo_id, branch, repo_path, sub_project_id
@@ -281,7 +278,6 @@ func (s *Service) syncRepoWith(ctx context.Context, integ *Integration, subproje
 	effective.RepoPath = repoPath
 	effective.SubProjectID = &subprojectID
 
-	folderQ := queries.NewFolderQueries(s.db)
 	integ = &effective
 
 	// List all spec files from the repo
@@ -294,274 +290,43 @@ func (s *Service) syncRepoWith(ctx context.Context, integ *Integration, subproje
 		return nil, fmt.Errorf("list spec files: %w", err)
 	}
 
-	// Build a path → folderID cache so we create each folder only once
-	folderCache := make(map[string]uuid.UUID) // dir path → folder ID
-
-	// Resolve root folder for this subproject
-	allFolders, err := folderQ.ListBySubProject(ctx, *integ.SubProjectID)
-	if err != nil {
-		return nil, fmt.Errorf("list folders: %w", err)
-	}
-	// Find or note the root (parent_id == nil)
-	var rootFolderID uuid.UUID
-	for _, f := range allFolders {
-		if f.ParentID == nil {
-			rootFolderID = f.ID
-			folderCache[""] = f.ID // empty dir = root
-			break
-		}
-	}
-	if rootFolderID == (uuid.UUID{}) {
-		return nil, fmt.Errorf("subproject has no root folder")
-	}
-	// Pre-populate folder cache by reconstructing each folder's dir-string path
-	// ("auth/login") from the parent chain so existing folders are reused on
-	// re-sync instead of duplicated.
-	folderByID := make(map[uuid.UUID]queries.TestFolder, len(allFolders))
-	for _, f := range allFolders {
-		folderByID[f.ID] = f
-	}
-	for _, f := range allFolders {
-		if f.ParentID == nil {
-			continue
-		}
-		parts := []string{f.Name}
-		cur := f
-		for cur.ParentID != nil {
-			p, ok := folderByID[*cur.ParentID]
-			if !ok || p.ParentID == nil {
-				break
-			}
-			parts = append([]string{p.Name}, parts...)
-			cur = p
-		}
-		folderCache[strings.Join(parts, "/")] = f.ID
-	}
-
-	seenTestIDs := make(map[uuid.UUID]bool)
-	seenFolderIDs := map[uuid.UUID]bool{rootFolderID: true}
-
-	skip := func(result *SyncResult, file, reason string) {
-		msg := fmt.Sprintf("%s: %s", file, reason)
-		log.Printf("[gitlab] skip %s", msg)
-		result.Skipped++
-		result.SkipReasons = append(result.SkipReasons, msg)
-	}
-
-	result := &SyncResult{}
+	// Fetch each file and build the import set, stripping the configured
+	// repo_path prefix so files import relative to the sub-project root. Fetch
+	// failures are recorded as skips and merged into the final result.
+	basePath := strings.Trim(integ.RepoPath, "/")
+	var files []specimport.SpecFile
+	var fetchSkips []string
 	for _, specPath := range specPaths {
-		// Fetch file content
 		content, err := s.fetchFileContent(ctx, integ, specPath)
 		if err != nil {
-			skip(result, specPath, fmt.Sprintf("fetch error: %v", err))
+			fetchSkips = append(fetchSkips, fmt.Sprintf("%s: fetch error: %v", specPath, err))
 			continue
 		}
-
-		// For GitLab-synced files only check size and file type — not import style,
-		// since repos commonly import from local fixtures instead of @playwright/test directly.
-		vr := runner.ValidateTestFile(content, filepath.Base(specPath))
-		if !vr.Valid {
-			hasFatal := false
-			for _, e := range vr.Errors {
-				if strings.Contains(e.Message, "file too large") ||
-					strings.Contains(e.Message, "unsupported file type") ||
-					strings.Contains(e.Message, "file is empty") {
-					hasFatal = true
-					break
-				}
-			}
-			if hasFatal {
-				msgs := make([]string, len(vr.Errors))
-				for i, e := range vr.Errors { msgs[i] = e.Message }
-				skip(result, specPath, fmt.Sprintf("validation: %s", strings.Join(msgs, "; ")))
-				continue
-			}
+		rel := specPath
+		if basePath != "" {
+			rel = strings.TrimPrefix(rel, basePath)
+			rel = strings.TrimPrefix(rel, "/")
 		}
-
-		// Bundle
-		bundled, err := s.bundler.Bundle(content, filepath.Base(specPath))
-		if err != nil {
-			skip(result, specPath, fmt.Sprintf("bundle error: %v", err))
-			continue
-		}
-
-		// Ensure folder hierarchy exists — strip the configured repo_path prefix
-		// so files sync into root (or a relative subdir) instead of the full repo path.
-		dir := path.Dir(specPath)
-		if dir == "." {
-			dir = ""
-		}
-		if basePath := strings.Trim(integ.RepoPath, "/"); basePath != "" {
-			dir = strings.TrimPrefix(dir, basePath)
-			dir = strings.Trim(dir, "/")
-		}
-		folderID, err := s.ensureFolderPath(ctx, folderQ, folderCache, *integ.SubProjectID, rootFolderID, dir)
-		if err != nil {
-			skip(result, specPath, fmt.Sprintf("folder error: %v", err))
-			continue
-		}
-
-		// Mark the leaf folder and every intermediate as seen so the prune pass
-		// below doesn't remove them.
-		seenFolderIDs[folderID] = true
-		built := ""
-		for _, p := range strings.Split(dir, "/") {
-			if p == "" {
-				continue
-			}
-			if built == "" {
-				built = p
-			} else {
-				built = built + "/" + p
-			}
-			if id, ok := folderCache[built]; ok {
-				seenFolderIDs[id] = true
-			}
-		}
-
-		// Check if test already exists anywhere in this subproject with this filename
-		fileName := filepath.Base(specPath)
-		existing, err := s.findTestByFileNameInSubProject(ctx, *integ.SubProjectID, fileName)
-		if err != nil {
-			skip(result, specPath, fmt.Sprintf("db lookup error: %v", err))
-			continue
-		}
-
-		testName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-		if existing != nil {
-			seenTestIDs[existing.ID] = true
-			// Move to correct folder if it ended up somewhere else (e.g. prior sync before repo_path stripping)
-			if _, err := s.db.Exec(ctx, `UPDATE test_cases SET folder_id = $2 WHERE id = $1`, existing.ID, folderID); err != nil {
-				skip(result, specPath, fmt.Sprintf("move folder error: %v", err))
-				continue
-			}
-			if existing.FileContent == content {
-				continue // unchanged — not a skip, just no-op
-			}
-			if err := s.updateTestImported(ctx, existing.ID, existing.Name, existing.Description, content, bundled); err != nil {
-				skip(result, specPath, fmt.Sprintf("update error: %v", err))
-				continue
-			}
-			result.Updated++
-		} else {
-			newID, err := s.createTestImported(ctx, folderID, testName, fileName, content, bundled)
-			if err != nil {
-				skip(result, specPath, fmt.Sprintf("create error: %v", err))
-				continue
-			}
-			seenTestIDs[newID] = true
-			result.Added++
-		}
+		files = append(files, specimport.SpecFile{RelPath: rel, Content: content})
 	}
 
-	// Prune: delete tests and folders in this subproject that weren't seen in
-	// the repo this sync — so the dashboard mirrors the repo instead of
-	// accumulating stale entries.
-	deleted, err := s.pruneUnseen(ctx, *integ.SubProjectID, seenTestIDs, seenFolderIDs)
+	// Validate, bundle, recreate folders, upsert, and prune via the shared core.
+	res, err := specimport.ImportSpecs(ctx, s.db, s.bundler, subprojectID, files, specimport.Options{
+		Description: "Imported from GitLab",
+		Prune:       true,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("prune unseen: %w", err)
+		return nil, err
 	}
-	result.Deleted = deleted
 
 	_ = s.glDB.updateLastSynced(ctx, integ.ID)
-	return result, nil
-}
-
-// pruneUnseen deletes non-archived tests not in seenTestIDs and folders
-// (excluding root) not in seenFolderIDs for the given subproject. run_items
-// referencing pruned tests are detached (set NULL) first so historical run
-// records survive. Returns the total count of pruned tests + folders.
-func (s *Service) pruneUnseen(ctx context.Context, spID uuid.UUID, seenTests, seenFolders map[uuid.UUID]bool) (int, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	// Collect test IDs to delete
-	testRows, err := tx.Query(ctx, `
-		SELECT tc.id FROM test_cases tc
-		JOIN test_folders tf ON tf.id = tc.folder_id
-		WHERE tf.sub_project_id = $1 AND tc.is_archived = FALSE
-	`, spID)
-	if err != nil {
-		return 0, err
-	}
-	var testsToDelete []uuid.UUID
-	for testRows.Next() {
-		var id uuid.UUID
-		if err := testRows.Scan(&id); err != nil {
-			testRows.Close()
-			return 0, err
-		}
-		if !seenTests[id] {
-			testsToDelete = append(testsToDelete, id)
-		}
-	}
-	testRows.Close()
-	if err := testRows.Err(); err != nil {
-		return 0, err
-	}
-
-	if len(testsToDelete) > 0 {
-		if _, err := tx.Exec(ctx,
-			`UPDATE run_items SET test_case_id = NULL WHERE test_case_id = ANY($1)`,
-			testsToDelete,
-		); err != nil {
-			return 0, fmt.Errorf("detach run_items: %w", err)
-		}
-		if _, err := tx.Exec(ctx,
-			`DELETE FROM test_cases WHERE id = ANY($1)`, testsToDelete,
-		); err != nil {
-			return 0, fmt.Errorf("delete tests: %w", err)
-		}
-	}
-
-	// Collect folder IDs to delete (excluding root). Cascade FKs handle nested
-	// folders + remaining test_cases, but we still detach run_items for any
-	// non-archived tests that may live under an unseen folder we just missed.
-	folderRows, err := tx.Query(ctx, `
-		SELECT id FROM test_folders
-		WHERE sub_project_id = $1 AND parent_id IS NOT NULL
-	`, spID)
-	if err != nil {
-		return 0, err
-	}
-	var foldersToDelete []uuid.UUID
-	for folderRows.Next() {
-		var id uuid.UUID
-		if err := folderRows.Scan(&id); err != nil {
-			folderRows.Close()
-			return 0, err
-		}
-		if !seenFolders[id] {
-			foldersToDelete = append(foldersToDelete, id)
-		}
-	}
-	folderRows.Close()
-	if err := folderRows.Err(); err != nil {
-		return 0, err
-	}
-
-	if len(foldersToDelete) > 0 {
-		if _, err := tx.Exec(ctx, `
-			UPDATE run_items SET test_case_id = NULL
-			WHERE test_case_id IN (SELECT id FROM test_cases WHERE folder_id = ANY($1))
-		`, foldersToDelete); err != nil {
-			return 0, fmt.Errorf("detach run_items (folders): %w", err)
-		}
-		if _, err := tx.Exec(ctx,
-			`DELETE FROM test_folders WHERE id = ANY($1)`, foldersToDelete,
-		); err != nil {
-			return 0, fmt.Errorf("delete folders: %w", err)
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, err
-	}
-	return len(testsToDelete) + len(foldersToDelete), nil
+	return &SyncResult{
+		Added:       res.Added,
+		Updated:     res.Updated,
+		Skipped:     res.Skipped + len(fetchSkips),
+		Deleted:     res.Deleted,
+		SkipReasons: append(fetchSkips, res.SkipReasons...),
+	}, nil
 }
 
 // DeleteIntegration removes a GitLab integration.
@@ -863,183 +628,4 @@ func (s *Service) fetchFileContent(ctx context.Context, integ *Integration, file
 		return "", err
 	}
 	return string(body), nil
-}
-
-// ensureFolderPath creates the folder hierarchy for a given slash-separated dir path
-// and returns the leaf folder ID. created_by is NULL (system import).
-func (s *Service) ensureFolderPath(
-	ctx context.Context,
-	folderQ *queries.FolderQueries,
-	cache map[string]uuid.UUID,
-	spID, rootID uuid.UUID,
-	dirPath string,
-) (uuid.UUID, error) {
-	if dirPath == "" {
-		return rootID, nil
-	}
-	if id, ok := cache[dirPath]; ok {
-		return id, nil
-	}
-
-	parts := strings.Split(dirPath, "/")
-	currentID := rootID
-	built := ""
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		if built == "" {
-			built = part
-		} else {
-			built = built + "/" + part
-		}
-
-		if id, ok := cache[built]; ok {
-			currentID = id
-			continue
-		}
-
-		// Create folder with NULL created_by (system import)
-		parentID := currentID
-		var f queries.TestFolder
-		err := s.db.QueryRow(ctx, `
-			WITH inserted AS (
-				INSERT INTO test_folders (sub_project_id, parent_id, name, path, created_by)
-				VALUES ($1, $2, $3, '', NULL)
-				RETURNING id, sub_project_id, parent_id, name, path, created_by, created_at
-			),
-			parent_path AS (
-				SELECT path FROM test_folders WHERE id = $2
-			)
-			SELECT i.id, i.sub_project_id, i.parent_id, i.name, i.path, i.created_by, i.created_at
-			FROM inserted i
-		`, spID, parentID, part).Scan(
-			&f.ID, &f.SubProjectID, &f.ParentID, &f.Name, &f.Path, &f.CreatedBy, &f.CreatedAt,
-		)
-		if err != nil {
-			return uuid.UUID{}, fmt.Errorf("create folder %s: %w", built, err)
-		}
-
-		// Build and set the materialized path
-		var parentPath string
-		_ = s.db.QueryRow(ctx, `SELECT path FROM test_folders WHERE id = $1`, parentID).Scan(&parentPath)
-		var matPath string
-		if parentPath == "" {
-			matPath = "/" + f.ID.String()
-		} else {
-			matPath = parentPath + "/" + f.ID.String()
-		}
-		_, _ = s.db.Exec(ctx, `UPDATE test_folders SET path = $2 WHERE id = $1`, f.ID, matPath)
-
-		cache[built] = f.ID
-		currentID = f.ID
-	}
-	return currentID, nil
-}
-
-// createTestImported inserts a new test case with NULL created_by (GitLab system import).
-func (s *Service) createTestImported(ctx context.Context, folderID uuid.UUID, name, fileName, fileContent, bundledContent string) (uuid.UUID, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	defer tx.Rollback(ctx)
-
-	var id uuid.UUID
-	var version int
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO test_cases
-		  (folder_id, name, description, file_name, file_content, bundled_content, created_by, updated_by)
-		VALUES ($1, $2, 'Imported from GitLab', $3, $4, $5, NULL, NULL)
-		RETURNING id, version
-	`, folderID, name, fileName, fileContent, bundledContent).Scan(&id, &version); err != nil {
-		return uuid.UUID{}, fmt.Errorf("insert test case: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO test_case_versions (test_case_id, version, file_content, changed_by)
-		VALUES ($1, $2, $3, NULL)
-	`, id, version, fileContent); err != nil {
-		return uuid.UUID{}, fmt.Errorf("record version: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return uuid.UUID{}, err
-	}
-	return id, nil
-}
-
-// updateTestImported updates an existing test case with NULL updated_by (GitLab system import).
-func (s *Service) updateTestImported(ctx context.Context, id uuid.UUID, name, description, fileContent, bundledContent string) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	var version int
-	if err := tx.QueryRow(ctx, `
-		UPDATE test_cases
-		SET file_content    = $2,
-		    bundled_content = $3,
-		    updated_by      = NULL,
-		    version         = version + 1,
-		    updated_at      = NOW()
-		WHERE id = $1
-		RETURNING version
-	`, id, fileContent, bundledContent).Scan(&version); err != nil {
-		return fmt.Errorf("update test case: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO test_case_versions (test_case_id, version, file_content, changed_by)
-		VALUES ($1, $2, $3, NULL)
-	`, id, version, fileContent); err != nil {
-		return fmt.Errorf("record version: %w", err)
-	}
-
-	return tx.Commit(ctx)
-}
-
-type existingTest struct {
-	ID          uuid.UUID
-	Name        string
-	Description string
-	FileContent string
-}
-
-// findTestByFileNameInSubProject searches all folders in a subproject for a test by filename.
-func (s *Service) findTestByFileNameInSubProject(ctx context.Context, spID uuid.UUID, fileName string) (*existingTest, error) {
-	var t existingTest
-	err := s.db.QueryRow(ctx, `
-		SELECT tc.id, tc.name, COALESCE(tc.description,''), tc.file_content
-		FROM test_cases tc
-		JOIN test_folders tf ON tf.id = tc.folder_id
-		WHERE tf.sub_project_id = $1 AND tc.file_name = $2 AND tc.is_archived = FALSE
-		LIMIT 1
-	`, spID, fileName).Scan(&t.ID, &t.Name, &t.Description, &t.FileContent)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &t, nil
-}
-
-func (s *Service) findTestByFileName(ctx context.Context, folderID uuid.UUID, fileName string) (*existingTest, error) {
-	var t existingTest
-	err := s.db.QueryRow(ctx, `
-		SELECT id, name, COALESCE(description,''), file_content
-		FROM test_cases
-		WHERE folder_id = $1 AND file_name = $2 AND is_archived = FALSE
-		LIMIT 1
-	`, folderID, fileName).Scan(&t.ID, &t.Name, &t.Description, &t.FileContent)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &t, nil
 }

@@ -78,6 +78,7 @@ type RunAttachment struct {
 	RunItemID  uuid.UUID `json:"run_item_id"`
 	Type       string    `json:"type"`
 	StorageURL string    `json:"storage_url"`
+	Title      string    `json:"title"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -436,19 +437,22 @@ func (q *RunQueries) GetReport(ctx context.Context, runID uuid.UUID) (*RunReport
 	return &rr, nil
 }
 
-// SaveAttachment records a screenshot, trace, or video for a run item.
-func (q *RunQueries) SaveAttachment(ctx context.Context, runItemID uuid.UUID, attachType, storageURL string) error {
+// SaveAttachment records a screenshot, trace, or video for a run item. title is
+// the individual test() title that produced the artifact (blank for run-level
+// media like video/trace) so the dashboard can group by test case.
+func (q *RunQueries) SaveAttachment(ctx context.Context, runItemID uuid.UUID, attachType, storageURL, title string) error {
 	_, err := q.db.Exec(ctx, `
-		INSERT INTO run_attachments (run_item_id, type, storage_url)
-		VALUES ($1, $2, $3)
-	`, runItemID, attachType, storageURL)
+		INSERT INTO run_attachments (run_item_id, type, storage_url, title)
+		VALUES ($1, $2, $3, $4)
+	`, runItemID, attachType, storageURL, title)
 	return err
 }
 
 // ListAttachments returns all attachments for a run (via run_items join).
 func (q *RunQueries) ListAttachments(ctx context.Context, runID uuid.UUID) ([]RunAttachment, error) {
 	rows, err := q.db.Query(ctx, `
-		SELECT ra.id, ra.run_item_id, ra.type, ra.storage_url, ra.created_at
+		SELECT ra.id, ra.run_item_id, ra.type, ra.storage_url,
+		       COALESCE(ra.title, '') AS title, ra.created_at
 		FROM run_attachments ra
 		JOIN run_items ri ON ri.id = ra.run_item_id
 		WHERE ri.run_id = $1
@@ -462,7 +466,7 @@ func (q *RunQueries) ListAttachments(ctx context.Context, runID uuid.UUID) ([]Ru
 	var list []RunAttachment
 	for rows.Next() {
 		var a RunAttachment
-		if err := rows.Scan(&a.ID, &a.RunItemID, &a.Type, &a.StorageURL, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.RunItemID, &a.Type, &a.StorageURL, &a.Title, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, a)

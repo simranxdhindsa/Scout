@@ -254,6 +254,21 @@ export const subProjectsApi = {
     api
       .get<{ folder_id: string }>(`/subprojects/${spId}/root-folder`)
       .then((r) => r.data.folder_id),
+  importZip: (spId: string, file: File) => {
+    const form = new FormData()
+    form.append("file", file)
+    return api
+      .post<ImportResult>(`/subprojects/${spId}/import-zip`, form)
+      .then((r) => r.data)
+  },
+}
+
+export type ImportResult = {
+  added: number
+  updated: number
+  skipped: number
+  deleted: number
+  skip_reasons?: string[]
 }
 
 export type TestCase = {
@@ -709,6 +724,8 @@ export type RunAttachment = {
   run_item_id: string
   type: "screenshot" | "video" | "trace" | string
   storage_url: string
+  /** Individual test() title that produced the artifact; blank for run-level media. */
+  title: string
   created_at: string
 }
 

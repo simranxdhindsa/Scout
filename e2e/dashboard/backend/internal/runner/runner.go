@@ -541,7 +541,7 @@ func (s *Service) uploadAttachments(ctx context.Context, runID, orgID uuid.UUID,
 			if err != nil {
 				continue
 			}
-			_ = s.runQ.SaveAttachment(ctx, itemID, att.Type, url)
+			_ = s.runQ.SaveAttachment(ctx, itemID, att.Type, url, tr.Title)
 		}
 	}
 }
@@ -608,7 +608,7 @@ func (s *Service) uploadRunMediaFiles(ctx context.Context, runID, orgID uuid.UUI
 				log.Printf("[runner] upload media %s: %v", filepath.Base(f), err)
 				continue
 			}
-			_ = s.runQ.SaveAttachment(ctx, itemFor(f), u.attachType, url)
+			_ = s.runQ.SaveAttachment(ctx, itemFor(f), u.attachType, url, "")
 		}
 	}
 }

@@ -2,17 +2,21 @@ import { useEffect, useRef, useState } from "react"
 import {
   ArrowLeftIcon,
   CheckCircle2Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CircleIcon,
   ClapperboardIcon,
   DownloadIcon,
   ExternalLinkIcon,
   ImageIcon,
   Loader2Icon,
+  Maximize2Icon,
   MonitorPlayIcon,
   RefreshCwIcon,
   StopCircleIcon,
   TerminalIcon,
   XCircleIcon,
+  XIcon,
 } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 
@@ -87,7 +91,6 @@ export default function RunDetailPage() {
   const [rerunning, setRerunning] = useState(false)
   const [lines, setLines] = useState<StreamLine[]>([])
   const [liveScreenshot, setLiveScreenshot] = useState<string | null>(null)
-  const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null)
 
   const inProgress =
     detail?.run.status === "queued" || detail?.run.status === "running"
@@ -246,7 +249,7 @@ export default function RunDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {inProgress ? (
-            <Button variant="outline" size="sm" onClick={handleStop} disabled={stopping}>
+            <Button variant="destructive" size="sm" onClick={handleStop} disabled={stopping}>
               {stopping ? (
                 <Loader2Icon className="size-4 animate-spin" />
               ) : (
@@ -326,7 +329,7 @@ export default function RunDetailPage() {
         </div>
       ) : inProgress ? (
         <p className="text-muted-foreground text-sm">
-          Run is {run.status}. Results will appear here as tests complete.
+          Test cases are running. Results will appear here as tests complete.
         </p>
       ) : null}
 
@@ -342,13 +345,9 @@ export default function RunDetailPage() {
         </div>
       )}
 
-      {/* Screenshot strip — persisted attachments shown after run */}
+      {/* Screenshot gallery — persisted attachments grouped by test case */}
       {!inProgress && screenshots.length > 0 && (
-        <AttachmentStrip
-          screenshots={screenshots}
-          selected={selectedScreenshot}
-          onSelect={setSelectedScreenshot}
-        />
+        <ScreenshotGallery screenshots={screenshots} items={items} />
       )}
 
       {/* Inline video player */}
@@ -628,75 +627,270 @@ async function downloadAttachment(storageUrl: string, filename: string) {
   }
 }
 
-function AttachmentStrip({
+// One screenshot flattened with the test-case context it belongs to. The flat
+// order (grouped, but a single sequence) is what the lightbox steps through.
+type GalleryShot = {
+  att: RunAttachment
+  label: string
+  spec?: string
+  status?: string
+  index: number
+}
+
+function ScreenshotGallery({
   screenshots,
-  selected,
-  onSelect,
+  items,
 }: {
   screenshots: RunAttachment[]
-  selected: string | null
-  onSelect: (url: string | null) => void
+  items: RunItem[]
 }) {
+  // Lightbox tracks the active screenshot by its index into the flat list so it
+  // can page through every shot regardless of which test group it sits in.
+  const [active, setActive] = useState<number | null>(null)
+
+  // Each screenshot carries the individual test() title that produced it (and
+  // the run_item_id of its owning spec). Group by the specific test case so
+  // users see which test each screenshot belongs to — not just the spec file —
+  // falling back to the spec name, then "Unmatched", when no title is present
+  // (e.g. older runs created before titles were recorded). Attachment order is
+  // preserved both within and across groups.
+  const itemById = new Map(items.map((it) => [it.id, it]))
+  const groups: {
+    key: string
+    label: string
+    spec?: string
+    status?: string
+    shots: GalleryShot[]
+  }[] = []
+  const byKey = new Map<string, (typeof groups)[number]>()
+  const flat: GalleryShot[] = []
+  for (const att of screenshots) {
+    const item = att.run_item_id ? itemById.get(att.run_item_id) : undefined
+    const spec = item?.test_case_name || item?.test_case_id || undefined
+    const title = att.title?.trim()
+    // Distinct test cases can live in the same spec, so the key must include the
+    // title; only fall back to the spec/item when there's no title.
+    const key = title
+      ? `${att.run_item_id || ""}::${title}`
+      : att.run_item_id || "__unmatched__"
+    const shot: GalleryShot = {
+      att,
+      label: title || spec || "Unmatched",
+      spec: title ? spec : undefined,
+      status: item?.status,
+      index: flat.length,
+    }
+    flat.push(shot)
+    let group = byKey.get(key)
+    if (!group) {
+      group = { key, label: shot.label, spec: shot.spec, status: shot.status, shots: [] }
+      byKey.set(key, group)
+      groups.push(group)
+    }
+    group.shots.push(shot)
+  }
+
   return (
-    <div className="ring-border/40 flex flex-col ring-1">
-      <div className="border-border/40 flex items-center gap-2 border-b px-4 py-2 text-xs">
+    <section className="ring-border/40 flex flex-col ring-1">
+      <div className="border-border/40 flex items-center gap-2 border-b px-4 py-2.5 text-xs">
         <ImageIcon className="size-3.5 text-zinc-400" />
         <span className="font-medium tracking-wider text-zinc-400 uppercase">
-          Screenshots ({screenshots.length})
+          Screenshots
+        </span>
+        <span className="bg-muted/60 text-muted-foreground ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+          {screenshots.length}
         </span>
       </div>
 
-      {/* Expanded view of the selected screenshot */}
-      {selected && (
-        <div className="border-border/40 relative border-b bg-zinc-950 p-4">
-          <AuthedImage
-            storageUrl={selected}
-            alt="Screenshot"
-            className="mx-auto max-h-[480px] max-w-full object-contain"
-          />
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className="bg-muted/60 ring-border/40 hover:bg-accent absolute top-3 right-3 px-2 py-1 text-xs ring-1"
-          >
-            Close
-          </button>
-        </div>
-      )}
+      <div className="divide-border/40 flex flex-col divide-y">
+        {groups.map((g) => (
+          <div key={g.key} className="flex flex-col gap-3 p-4">
+            {/* Test-case header */}
+            <div className="flex items-center gap-2">
+              {g.status ? itemIcon(g.status) : null}
+              <span className="truncate text-sm font-medium">{g.label}</span>
+              {g.spec ? (
+                <span className="text-muted-foreground/70 truncate font-mono text-[10px]">
+                  {g.spec}
+                </span>
+              ) : null}
+              <span className="text-muted-foreground ml-auto shrink-0 text-[10px] tabular-nums">
+                {g.shots.length} {g.shots.length === 1 ? "shot" : "shots"}
+              </span>
+            </div>
 
-      {/* Thumbnail strip */}
-      <div className="flex flex-wrap gap-3 p-4">
-        {screenshots.map((s, i) => (
-          <div key={s.id} className="flex flex-col gap-1">
-            <button
-              type="button"
-              onClick={() =>
-                onSelect(selected === s.storage_url ? null : s.storage_url)
-              }
-              className={`ring-1 transition ${
-                selected === s.storage_url
-                  ? "ring-sky-400"
-                  : "ring-border/40 hover:ring-sky-400/50"
-              }`}
-            >
-              <AuthedImage
-                storageUrl={s.storage_url}
-                alt="Screenshot thumbnail"
-                className="h-24 w-40 object-cover"
-              />
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                downloadAttachment(s.storage_url, `screenshot-${i + 1}.png`)
-              }
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px]"
-            >
-              <DownloadIcon className="size-3" />
-              Download
-            </button>
+            {/* Responsive thumbnail grid */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+              {g.shots.map((shot) => (
+                <Thumbnail
+                  key={shot.att.id}
+                  shot={shot}
+                  onOpen={() => setActive(shot.index)}
+                />
+              ))}
+            </div>
           </div>
         ))}
+      </div>
+
+      {active != null && flat[active] && (
+        <Lightbox
+          shots={flat}
+          index={active}
+          onIndexChange={setActive}
+          onClose={() => setActive(null)}
+        />
+      )}
+    </section>
+  )
+}
+
+function Thumbnail({
+  shot,
+  onOpen,
+}: {
+  shot: GalleryShot
+  onOpen: () => void
+}) {
+  return (
+    <div className="group/thumb ring-border/40 hover:ring-primary/60 focus-within:ring-primary relative aspect-video overflow-hidden ring-1 transition">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block size-full cursor-zoom-in outline-none"
+        aria-label={`Open screenshot from ${shot.label}`}
+      >
+        <AuthedImage
+          storageUrl={shot.att.storage_url}
+          alt={`Screenshot from ${shot.label}`}
+          className="size-full object-cover transition duration-200 group-hover/thumb:scale-[1.03]"
+        />
+        {/* Hover scrim + zoom affordance */}
+        <span className="absolute inset-0 flex items-center justify-center bg-zinc-950/0 opacity-0 transition group-hover/thumb:bg-zinc-950/30 group-hover/thumb:opacity-100">
+          <Maximize2Icon className="size-5 text-white drop-shadow" />
+        </span>
+      </button>
+      {/* Download — top-right, revealed on hover */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          downloadAttachment(shot.att.storage_url, `screenshot-${shot.index + 1}.png`)
+        }}
+        title="Download screenshot"
+        className="bg-zinc-950/60 absolute top-1.5 right-1.5 p-1.5 text-white opacity-0 backdrop-blur-sm transition hover:bg-zinc-950/80 focus:opacity-100 group-hover/thumb:opacity-100"
+      >
+        <DownloadIcon className="size-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function Lightbox({
+  shots,
+  index,
+  onIndexChange,
+  onClose,
+}: {
+  shots: GalleryShot[]
+  index: number
+  onIndexChange: (i: number) => void
+  onClose: () => void
+}) {
+  const shot = shots[index]
+  const count = shots.length
+
+  // Keyboard navigation: Esc closes, ←/→ page through. Re-bound when index
+  // changes so the handlers close over the current position.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+      else if (e.key === "ArrowRight") onIndexChange((index + 1) % count)
+      else if (e.key === "ArrowLeft") onIndexChange((index - 1 + count) % count)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [index, count, onClose, onIndexChange])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-zinc-950/90 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Screenshot viewer"
+    >
+      {/* Top bar: caption + counter + close */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 text-sm text-zinc-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex min-w-0 flex-col">
+          <span className="flex items-center gap-2 truncate font-medium">
+            {shot.status ? itemIcon(shot.status) : null}
+            {shot.label}
+          </span>
+          {shot.spec ? (
+            <span className="truncate font-mono text-[10px] text-zinc-400">
+              {shot.spec}
+            </span>
+          ) : null}
+        </div>
+        <span className="ml-auto shrink-0 text-xs text-zinc-400 tabular-nums">
+          {index + 1} / {count}
+        </span>
+        <button
+          type="button"
+          onClick={() =>
+            downloadAttachment(shot.att.storage_url, `screenshot-${index + 1}.png`)
+          }
+          title="Download"
+          className="ring-border/30 hover:bg-zinc-800 p-2 text-zinc-200 ring-1 transition"
+        >
+          <DownloadIcon className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          title="Close (Esc)"
+          className="ring-border/30 hover:bg-zinc-800 p-2 text-zinc-200 ring-1 transition"
+        >
+          <XIcon className="size-4" />
+        </button>
+      </div>
+
+      {/* Stage: image flanked by prev/next */}
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center gap-2 px-2 pb-6 sm:gap-4 sm:px-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {count > 1 && (
+          <button
+            type="button"
+            onClick={() => onIndexChange((index - 1 + count) % count)}
+            title="Previous (←)"
+            className="bg-zinc-900/60 hover:bg-zinc-800 shrink-0 rounded-full p-2 text-zinc-200 transition"
+          >
+            <ChevronLeftIcon className="size-6" />
+          </button>
+        )}
+        <AuthedImage
+          // Force a fresh element per image so the loader shows between shots.
+          key={shot.att.id}
+          storageUrl={shot.att.storage_url}
+          alt={`Screenshot from ${shot.label}`}
+          className="max-h-full max-w-full object-contain"
+        />
+        {count > 1 && (
+          <button
+            type="button"
+            onClick={() => onIndexChange((index + 1) % count)}
+            title="Next (→)"
+            className="bg-zinc-900/60 hover:bg-zinc-800 shrink-0 rounded-full p-2 text-zinc-200 transition"
+          >
+            <ChevronRightIcon className="size-6" />
+          </button>
+        )}
       </div>
     </div>
   )
