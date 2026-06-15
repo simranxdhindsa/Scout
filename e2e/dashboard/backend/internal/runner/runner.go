@@ -1,8 +1,8 @@
 package runner
 
 import (
-	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/creack/pty"
+	"time"
 
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/apyhub/scout/internal/notifications"
+	"github.com/apyhub/scout/internal/slack"
 	"github.com/apyhub/scout/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -64,7 +64,22 @@ func (s *Service) Bundler() *Bundler { return s.bundler }
 
 // StartWorkers launches the background run-processing goroutines.
 func (s *Service) StartWorkers(ctx context.Context) {
-	s.queue.StartWorkers(ctx, s.processRun)
+	// The queue is in-memory only. A prior server restart/crash leaves any
+	// mid-flight runs stuck in 'queued'/'running' with no worker to finish
+	// them — they'd show "running" forever. Reconcile them to 'failed' first.
+	if n, err := s.runQ.ReconcileStuckRuns(ctx); err != nil {
+		log.Printf("[runner] reconcile stuck runs: %v", err)
+	} else if n > 0 {
+		log.Printf("[runner] reconciled %d stuck run(s) left over from a previous restart", n)
+	}
+
+	s.queue.StartWorkers(ctx, func(ctx context.Context, job *RunJob) {
+		if job.IsFlow {
+			s.processFlowRun(ctx, job)
+		} else {
+			s.processRun(ctx, job)
+		}
+	})
 }
 
 // Enqueue adds a run to the processing queue.
@@ -276,31 +291,39 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		tail = append(tail, s)
 	}
 
-	// Run via a pseudo-TTY so Node sees stdout as interactive and switches to
-	// line-buffered output. Without this the child holds output in its internal
-	// buffer and we receive nothing until the run ends.
-	ptyF, err := pty.Start(cmd)
-	if err != nil {
-		s.failRun(ctx, runID, orgID, fmt.Sprintf("start playwright: %v", err))
-		return
-	}
-	defer ptyF.Close()
-
-	scanner := bufio.NewScanner(ptyF)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	// Split on either \n or \r so progress-bar-style reporters (which redraw
-	// the same line with \r) still produce per-update frames on the WS.
-	scanner.Split(splitOnCRorLF)
-	for scanner.Scan() {
-		line := strings.TrimRight(scanner.Text(), "\r\n")
-		if line == "" {
-			continue
+	// Live screenshot watcher — polls test-results/ for new PNGs every 500 ms
+	// and streams each one as a base64 data URL via the WebSocket hub.
+	watchCtx, cancelWatch := context.WithCancel(ctx)
+	go func() {
+		seen := make(map[string]struct{})
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchCtx.Done():
+				return
+			case <-ticker.C:
+				for _, f := range ws.ListFiles(ws.TestResultsDir(), ".png") {
+					if _, ok := seen[f]; ok {
+						continue
+					}
+					seen[f] = struct{}{}
+					data, err := os.ReadFile(f)
+					if err != nil || len(data) > 1<<20 { // skip files > 1 MB
+						continue
+					}
+					s.streams.Publish(ctx, runID, "screenshot",
+						"data:image/png;base64,"+base64.StdEncoding.EncodeToString(data))
+				}
+			}
 		}
+	}()
+
+	runErr := startAndStream(cmd, func(line string) {
 		s.streams.Publish(ctx, runID, "stdout", line)
 		appendTail(line)
-	}
-
-	runErr := cmd.Wait()
+	})
+	cancelWatch() // stop screenshot watcher once the process exits
 
 	// Parse results even if playwright exited non-zero (failed tests)
 	result, parseErr := ParseResults(ws.ResultsPath())
@@ -334,14 +357,25 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 			log.Printf("[runner] save report error: %v", err)
 		}
 
-		// Update individual run items
+		// Update spec-level run items and persist each individual test() result
+		// so the run detail page can show a per-test pass/fail breakdown.
 		for _, tr := range result.TestResults {
-			s.updateRunItemByName(ctx, runID, tr)
+			itemID := s.updateRunItemByName(ctx, runID, tr)
+			if err := s.runQ.SaveTestResult(ctx, runID, itemID,
+				tr.FileName, tr.Title, tr.Status, tr.DurationMs,
+				tr.ErrorMessage, tr.ErrorStack, tr.RetryCount,
+			); err != nil {
+				log.Printf("[runner] save test result error: %v", err)
+			}
 		}
 
-		// Upload attachments
+		// Upload test-result attachments (screenshots from individual test cases)
 		s.uploadAttachments(ctx, runID, orgID, result.TestResults)
 	}
+
+	// Upload video and trace files produced by Playwright into run_attachments.
+	// This runs regardless of pass/fail so videos/traces are always preserved.
+	s.uploadRunMediaFiles(ctx, runID, orgID, ws)
 
 	// Determine final status
 	finalStatus := "done"
@@ -400,6 +434,9 @@ func (s *Service) failRun(ctx context.Context, runID, orgID uuid.UUID, reason st
 	s.streams.Publish(ctx, runID, "status", "failed")
 	_ = s.runQ.SetErrorMessage(ctx, runID, reason)
 	_ = s.runQ.UpdateStatus(ctx, runID, "failed")
+	if err := s.runQ.FailItems(ctx, runID); err != nil {
+		log.Printf("[runner] failItems run=%s: %v", runID, err)
+	}
 	s.notifyCompletion(ctx, runID, orgID, "failed", nil)
 }
 
@@ -437,11 +474,14 @@ func (s *Service) getEnvCredentials(ctx context.Context, envID uuid.UUID) (usern
 	return username, password
 }
 
-func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr ParsedTestResult) {
+// updateRunItemByName matches a parsed test result to its spec-level run item
+// (by file name / title heuristic) and updates it. Returns the matched run_item
+// id, or nil when no item matched.
+func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr ParsedTestResult) *uuid.UUID {
 	// Match run item by test case file name heuristic
 	items, err := s.runQ.ListItems(ctx, runID)
 	if err != nil {
-		return
+		return nil
 	}
 	for _, item := range items {
 		if item.TestCaseID == nil {
@@ -453,38 +493,122 @@ func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr P
 		}
 		if tc.FileName == tr.FileName || tc.Name == tr.Title {
 			_ = s.runQ.UpdateItem(ctx, item.ID, tr.Status, tr.DurationMs, tr.ErrorMessage, tr.ErrorStack)
-			return
+			id := item.ID
+			return &id
 		}
 	}
+	return nil
 }
 
 func (s *Service) uploadAttachments(ctx context.Context, runID, orgID uuid.UUID, results []ParsedTestResult) {
 	items, err := s.runQ.ListItems(ctx, runID)
-	if err != nil {
+	if err != nil || len(items) == 0 {
 		return
 	}
 
-	for _, tr := range results {
+	// Match a parsed test result to its owning run item by the same file
+	// name / title heuristic used in updateRunItemByName; fall back to the
+	// first item so attachments are never orphaned.
+	itemFor := func(tr ParsedTestResult) uuid.UUID {
 		for _, item := range items {
 			if item.TestCaseID == nil {
 				continue
 			}
-			for _, att := range tr.Attachments {
-				if att.Path == "" {
-					continue
-				}
-				f, err := os.Open(att.Path)
-				if err != nil {
-					continue
-				}
-				key := storage.RunAttachmentKey(orgID.String(), runID.String(), filepath.Base(att.Path))
-				url, err := s.store.Put(ctx, key, f, "application/octet-stream")
-				f.Close()
-				if err != nil {
-					continue
-				}
-				_ = s.runQ.SaveAttachment(ctx, item.ID, att.Type, url)
+			tc, err := s.testQ.GetByID(ctx, *item.TestCaseID)
+			if err != nil {
+				continue
 			}
+			if tc.FileName == tr.FileName || tc.Name == tr.Title {
+				return item.ID
+			}
+		}
+		return items[0].ID
+	}
+
+	for _, tr := range results {
+		itemID := itemFor(tr)
+		for _, att := range tr.Attachments {
+			if att.Path == "" {
+				continue
+			}
+			f, err := os.Open(att.Path)
+			if err != nil {
+				continue
+			}
+			key := storage.RunAttachmentKey(orgID.String(), runID.String(), uniqueAttachmentName(att.Path))
+			url, err := s.store.Put(ctx, key, f, "application/octet-stream")
+			f.Close()
+			if err != nil {
+				continue
+			}
+			_ = s.runQ.SaveAttachment(ctx, itemID, att.Type, url)
+		}
+	}
+}
+
+// uniqueAttachmentName builds a collision-free storage filename for a Playwright
+// artifact. Playwright names auto artifacts identically across tests
+// ("test-finished-1.png", "video.webm", "trace.zip") inside a per-test
+// subdirectory, so the base name alone collides and uploads overwrite each
+// other. Prefixing with the enclosing directory name keeps each test's
+// artifact distinct.
+func uniqueAttachmentName(path string) string {
+	base := filepath.Base(path)
+	parent := filepath.Base(filepath.Dir(path))
+	switch parent {
+	case "", ".", string(filepath.Separator), "test-results":
+		return base
+	}
+	return parent + "-" + base
+}
+
+// uploadRunMediaFiles scans the workspace test-results dir for videos (.webm)
+// and traces (.zip), uploads each to storage, and records them in
+// run_attachments. Both are uploaded regardless of test outcome so they are
+// always available from the run detail page. Screenshots are intentionally not
+// handled here — they're uploaded per-test in uploadAttachments from the parsed
+// report, which gives an accurate test→screenshot mapping; scanning for .png
+// here too would double-upload them.
+func (s *Service) uploadRunMediaFiles(ctx context.Context, runID, orgID uuid.UUID, ws *Workspace) {
+	items, err := s.runQ.ListItems(ctx, runID)
+	if err != nil || len(items) == 0 {
+		return
+	}
+	// Best-effort match: try to find a run item whose test name appears in the
+	// file path. Fall back to the first item so attachments are never orphaned.
+	itemFor := func(path string) uuid.UUID {
+		base := strings.ToLower(filepath.Base(filepath.Dir(path)))
+		for _, it := range items {
+			if it.TestCaseName != "" &&
+				strings.Contains(base, strings.ToLower(strings.ReplaceAll(it.TestCaseName, " ", "-"))) {
+				return it.ID
+			}
+		}
+		return items[0].ID
+	}
+
+	type upload struct {
+		ext         string
+		contentType string
+		attachType  string
+	}
+	for _, u := range []upload{
+		{".webm", "video/webm", "video"},
+		{".zip", "application/zip", "trace"},
+	} {
+		for _, f := range ws.ListFiles(ws.TestResultsDir(), u.ext) {
+			fh, err := os.Open(f)
+			if err != nil {
+				continue
+			}
+			key := storage.RunAttachmentKey(orgID.String(), runID.String(), uniqueAttachmentName(f))
+			url, err := s.store.Put(ctx, key, fh, u.contentType)
+			fh.Close()
+			if err != nil {
+				log.Printf("[runner] upload media %s: %v", filepath.Base(f), err)
+				continue
+			}
+			_ = s.runQ.SaveAttachment(ctx, itemFor(f), u.attachType, url)
 		}
 	}
 }
@@ -499,9 +623,55 @@ func (s *Service) notifyCompletion(ctx context.Context, runID, orgID uuid.UUID, 
 		notifType = "run_failed"
 	}
 
+	passed, failed, total := 0, 0, 0
 	if result != nil {
+		passed = result.Passed
+		failed = result.Failed
+		total = result.Total
 		msg = fmt.Sprintf("Passed: %d / %d · Duration: %dms", result.Passed, result.Total, result.DurationMs)
 	}
 
 	_ = s.notif.NotifyOrg(ctx, orgID, &runID, notifType, title, msg, nil)
+
+	// Slack webhook notification
+	s.sendSlackNotification(ctx, orgID, runID, status, passed, failed, total)
+}
+
+func (s *Service) sendSlackNotification(ctx context.Context, orgID, runID uuid.UUID, status string, passed, failed, total int) {
+	var webhookURL string
+	var notifyOnFailure, notifyOnSuccess bool
+	err := s.db.QueryRow(ctx,
+		`SELECT COALESCE(slack_webhook_url,''),
+		        COALESCE(slack_notify_on_failure, TRUE),
+		        COALESCE(slack_notify_on_success, FALSE)
+		 FROM organizations WHERE id = $1`, orgID,
+	).Scan(&webhookURL, &notifyOnFailure, &notifyOnSuccess)
+	if err != nil || webhookURL == "" {
+		return
+	}
+	if status == "failed" && !notifyOnFailure {
+		return
+	}
+	if status != "failed" && !notifyOnSuccess {
+		return
+	}
+
+	run, _ := s.runQ.GetByID(ctx, runID)
+	label := "Run"
+	if run != nil {
+		label = run.Label
+	}
+
+	dashURL := os.Getenv("SCOUT_DASHBOARD_URL")
+	if err := slack.Notify(ctx, webhookURL, slack.RunSummary{
+		Label:   label,
+		Status:  status,
+		Passed:  passed,
+		Failed:  failed,
+		Total:   total,
+		RunID:   runID.String(),
+		DashURL: dashURL,
+	}); err != nil {
+		log.Printf("[runner] slack notify: %v", err)
+	}
 }

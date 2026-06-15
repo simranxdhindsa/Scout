@@ -188,6 +188,16 @@ func (h *environmentHandler) ListEnvURLs(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	orgIDEnv, okEnv := orgIDForSubProject(r.Context(), h.svc.DB, spID)
+	if !okEnv {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claimsEnv := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDEnv, claimsEnv.UserID) {
+		return
+	}
+
 	rows, err := h.svc.DB.Query(r.Context(), `
 		SELECT seu.id, seu.sub_project_id, seu.environment_id, seu.base_url,
 		       e.name AS env_name
@@ -223,6 +233,16 @@ func (h *environmentHandler) SetEnvURL(w http.ResponseWriter, r *http.Request) {
 	spID, err := uuid.Parse(r.PathValue("spId"))
 	if err != nil {
 		writeError(w, "invalid spId", http.StatusBadRequest)
+		return
+	}
+
+	orgIDSet, okSet := orgIDForSubProject(r.Context(), h.svc.DB, spID)
+	if !okSet {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claimsSet := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDSet, claimsSet.UserID) {
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/apyhub/scout/internal/auth"
 	"github.com/apyhub/scout/internal/db/queries"
 	"github.com/google/uuid"
 )
@@ -101,6 +102,16 @@ func (h *reportHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForRun(r.Context(), h.svc.DB, runID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
+		return
+	}
+
 	runQ := queries.NewRunQueries(h.svc.DB)
 	report, err := runQ.GetReport(r.Context(), runID)
 	if err != nil {
@@ -124,6 +135,16 @@ func (h *reportHandler) Attachments(w http.ResponseWriter, r *http.Request) {
 	runID, err := uuid.Parse(r.PathValue("runId"))
 	if err != nil {
 		writeError(w, "invalid runId", http.StatusBadRequest)
+		return
+	}
+
+	orgIDAt, okAt := orgIDForRun(r.Context(), h.svc.DB, runID)
+	if !okAt {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claimsAt := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDAt, claimsAt.UserID) {
 		return
 	}
 

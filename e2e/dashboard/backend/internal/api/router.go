@@ -12,6 +12,7 @@ import (
 	"github.com/apyhub/scout/internal/runner"
 	"github.com/apyhub/scout/internal/scorm"
 	"github.com/apyhub/scout/internal/storage"
+	"github.com/apyhub/scout/internal/youtrack"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,6 +27,7 @@ type Services struct {
 	SCORM         *scorm.Service
 	Notifications *notifications.Service
 	GitLab        *gitlab.Service
+	YouTrack      *youtrack.Service
 }
 
 // RegisterRoutes wires all HTTP handlers to their routes and returns the root mux.
@@ -195,6 +197,33 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{runId}/attachments", chain(reportH.Attachments,
 		svc.Auth.Authenticate))
 
+	// ── Flows (cross-platform test chains) ───────────────────────────────────────
+	flowH := newFlowHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows", chain(flowH.List,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows", chain(flowH.Create,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows/runs", chain(flowH.ListRuns,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows/runs/{flowRunId}", chain(flowH.GetRun,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/flows/{flowId}", chain(flowH.Get,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/flows/{flowId}", chain(flowH.Update,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/flows/{flowId}", chain(flowH.Delete,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows/{flowId}/run", chain(flowH.RunFlow,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows/{flowId}/steps", chain(flowH.AddStep,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/flows/{flowId}/steps/{stepId}", chain(flowH.UpdateStep,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/flows/{flowId}/steps/{stepId}", chain(flowH.DeleteStep,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/flows/{flowId}/steps/reorder", chain(flowH.ReorderSteps,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
 	// ── Pipelines ─────────────────────────────────────────────────────────
 	pipeH := newPipelineHandler(svc)
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/pipelines", chain(pipeH.List,
@@ -252,6 +281,75 @@ func RegisterRoutes(ctx context.Context, svc Services) http.Handler {
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/scorm/generators", chain(svc.SCORM.HandleListGenerators,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 	mux.HandleFunc("GET /api/v1/orgs/{orgId}/scorm/generate/{typeKey}", chain(svc.SCORM.HandleGenerate,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
+	// ── YouTrack sprint-testing integration ──────────────────────────────
+	ytH := newYouTrackHandler(svc)
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/youtrack", chain(ytH.Connect,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack", chain(ytH.GetStatus,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}", chain(ytH.Disconnect,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/boards", chain(ytH.GetBoards,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/sprints", chain(ytH.GetSprints,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/sprints/{sprintId}/issues", chain(ytH.GetSprintIssues,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/integrations/youtrack/{integrationId}/sprints/{sprintId}/run", chain(ytH.RunSprint,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/youtrack/mappings", chain(ytH.ListMappings,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/youtrack/mappings", chain(ytH.CreateMapping,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/youtrack/mappings/{mappingId}", chain(ytH.DeleteMapping,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
+	// ── Slack settings ────────────────────────────────────────────────────
+	slackH := newSlackHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/settings/slack", chain(slackH.GetSettings,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/settings/slack", chain(slackH.UpdateSettings,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember, svc.Auth.RequireOrgAdmin))
+
+	// ── AI chat history ───────────────────────────────────────────────────
+	chatHistH := newChatHistoryHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/ai/sessions", chain(chatHistH.ListSessions,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/ai/sessions", chain(chatHistH.CreateSession,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/ai/sessions/{sessionId}", chain(chatHistH.UpdateSessionTitle,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/ai/sessions/{sessionId}", chain(chatHistH.DeleteSession,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/ai/sessions/{sessionId}/messages", chain(chatHistH.GetMessages,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/ai/sessions/{sessionId}/messages", chain(chatHistH.AddMessage,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
+	// ── Scheduled runs ────────────────────────────────────────────────────
+	schedH := newScheduledRunHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/scheduled-runs", chain(schedH.List,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/scheduled-runs", chain(schedH.Create,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("PUT /api/v1/orgs/{orgId}/scheduled-runs/{schedId}", chain(schedH.Update,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("DELETE /api/v1/orgs/{orgId}/scheduled-runs/{schedId}", chain(schedH.Delete,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("POST /api/v1/orgs/{orgId}/scheduled-runs/{schedId}/toggle", chain(schedH.ToggleEnabled,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+
+	// ── Analytics ─────────────────────────────────────────────────────────
+	analyticsH := newAnalyticsHandler(svc)
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/overview", chain(analyticsH.Overview,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/flaky", chain(analyticsH.FlakyTests,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/slow", chain(analyticsH.SlowTests,
+		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
+	mux.HandleFunc("GET /api/v1/orgs/{orgId}/analytics/tests/{testCaseId}/history", chain(analyticsH.TestHistory,
 		svc.Auth.Authenticate, svc.Auth.RequireOrgMember))
 
 	// ── Static file serving (local storage) ──────────────────────────────

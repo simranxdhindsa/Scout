@@ -156,7 +156,7 @@ func Load() (*Config, error) {
 	cfg.GitLabBaseURL = optional("GITLAB_BASE_URL", "https://gitlab.com")
 
 	// ── SCORM / Phoenix ───────────────────────────────────────────────────
-	cfg.PhoenixBaseURL = required("PHOENIX_BASE_URL")
+	cfg.PhoenixBaseURL = optional("PHOENIX_BASE_URL", "")
 
 	// ── Platform admins ───────────────────────────────────────────────────
 	if raw := os.Getenv("PLATFORM_ADMIN_EMAILS"); raw != "" {

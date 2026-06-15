@@ -70,7 +70,7 @@ func (h *runHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 
 	runQ := queries.NewRunQueries(h.svc.DB)
-	run, err := runQ.Create(r.Context(), orgID, envID, claims.UserID, label, credsJSON)
+	run, err := runQ.Create(r.Context(), orgID, envID, &claims.UserID, label, credsJSON)
 	if err != nil {
 		writeError(w, "failed to create run", http.StatusInternalServerError)
 		return
@@ -114,7 +114,7 @@ func (h *runHandler) List(w http.ResponseWriter, r *http.Request) {
 	offset := parseIntQ(r, "offset", 0)
 
 	runQ := queries.NewRunQueries(h.svc.DB)
-	runs, err := runQ.List(r.Context(), orgID, status, limit, offset)
+	runs, total, err := runQ.List(r.Context(), orgID, status, limit, offset)
 	if err != nil {
 		writeError(w, "failed to list runs", http.StatusInternalServerError)
 		return
@@ -124,6 +124,7 @@ func (h *runHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"runs":   runs,
+		"total":  total,
 		"limit":  limit,
 		"offset": offset,
 		"active": h.svc.Runner.ActiveCount(),
@@ -152,10 +153,22 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	report, _ := runQ.GetReport(r.Context(), runID)
 
+	attachments, _ := runQ.ListAttachments(r.Context(), runID)
+	if attachments == nil {
+		attachments = []queries.RunAttachment{}
+	}
+
+	testResults, _ := runQ.ListTestResults(r.Context(), runID)
+	if testResults == nil {
+		testResults = []queries.RunTestResult{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"run":    run,
-		"items":  items,
-		"report": report,
+		"run":          run,
+		"items":        items,
+		"report":       report,
+		"attachments":  attachments,
+		"test_results": testResults,
 	})
 }
 

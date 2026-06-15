@@ -29,6 +29,15 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className="flex flex-col items-center gap-2 text-center">
+        <a href="/" className="flex items-center gap-2 font-medium">
+          <img src="/favicon.svg" alt="" className="size-8" />
+          <span className="text-2xl font-semibold tracking-tight">Scout</span>
+        </a>
+        <p className="text-muted-foreground text-sm text-balance">
+          End-to-end test management Platform for modern web applications
+        </p>
+      </div>
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>

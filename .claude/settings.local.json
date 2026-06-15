@@ -36,6 +36,7 @@
     ]
   },
   "enabledMcpjsonServers": [
-    "shadcn"
+    "shadcn",
+    "code-review-graph"
   ]
 }

@@ -4,10 +4,12 @@ import {
   Loader2Icon,
   SearchIcon,
   Trash2Icon,
-  XIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import GitlabIcon from "@/assets/GitlabIcon"
+import SlackIcon from "@/assets/SlackIcon"
+import YoutrackIcon from "@/assets/YoutrackIcon"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,10 +23,19 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useActiveOrg } from "@/lib/auth"
-import { gitlabApi, type GitlabIntegration } from "@/lib/scout-api"
+import {
+  gitlabApi,
+  slackApi,
+  youtrackApi,
+  type GitlabIntegration,
+  type SlackSettings,
+  type YouTrackIntegration,
+} from "@/lib/scout-api"
 
 type ApiError = { response?: { data?: { error?: string } } }
 
@@ -46,14 +57,11 @@ function formatSyncedAt(iso: string | null) {
   return `${date}, ${time}`
 }
 
-type Toast = { kind: "success" | "error"; text: string }
-
 export default function IntegrationsPage() {
   const org = useActiveOrg()
   const [integrations, setIntegrations] = useState<GitlabIntegration[] | null>(
     null,
   )
-  const [toast, setToast] = useState<Toast | null>(null)
 
   useEffect(() => {
     if (!org) return
@@ -67,10 +75,7 @@ export default function IntegrationsPage() {
         if (cancelled) return
         console.error("Failed to load GitLab integrations", err)
         setIntegrations([])
-        setToast({
-          kind: "error",
-          text: readError(err, "Failed to load GitLab integrations"),
-        })
+        toast.error(readError(err, "Failed to load GitLab integrations"))
       })
     return () => {
       cancelled = true
@@ -83,9 +88,9 @@ export default function IntegrationsPage() {
     const connected = params.get("gitlab_connected")
     const errMsg = params.get("gitlab_error")
     if (connected === "true") {
-      setToast({ kind: "success", text: "GitLab connected" })
+      toast.success("GitLab connected")
     } else if (errMsg) {
-      setToast({ kind: "error", text: errMsg })
+      toast.error(errMsg)
     }
     if (connected || errMsg) {
       params.delete("gitlab_connected")
@@ -98,12 +103,6 @@ export default function IntegrationsPage() {
       )
     }
   }, [])
-
-  useEffect(() => {
-    if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 3500)
-    return () => window.clearTimeout(id)
-  }, [toast])
 
   const refresh = async () => {
     if (!org) return
@@ -119,10 +118,7 @@ export default function IntegrationsPage() {
       )
       window.location.href = url
     } catch (err) {
-      setToast({
-        kind: "error",
-        text: readError(err, "Failed to start GitLab connection"),
-      })
+      toast.error(readError(err, "Failed to start GitLab connection"))
     }
   }
 
@@ -143,23 +139,6 @@ export default function IntegrationsPage() {
           </div>
         </div>
       </div>
-
-      {toast ? (
-        <div
-          className={`flex items-center gap-2 px-4 py-2 text-sm ring-1 ${
-            toast.kind === "success"
-              ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/30"
-              : "bg-rose-500/10 text-rose-200 ring-rose-500/30"
-          }`}
-        >
-          {toast.kind === "success" ? (
-            <CheckCircle2Icon className="size-4" />
-          ) : (
-            <XIcon className="size-4" />
-          )}
-          {toast.text}
-        </div>
-      ) : null}
 
       <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
         <div className="flex items-center gap-3">
@@ -194,7 +173,6 @@ export default function IntegrationsPage() {
                 orgId={org!.id}
                 integration={it}
                 onChanged={refresh}
-                onToast={setToast}
               />
             ))}
           </div>
@@ -209,20 +187,286 @@ export default function IntegrationsPage() {
           </div>
         ) : null} */}
       </div>
+
+      {/* ── YouTrack ────────────────────────────────────────────────── */}
+      {org && <YouTrackSection orgId={org.id} />}
+
+      {/* ── Slack ───────────────────────────────────────────────────── */}
+      {org && <SlackSection orgId={org.id} />}
     </div>
   )
 }
+
+// ── YouTrack Section ──────────────────────────────────────────────────────────
+
+function YouTrackSection({ orgId }: { orgId: string }) {
+  const [integration, setIntegration] = useState<YouTrackIntegration | null | undefined>(undefined)
+  const [baseUrl, setBaseUrl] = useState("")
+  const [token, setToken] = useState("")
+  const [projectId, setProjectId] = useState("")
+  const [boardId, setBoardId] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    youtrackApi.getStatus(orgId).then((res) => {
+      if (cancelled) return
+      setIntegration(res.connected && res.integration ? res.integration : null)
+    }).catch(() => { if (!cancelled) setIntegration(null) })
+    return () => { cancelled = true }
+  }, [orgId])
+
+  const handleConnect = async () => {
+    if (!baseUrl.trim() || !token.trim() || !projectId.trim()) {
+      toast.error("Base URL, token and project ID are required")
+      return
+    }
+    setSaving(true)
+    try {
+      const result = await youtrackApi.connect(orgId, {
+        base_url: baseUrl.trim(),
+        token: token.trim(),
+        project_id: projectId.trim(),
+        board_id: boardId.trim() || undefined,
+      })
+      setIntegration(result)
+      setToken("")
+      toast.success("YouTrack connected")
+    } catch (err) {
+      toast.error(readError(err, "YouTrack connection failed"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    if (!integration) return
+    try {
+      await youtrackApi.disconnect(orgId, integration.id)
+      setIntegration(null)
+      toast.success("YouTrack disconnected")
+    } catch (err) {
+      toast.error(readError(err, "Failed to disconnect"))
+    }
+  }
+
+  return (
+    <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
+      <div className="flex items-center gap-3">
+        <YoutrackIcon className="size-8 shrink-0" />
+        <div>
+          <h2 className="text-base font-semibold">YouTrack</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Connect your YouTrack instance to map sprint tickets to test specs and run
+            coverage checks directly from the Sprints page. Uses a permanent token — no
+            OAuth required.
+          </p>
+        </div>
+      </div>
+
+      {integration === undefined && <Skeleton className="h-20 w-full" />}
+
+      {integration !== undefined && integration !== null && (
+        <div className="ring-border/40 flex items-center justify-between gap-4 p-5 ring-1">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle2Icon className="size-4 text-emerald-400" />
+              <span className="font-semibold">{integration.base_url}</span>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Project{" "}
+              <span className="font-mono">{integration.project_id}</span>
+              {integration.board_id && (
+                <>
+                  {" "}· Board{" "}
+                  <span className="font-mono">{integration.board_id}</span>
+                </>
+              )}
+            </p>
+          </div>
+          <Button variant="destructive" size="sm" onClick={() => void handleDisconnect()}>
+            <Trash2Icon className="size-4" />
+            Disconnect
+          </Button>
+        </div>
+      )}
+
+      {integration === null && (
+        <div className="ring-border/40 flex flex-col gap-4 p-5 ring-1">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2 space-y-1">
+              <Label htmlFor="yt-url-settings">Instance URL</Label>
+              <Input
+                id="yt-url-settings"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://youtrack.example.com"
+              />
+            </div>
+            <div className="sm:col-span-2 space-y-1">
+              <Label htmlFor="yt-token-settings">Permanent Token</Label>
+              <Input
+                id="yt-token-settings"
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="perm:..."
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="yt-project-settings">Project ID</Label>
+              <Input
+                id="yt-project-settings"
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                placeholder="ARD"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="yt-board-settings">
+                Board ID{" "}
+                <span className="text-muted-foreground text-xs">(optional)</span>
+              </Label>
+              <Input
+                id="yt-board-settings"
+                value={boardId}
+                onChange={(e) => setBoardId(e.target.value)}
+                placeholder="0-1"
+              />
+            </div>
+          </div>
+          <Button onClick={() => void handleConnect()} disabled={saving} className="self-start">
+            {saving && <Loader2Icon className="size-4 animate-spin" />}
+            Connect YouTrack
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Slack Section ─────────────────────────────────────────────────────────────
+
+function SlackSection({ orgId }: { orgId: string }) {
+  const [settings, setSettings] = useState<SlackSettings | null | undefined>(undefined)
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [notifyOnFailure, setNotifyOnFailure] = useState(true)
+  const [notifyOnSuccess, setNotifyOnSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    slackApi
+      .getSettings(orgId)
+      .then((res) => {
+        if (cancelled) return
+        setSettings(res)
+        setWebhookUrl(res.webhook_url)
+        setNotifyOnFailure(res.notify_on_failure)
+        setNotifyOnSuccess(res.notify_on_success)
+      })
+      .catch(() => {
+        if (!cancelled) setSettings(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await slackApi.updateSettings(orgId, {
+        webhook_url: webhookUrl.trim(),
+        notify_on_failure: notifyOnFailure,
+        notify_on_success: notifyOnSuccess,
+      })
+      toast.success("Slack settings saved")
+    } catch (err) {
+      toast.error(readError(err, "Failed to save Slack settings"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
+      <div className="flex items-center gap-3">
+        <SlackIcon className="size-8 shrink-0" />
+        <div>
+          <h2 className="text-base font-semibold">Slack</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Send run completion notifications to a Slack channel. Paste an
+            Incoming Webhook URL from your Slack App configuration.
+          </p>
+        </div>
+      </div>
+
+      {settings === undefined && <Skeleton className="h-20 w-full" />}
+
+      {settings !== undefined && (
+        <div className="ring-border/40 flex flex-col gap-4 p-5 ring-1">
+          <div className="space-y-1">
+            <Label htmlFor="slack-webhook-url">Webhook URL</Label>
+            <Input
+              id="slack-webhook-url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://hooks.slack.com/services/..."
+            />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="slack-notify-failure"
+                checked={notifyOnFailure}
+                onCheckedChange={(checked) =>
+                  setNotifyOnFailure(checked === true)
+                }
+              />
+              <Label htmlFor="slack-notify-failure" className="cursor-pointer font-normal">
+                Notify on failure
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="slack-notify-success"
+                checked={notifyOnSuccess}
+                onCheckedChange={(checked) =>
+                  setNotifyOnSuccess(checked === true)
+                }
+              />
+              <Label htmlFor="slack-notify-success" className="cursor-pointer font-normal">
+                Notify on success
+              </Label>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="self-start"
+          >
+            {saving && <Loader2Icon className="size-4 animate-spin" />}
+            Save
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── GitLab IntegrationCard ────────────────────────────────────────────────────
 
 function IntegrationCard({
   orgId,
   integration,
   onChanged,
-  onToast,
 }: {
   orgId: string
   integration: GitlabIntegration
   onChanged: () => Promise<void> | void
-  onToast: (t: Toast) => void
 }) {
   const [disconnecting, setDisconnecting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -231,10 +475,10 @@ function IntegrationCard({
     setDisconnecting(true)
     try {
       await gitlabApi.disconnect(orgId, integration.id)
-      onToast({ kind: "success", text: "Disconnected" })
+      toast.success("Disconnected")
       await onChanged()
     } catch (err) {
-      onToast({ kind: "error", text: readError(err, "Failed to disconnect") })
+      toast.error(readError(err, "Failed to disconnect"))
     } finally {
       setDisconnecting(false)
       setConfirmOpen(false)

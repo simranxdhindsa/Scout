@@ -27,6 +27,16 @@ func (h *testHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForFolder(r.Context(), h.svc.DB, folderID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
+		return
+	}
+
 	testQ := queries.NewTestQueries(h.svc.DB)
 	tests, err := testQ.ListByFolder(r.Context(), folderID)
 	if err != nil {
@@ -53,6 +63,16 @@ func (h *testHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForTest(r.Context(), h.svc.DB, testID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claimsGet := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claimsGet.UserID) {
+		return
+	}
+
 	testQ := queries.NewTestQueries(h.svc.DB)
 	tc, err := testQ.GetByID(r.Context(), testID)
 	if err != nil {
@@ -72,7 +92,15 @@ func (h *testHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgIDUp, okUp := orgIDForFolder(r.Context(), h.svc.DB, folderID)
+	if !okUp {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
 	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDUp, claims.UserID) {
+		return
+	}
 
 	var name, description, fileName, fileContent string
 
@@ -163,7 +191,15 @@ func (h *testHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgIDUpd, okUpd := orgIDForTest(r.Context(), h.svc.DB, testID)
+	if !okUpd {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
 	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDUpd, claims.UserID) {
+		return
+	}
 
 	var body struct {
 		Name        string `json:"name"`
@@ -222,6 +258,16 @@ func (h *testHandler) Versions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgIDVer, okVer := orgIDForTest(r.Context(), h.svc.DB, testID)
+	if !okVer {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
+	claimsVer := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDVer, claimsVer.UserID) {
+		return
+	}
+
 	testQ := queries.NewTestQueries(h.svc.DB)
 	versions, err := testQ.ListVersions(r.Context(), testID)
 	if err != nil {
@@ -258,7 +304,15 @@ func (h *testHandler) ArchiveRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgIDArch, okArch := orgIDForTest(r.Context(), h.svc.DB, testID)
+	if !okArch {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
 	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgIDArch, claims.UserID) {
+		return
+	}
 
 	var body struct {
 		Reason string `json:"reason"`

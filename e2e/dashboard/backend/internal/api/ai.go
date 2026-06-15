@@ -83,6 +83,16 @@ func (h *aiHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate roles before writing SSE headers — after headers are flushed, WriteHeader is a no-op
+	messages := make([]ai.ChatMessage, len(body.Messages))
+	for i, m := range body.Messages {
+		if m.Role != "user" && m.Role != "assistant" {
+			writeError(w, "invalid role: only 'user' and 'assistant' are accepted", http.StatusBadRequest)
+			return
+		}
+		messages[i] = ai.ChatMessage{Role: m.Role, Content: m.Content}
+	}
+
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -90,12 +100,6 @@ func (h *aiHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	flusher, canFlush := w.(http.Flusher)
-
-	// Convert message types
-	messages := make([]ai.ChatMessage, len(body.Messages))
-	for i, m := range body.Messages {
-		messages[i] = ai.ChatMessage{Role: m.Role, Content: m.Content}
-	}
 
 	err = h.svc.AI.ChatStream(r.Context(), orgID, messages, func(token string) error {
 		_, writeErr := w.Write([]byte("data: " + token + "\n\n"))

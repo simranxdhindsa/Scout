@@ -115,7 +115,15 @@ func (h *subProjectHandler) RootFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	orgID, ok := orgIDForSubProject(r.Context(), h.svc.DB, spID)
+	if !ok {
+		writeError(w, "not found", http.StatusNotFound)
+		return
+	}
 	claims := auth.ClaimsFromContext(r.Context())
+	if !memberCheck(w, r.Context(), h.svc.DB, orgID, claims.UserID) {
+		return
+	}
 	folderQ := queries.NewFolderQueries(h.svc.DB)
 
 	// Look for existing root folder (parent_id IS NULL)
