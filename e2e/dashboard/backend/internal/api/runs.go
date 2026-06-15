@@ -158,11 +158,17 @@ func (h *runHandler) Get(w http.ResponseWriter, r *http.Request) {
 		attachments = []queries.RunAttachment{}
 	}
 
+	testResults, _ := runQ.ListTestResults(r.Context(), runID)
+	if testResults == nil {
+		testResults = []queries.RunTestResult{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"run":         run,
-		"items":       items,
-		"report":      report,
-		"attachments": attachments,
+		"run":          run,
+		"items":        items,
+		"report":       report,
+		"attachments":  attachments,
+		"test_results": testResults,
 	})
 }
 

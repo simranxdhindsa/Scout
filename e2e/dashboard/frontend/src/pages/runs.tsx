@@ -179,7 +179,6 @@ export default function RunsPage() {
             />
           </div>
           <Button
-            size="sm"
             onClick={() => setNewRunOpen(true)}
             disabled={!org}
           >

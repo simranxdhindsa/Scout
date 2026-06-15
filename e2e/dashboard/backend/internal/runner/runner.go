@@ -64,6 +64,15 @@ func (s *Service) Bundler() *Bundler { return s.bundler }
 
 // StartWorkers launches the background run-processing goroutines.
 func (s *Service) StartWorkers(ctx context.Context) {
+	// The queue is in-memory only. A prior server restart/crash leaves any
+	// mid-flight runs stuck in 'queued'/'running' with no worker to finish
+	// them — they'd show "running" forever. Reconcile them to 'failed' first.
+	if n, err := s.runQ.ReconcileStuckRuns(ctx); err != nil {
+		log.Printf("[runner] reconcile stuck runs: %v", err)
+	} else if n > 0 {
+		log.Printf("[runner] reconciled %d stuck run(s) left over from a previous restart", n)
+	}
+
 	s.queue.StartWorkers(ctx, func(ctx context.Context, job *RunJob) {
 		if job.IsFlow {
 			s.processFlowRun(ctx, job)
@@ -348,9 +357,16 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 			log.Printf("[runner] save report error: %v", err)
 		}
 
-		// Update individual run items
+		// Update spec-level run items and persist each individual test() result
+		// so the run detail page can show a per-test pass/fail breakdown.
 		for _, tr := range result.TestResults {
-			s.updateRunItemByName(ctx, runID, tr)
+			itemID := s.updateRunItemByName(ctx, runID, tr)
+			if err := s.runQ.SaveTestResult(ctx, runID, itemID,
+				tr.FileName, tr.Title, tr.Status, tr.DurationMs,
+				tr.ErrorMessage, tr.ErrorStack, tr.RetryCount,
+			); err != nil {
+				log.Printf("[runner] save test result error: %v", err)
+			}
 		}
 
 		// Upload test-result attachments (screenshots from individual test cases)
@@ -458,11 +474,14 @@ func (s *Service) getEnvCredentials(ctx context.Context, envID uuid.UUID) (usern
 	return username, password
 }
 
-func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr ParsedTestResult) {
+// updateRunItemByName matches a parsed test result to its spec-level run item
+// (by file name / title heuristic) and updates it. Returns the matched run_item
+// id, or nil when no item matched.
+func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr ParsedTestResult) *uuid.UUID {
 	// Match run item by test case file name heuristic
 	items, err := s.runQ.ListItems(ctx, runID)
 	if err != nil {
-		return
+		return nil
 	}
 	for _, item := range items {
 		if item.TestCaseID == nil {
@@ -474,46 +493,82 @@ func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr P
 		}
 		if tc.FileName == tr.FileName || tc.Name == tr.Title {
 			_ = s.runQ.UpdateItem(ctx, item.ID, tr.Status, tr.DurationMs, tr.ErrorMessage, tr.ErrorStack)
-			return
+			id := item.ID
+			return &id
 		}
 	}
+	return nil
 }
 
 func (s *Service) uploadAttachments(ctx context.Context, runID, orgID uuid.UUID, results []ParsedTestResult) {
 	items, err := s.runQ.ListItems(ctx, runID)
-	if err != nil {
+	if err != nil || len(items) == 0 {
 		return
 	}
 
-	for _, tr := range results {
+	// Match a parsed test result to its owning run item by the same file
+	// name / title heuristic used in updateRunItemByName; fall back to the
+	// first item so attachments are never orphaned.
+	itemFor := func(tr ParsedTestResult) uuid.UUID {
 		for _, item := range items {
 			if item.TestCaseID == nil {
 				continue
 			}
-			for _, att := range tr.Attachments {
-				if att.Path == "" {
-					continue
-				}
-				f, err := os.Open(att.Path)
-				if err != nil {
-					continue
-				}
-				key := storage.RunAttachmentKey(orgID.String(), runID.String(), filepath.Base(att.Path))
-				url, err := s.store.Put(ctx, key, f, "application/octet-stream")
-				f.Close()
-				if err != nil {
-					continue
-				}
-				_ = s.runQ.SaveAttachment(ctx, item.ID, att.Type, url)
+			tc, err := s.testQ.GetByID(ctx, *item.TestCaseID)
+			if err != nil {
+				continue
 			}
+			if tc.FileName == tr.FileName || tc.Name == tr.Title {
+				return item.ID
+			}
+		}
+		return items[0].ID
+	}
+
+	for _, tr := range results {
+		itemID := itemFor(tr)
+		for _, att := range tr.Attachments {
+			if att.Path == "" {
+				continue
+			}
+			f, err := os.Open(att.Path)
+			if err != nil {
+				continue
+			}
+			key := storage.RunAttachmentKey(orgID.String(), runID.String(), uniqueAttachmentName(att.Path))
+			url, err := s.store.Put(ctx, key, f, "application/octet-stream")
+			f.Close()
+			if err != nil {
+				continue
+			}
+			_ = s.runQ.SaveAttachment(ctx, itemID, att.Type, url)
 		}
 	}
 }
 
-// uploadRunMediaFiles scans the workspace test-results dir for videos (.webm),
-// traces (.zip), and persisted screenshots (.png), uploads each to storage, and
-// records them in run_attachments. All three types are uploaded regardless of
-// test outcome so they are always available from the run detail page.
+// uniqueAttachmentName builds a collision-free storage filename for a Playwright
+// artifact. Playwright names auto artifacts identically across tests
+// ("test-finished-1.png", "video.webm", "trace.zip") inside a per-test
+// subdirectory, so the base name alone collides and uploads overwrite each
+// other. Prefixing with the enclosing directory name keeps each test's
+// artifact distinct.
+func uniqueAttachmentName(path string) string {
+	base := filepath.Base(path)
+	parent := filepath.Base(filepath.Dir(path))
+	switch parent {
+	case "", ".", string(filepath.Separator), "test-results":
+		return base
+	}
+	return parent + "-" + base
+}
+
+// uploadRunMediaFiles scans the workspace test-results dir for videos (.webm)
+// and traces (.zip), uploads each to storage, and records them in
+// run_attachments. Both are uploaded regardless of test outcome so they are
+// always available from the run detail page. Screenshots are intentionally not
+// handled here — they're uploaded per-test in uploadAttachments from the parsed
+// report, which gives an accurate test→screenshot mapping; scanning for .png
+// here too would double-upload them.
 func (s *Service) uploadRunMediaFiles(ctx context.Context, runID, orgID uuid.UUID, ws *Workspace) {
 	items, err := s.runQ.ListItems(ctx, runID)
 	if err != nil || len(items) == 0 {
@@ -540,14 +595,13 @@ func (s *Service) uploadRunMediaFiles(ctx context.Context, runID, orgID uuid.UUI
 	for _, u := range []upload{
 		{".webm", "video/webm", "video"},
 		{".zip", "application/zip", "trace"},
-		{".png", "image/png", "screenshot"},
 	} {
 		for _, f := range ws.ListFiles(ws.TestResultsDir(), u.ext) {
 			fh, err := os.Open(f)
 			if err != nil {
 				continue
 			}
-			key := storage.RunAttachmentKey(orgID.String(), runID.String(), filepath.Base(f))
+			key := storage.RunAttachmentKey(orgID.String(), runID.String(), uniqueAttachmentName(f))
 			url, err := s.store.Put(ctx, key, fh, u.contentType)
 			fh.Close()
 			if err != nil {

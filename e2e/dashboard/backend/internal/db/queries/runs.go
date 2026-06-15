@@ -42,6 +42,20 @@ type RunItem struct {
 	TestCaseName string `json:"test_case_name,omitempty"`
 }
 
+type RunTestResult struct {
+	ID           uuid.UUID  `json:"id"`
+	RunID        uuid.UUID  `json:"run_id"`
+	RunItemID    *uuid.UUID `json:"run_item_id"`
+	FileName     string     `json:"file_name"`
+	Title        string     `json:"title"`
+	Status       string     `json:"status"`
+	DurationMs   *int       `json:"duration_ms"`
+	ErrorMessage string     `json:"error_message,omitempty"`
+	ErrorStack   string     `json:"error_stack,omitempty"`
+	RetryCount   int        `json:"retry_count"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
 type RunReport struct {
 	ID             uuid.UUID `json:"id"`
 	RunID          uuid.UUID `json:"run_id"`
@@ -141,18 +155,20 @@ func (q *RunQueries) GetCredentials(ctx context.Context, runID uuid.UUID) ([]byt
 // List returns paginated runs for an org with optional status filter,
 // plus the total count matching the filter (for pagination).
 func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, limit, offset int) ([]TestRun, int, error) {
-	where := "WHERE org_id = $1"
+	// Qualify with the tr alias — the list query joins environments (which also
+	// has an org_id/status-free schema), so an unqualified org_id is ambiguous.
+	where := "WHERE tr.org_id = $1"
 	args := []any{orgID}
 
 	if status != "" {
 		args = append(args, status)
-		where += fmt.Sprintf(" AND status = $%d", len(args))
+		where += fmt.Sprintf(" AND tr.status = $%d", len(args))
 	}
 
 	// Total count for pagination
 	var total int
 	if err := q.db.QueryRow(ctx,
-		fmt.Sprintf("SELECT COUNT(*) FROM test_runs %s", where), args...,
+		fmt.Sprintf("SELECT COUNT(*) FROM test_runs tr %s", where), args...,
 	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count runs: %w", err)
 	}
@@ -191,6 +207,37 @@ func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, l
 		runs = append(runs, r)
 	}
 	return runs, total, rows.Err()
+}
+
+// ReconcileStuckRuns marks any runs left in a non-terminal state ('queued' or
+// 'running') as 'failed'. The run queue is in-memory only, so a backend
+// restart/crash orphans whatever was mid-flight — those runs would otherwise
+// display as "running" forever. Called once on startup before workers launch.
+// It also fails the orphaned runs' still-pending items. Returns the number of
+// runs reconciled.
+func (q *RunQueries) ReconcileStuckRuns(ctx context.Context) (int64, error) {
+	const msg = "Run interrupted by a server restart and could not be recovered."
+
+	// Fail the items of any non-terminal run first.
+	if _, err := q.db.Exec(ctx, `
+		UPDATE run_items SET status = 'failed', completed_at = NOW()
+		WHERE status IN ('queued', 'running')
+		  AND run_id IN (SELECT id FROM test_runs WHERE status IN ('queued', 'running'))
+	`); err != nil {
+		return 0, fmt.Errorf("reconcile run items: %w", err)
+	}
+
+	tag, err := q.db.Exec(ctx, `
+		UPDATE test_runs
+		SET status = 'failed',
+		    error_message = COALESCE(NULLIF(error_message, ''), $1),
+		    completed_at = NOW()
+		WHERE status IN ('queued', 'running')
+	`, msg)
+	if err != nil {
+		return 0, fmt.Errorf("reconcile stuck runs: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 // SetErrorMessage records why a run failed so the dashboard can surface it.
@@ -298,6 +345,50 @@ func (q *RunQueries) ListItems(ctx context.Context, runID uuid.UUID) ([]RunItem,
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+// ── Per-test results ──────────────────────────────────────────────────────────
+
+// SaveTestResult inserts one individual test() result parsed from the Playwright
+// report. runItemID links it to the owning spec's run_item when known.
+func (q *RunQueries) SaveTestResult(ctx context.Context, runID uuid.UUID, runItemID *uuid.UUID, fileName, title, status string, durationMs int, errorMsg, errorStack string, retryCount int) error {
+	_, err := q.db.Exec(ctx, `
+		INSERT INTO run_test_results
+		  (run_id, run_item_id, file_name, title, status, duration_ms,
+		   error_message, error_stack, retry_count)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	`, runID, runItemID, fileName, title, status, durationMs, errorMsg, errorStack, retryCount)
+	return err
+}
+
+// ListTestResults returns every per-test result for a run, ordered by spec.
+func (q *RunQueries) ListTestResults(ctx context.Context, runID uuid.UUID) ([]RunTestResult, error) {
+	rows, err := q.db.Query(ctx, `
+		SELECT id, run_id, run_item_id, file_name, title, status, duration_ms,
+		       COALESCE(error_message, '') AS error_message,
+		       COALESCE(error_stack,   '') AS error_stack,
+		       retry_count, created_at
+		FROM run_test_results
+		WHERE run_id = $1
+		ORDER BY file_name ASC, created_at ASC
+	`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("list run test results: %w", err)
+	}
+	defer rows.Close()
+
+	var results []RunTestResult
+	for rows.Next() {
+		var tr RunTestResult
+		if err := rows.Scan(
+			&tr.ID, &tr.RunID, &tr.RunItemID, &tr.FileName, &tr.Title, &tr.Status,
+			&tr.DurationMs, &tr.ErrorMessage, &tr.ErrorStack, &tr.RetryCount, &tr.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, tr)
+	}
+	return results, rows.Err()
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────────

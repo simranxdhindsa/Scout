@@ -17,6 +17,7 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { api } from "@/lib/api"
 import { useActiveOrg } from "@/lib/auth"
 import {
   runStreamUrl,
@@ -25,6 +26,7 @@ import {
   type RunDetailResponse,
   type RunItem,
   type RunStatus,
+  type RunTestResult,
 } from "@/lib/scout-api"
 
 type StreamLine = {
@@ -63,6 +65,7 @@ function itemIcon(status: string) {
       return <CheckCircle2Icon className="size-4 text-emerald-400" />
     case "failed":
     case "timed_out":
+    case "timedOut":
       return <XCircleIcon className="size-4 text-rose-400" />
     case "running":
       return <Loader2Icon className="size-4 animate-spin text-sky-400" />
@@ -217,7 +220,7 @@ export default function RunDetailPage() {
     )
   }
 
-  const { run, items, report, attachments = [] } = detail
+  const { run, items, report, attachments = [], test_results = [] } = detail
   const screenshots = attachments.filter((a) => a.type === "screenshot")
   const videos = attachments.filter((a) => a.type === "video")
   const traces = attachments.filter((a) => a.type === "trace")
@@ -293,17 +296,18 @@ export default function RunDetailPage() {
           </div>
           {(videos.length > 0 || traces.length > 0) && (
             <div className="flex flex-col gap-2">
-              {videos.map((v) => (
-                <a
+              {videos.map((v, i) => (
+                <button
                   key={v.id}
-                  href={v.storage_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() =>
+                    downloadAttachment(v.storage_url, `recording-${i + 1}.webm`)
+                  }
                   className="bg-muted/40 ring-border/40 hover:bg-accent inline-flex items-center gap-2 px-3 py-2 text-xs ring-1 whitespace-nowrap"
                 >
                   <ClapperboardIcon className="size-3.5" />
-                  Watch Video
-                </a>
+                  Download Video
+                </button>
               ))}
               {traces.map((t) => (
                 <a
@@ -358,11 +362,10 @@ export default function RunDetailPage() {
           </div>
           <div className="flex flex-wrap gap-4 p-4">
             {videos.map((v, i) => (
-              <video
+              <AuthedVideo
                 key={v.id}
-                src={v.storage_url}
-                controls
-                className="max-h-64 max-w-full ring-border/40 ring-1"
+                storageUrl={v.storage_url}
+                className="max-h-64 max-w-full ring-border/40 min-h-32 min-w-48 ring-1"
                 title={`Recording ${i + 1}`}
               />
             ))}
@@ -390,6 +393,11 @@ export default function RunDetailPage() {
           </ul>
         )}
       </div>
+
+      {/* Individual test() breakdown, grouped by spec file */}
+      {test_results.length > 0 && (
+        <TestResultsBreakdown results={test_results} />
+      )}
     </div>
   )
 }
@@ -506,6 +514,120 @@ function LivePreview({ src }: { src: string }) {
   )
 }
 
+// Storage artifacts are served from an authenticated backend route, so a plain
+// <img src> can't load them (no bearer header, cross-origin cookie). Absolute
+// (S3) URLs are used as-is; bare local keys are fetched through the axios client
+// (which attaches the JWT) and turned into object URLs.
+function isAbsoluteUrl(u: string) {
+  return /^https?:\/\//i.test(u)
+}
+
+function storageKey(storageUrl: string) {
+  return storageUrl
+    .replace(/^\/?(api\/v1\/storage\/)/, "")
+    .replace(/^\/+/, "")
+}
+
+async function fetchAttachmentObjectUrl(storageUrl: string): Promise<string> {
+  if (isAbsoluteUrl(storageUrl)) return storageUrl
+  const res = await api.get(`/storage/${storageKey(storageUrl)}`, {
+    responseType: "blob",
+  })
+  return URL.createObjectURL(res.data as Blob)
+}
+
+function useAuthedBlob(storageUrl: string) {
+  const [url, setUrl] = useState<string | null>(
+    isAbsoluteUrl(storageUrl) ? storageUrl : null,
+  )
+  useEffect(() => {
+    if (isAbsoluteUrl(storageUrl)) {
+      setUrl(storageUrl)
+      return
+    }
+    let objectUrl: string | null = null
+    let cancelled = false
+    fetchAttachmentObjectUrl(storageUrl)
+      .then((u) => {
+        if (cancelled) {
+          URL.revokeObjectURL(u)
+          return
+        }
+        objectUrl = u
+        setUrl(u)
+      })
+      .catch(() => {
+        /* leave as null → broken-image fallback */
+      })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [storageUrl])
+  return url
+}
+
+function AuthedImage({
+  storageUrl,
+  alt,
+  className,
+}: {
+  storageUrl: string
+  alt: string
+  className?: string
+}) {
+  const url = useAuthedBlob(storageUrl)
+  if (!url) {
+    return (
+      <div
+        className={`bg-muted/40 flex items-center justify-center ${className ?? ""}`}
+      >
+        <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+      </div>
+    )
+  }
+  return <img src={url} alt={alt} className={className} />
+}
+
+function AuthedVideo({
+  storageUrl,
+  className,
+  title,
+}: {
+  storageUrl: string
+  className?: string
+  title?: string
+}) {
+  const url = useAuthedBlob(storageUrl)
+  if (!url) {
+    return (
+      <div
+        className={`bg-muted/40 flex items-center justify-center ${className ?? ""}`}
+      >
+        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+      </div>
+    )
+  }
+  return <video src={url} controls className={className} title={title} />
+}
+
+async function downloadAttachment(storageUrl: string, filename: string) {
+  try {
+    const url = await fetchAttachmentObjectUrl(storageUrl)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    if (!isAbsoluteUrl(storageUrl)) {
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    }
+  } catch {
+    /* ignore — download just won't start */
+  }
+}
+
 function AttachmentStrip({
   screenshots,
   selected,
@@ -527,8 +649,8 @@ function AttachmentStrip({
       {/* Expanded view of the selected screenshot */}
       {selected && (
         <div className="border-border/40 relative border-b bg-zinc-950 p-4">
-          <img
-            src={selected}
+          <AuthedImage
+            storageUrl={selected}
             alt="Screenshot"
             className="mx-auto max-h-[480px] max-w-full object-contain"
           />
@@ -544,7 +666,7 @@ function AttachmentStrip({
 
       {/* Thumbnail strip */}
       <div className="flex flex-wrap gap-3 p-4">
-        {screenshots.map((s) => (
+        {screenshots.map((s, i) => (
           <div key={s.id} className="flex flex-col gap-1">
             <button
               type="button"
@@ -557,24 +679,130 @@ function AttachmentStrip({
                   : "ring-border/40 hover:ring-sky-400/50"
               }`}
             >
-              <img
-                src={s.storage_url}
+              <AuthedImage
+                storageUrl={s.storage_url}
                 alt="Screenshot thumbnail"
                 className="h-24 w-40 object-cover"
               />
             </button>
-            <a
-              href={s.storage_url}
-              download
+            <button
+              type="button"
+              onClick={() =>
+                downloadAttachment(s.storage_url, `screenshot-${i + 1}.png`)
+              }
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px]"
             >
               <DownloadIcon className="size-3" />
               Download
-            </a>
+            </button>
           </div>
         ))}
       </div>
     </div>
+  )
+}
+
+function TestResultsBreakdown({ results }: { results: RunTestResult[] }) {
+  // Group individual test() results by their spec file, preserving order.
+  const groups: { file: string; tests: RunTestResult[] }[] = []
+  const byFile = new Map<string, RunTestResult[]>()
+  for (const tr of results) {
+    const key = tr.file_name || "—"
+    let bucket = byFile.get(key)
+    if (!bucket) {
+      bucket = []
+      byFile.set(key, bucket)
+      groups.push({ file: key, tests: bucket })
+    }
+    bucket.push(tr)
+  }
+
+  const isFail = (s: string) => s === "failed" || s === "timedOut"
+
+  return (
+    <div className="bg-muted/30 ring-border/40 flex flex-col ring-1">
+      <div className="border-border/40 flex items-center justify-between border-b px-4 py-2 text-xs">
+        <span className="text-muted-foreground font-medium tracking-wider uppercase">
+          Test breakdown
+        </span>
+        <span className="text-muted-foreground">
+          {results.length} {results.length === 1 ? "test" : "tests"}
+        </span>
+      </div>
+      <div className="divide-border/40 divide-y">
+        {groups.map((g) => {
+          const failed = g.tests.filter((t) => isFail(t.status)).length
+          const passed = g.tests.filter((t) => t.status === "passed").length
+          return (
+            <div key={g.file} className="flex flex-col">
+              <div className="bg-muted/20 flex items-center gap-2 px-4 py-1.5">
+                <span className="flex-1 truncate font-mono text-xs font-medium">
+                  {g.file}
+                </span>
+                {failed > 0 ? (
+                  <span className="text-rose-400 text-[10px] font-medium">
+                    {failed} failed
+                  </span>
+                ) : null}
+                {passed > 0 ? (
+                  <span className="text-emerald-400 text-[10px] font-medium">
+                    {passed} passed
+                  </span>
+                ) : null}
+              </div>
+              <ul className="divide-border/40 divide-y">
+                {g.tests.map((t) => (
+                  <TestResultRow key={t.id} test={t} />
+                ))}
+              </ul>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function TestResultRow({ test }: { test: RunTestResult }) {
+  const [open, setOpen] = useState(false)
+  const hasDetail = !!(test.error_message || test.error_stack)
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => hasDetail && setOpen((v) => !v)}
+        className={`flex w-full items-center gap-3 py-2 pr-4 pl-8 text-left text-sm ${
+          hasDetail ? "hover:bg-muted/40 cursor-pointer" : "cursor-default"
+        }`}
+      >
+        {itemIcon(test.status)}
+        <span className="flex-1 truncate text-xs">
+          {test.title || "(untitled test)"}
+        </span>
+        {test.retry_count > 0 ? (
+          <span className="text-amber-400 text-[10px]">
+            {test.retry_count} {test.retry_count === 1 ? "retry" : "retries"}
+          </span>
+        ) : null}
+        <span className="text-muted-foreground text-xs">
+          {formatDuration(test.duration_ms)}
+        </span>
+      </button>
+      {open && hasDetail ? (
+        <div className="bg-muted/20 border-border/40 border-t px-8 py-3">
+          {test.error_message ? (
+            <pre className="text-destructive text-xs whitespace-pre-wrap">
+              {test.error_message}
+            </pre>
+          ) : null}
+          {test.error_stack ? (
+            <pre className="text-muted-foreground mt-2 text-xs whitespace-pre-wrap">
+              {test.error_stack}
+            </pre>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
   )
 }
 
