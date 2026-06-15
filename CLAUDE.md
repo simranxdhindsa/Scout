@@ -80,6 +80,8 @@ Three test projects, each scoped to one Ardoise product. URLs come from `.env.e2
 
 ### Backend (`e2e/dashboard/backend/` — Go, module `github.com/apyhub/scout`)
 
+See `e2e/dashboard/backend/CLAUDE.md` for the in-depth backend guide (startup sequence, handler/middleware patterns, `chain()`, JSON helpers, migrations, auth context, storage abstraction).
+
 - **Port**: 8080
 - **DB**: PostgreSQL (NeonDB); auto-migrates on startup via embedded SQL in `internal/db/migrations/`
 - **Auth**: Google OAuth → JWT; platform-admin role seeded from `PLATFORM_ADMIN_EMAILS`
@@ -91,6 +93,9 @@ Three test projects, each scoped to one Ardoise product. URLs come from `.env.e2
   - `internal/ai/` — Groq LLM, RAG/vector store, test generator, run analyzer
   - `internal/notifications/` — in-app notification service
   - `internal/gitlab/` — GitLab OAuth + repo/dir sync for importing specs from GitLab projects
+  - `internal/youtrack/` — YouTrack integration: sprint/issue fetch + test-case mappings
+  - `internal/slack/` — Slack incoming-webhook run notifications
+  - `internal/scheduler/` — cron-based scheduled test runs
 
 ### Frontend (`e2e/dashboard/frontend/` — Vite + React 19 + TypeScript)
 
@@ -103,11 +108,11 @@ See `e2e/dashboard/frontend/CLAUDE.md` for the in-depth frontend guide (theming,
 - **Routes** (flat, not org-slug scoped):
   - `/login`, `/auth/callback`
   - `/` — home
-  - `/dashboard` (inside `DashboardLayout`) — index, `runs`, `pipeline`, `ai-assistant`, `settings/{environments,members,archive-queue,ai-config,integrations,organisations}`
+  - `/dashboard` (inside `DashboardLayout`) — index, `runs`, `pipeline` (+ `pipeline/runs/:flowRunId`), `sprints`, `ai-assistant`, `analytics`, `settings/{environments,members,archive-queue,ai-config,integrations,organisations,scheduled-runs}`
   - `/projects` — list; `/projects/:slug` — project detail
   - `/runs/:runId` — live run output + report
 - **Layout**: `src/pages/dashboard-layout.tsx` owns sidebar + header (`SidebarTrigger`, breadcrumb resolved from `pathname` via `resolveTitle`, `<NotificationsBell />`, `<ModeToggle />`). Sidebar nav is a static `data` blob in `src/components/app-sidebar.tsx`.
-- **API layer**: single axios client `src/lib/api.ts` (baseURL `${VITE_SCOUT_API_URL || http://localhost:8080}/api/v1`, bearer interceptor, 401 → clears cookie + redirects `/login`). Typed wrappers per backend area in `src/lib/scout-api.ts` (`authApi`, `runsApi`, `pipelinesApi`, `overviewApi`, `environmentsApi`, `membersApi`, `archiveApi`, `aiConfigApi`, `gitlabApi`, `notificationsApi`, plus `streamChat` SSE helper). Add new endpoints as typed wrappers there, not inline.
+- **API layer**: single axios client `src/lib/api.ts` (baseURL `${VITE_SCOUT_API_URL || http://localhost:8080}/api/v1`, bearer interceptor, 401 → clears cookie + redirects `/login`). Typed wrappers per backend area in `src/lib/scout-api.ts` (`authApi`, `orgsApi`, `productsApi`, `subProjectsApi`, `foldersApi`, `testsApi`, `runsApi`, `pipelinesApi`, `flowsApi`, `overviewApi`, `analyticsApi`, `environmentsApi`, `membersApi`, `adminUsersApi`, `adminOrgMembersApi`, `archiveApi`, `aiConfigApi`, `chatHistoryApi`, `notificationsApi`, `gitlabApi`, `youtrackApi`, `slackApi`, `scheduledRunsApi`, plus the `streamChat` SSE helper). Add new endpoints as typed wrappers there, not inline.
 - **Path alias**: `@/* → ./src/*` configured in `tsconfig.json`, `tsconfig.app.json`, and `vite.config.ts` — keep all three in sync.
 
 ### Backend API (base `/api/v1/`)
@@ -124,10 +129,14 @@ Runs: `POST/GET /orgs/{orgId}/runs`; `GET/DELETE /orgs/{orgId}/runs/{runId}`; `G
 Reports: `GET /orgs/{orgId}/reports`; `GET /orgs/{orgId}/reports/stats`; `GET /runs/{runId}/report`  
 Pipelines: `GET/POST /orgs/{orgId}/pipelines`; `PUT/DELETE/run` on `/{pipelineId}`  
 Archive queue: `GET/approve/reject` under `/orgs/{orgId}/archive-queue`  
-AI: `GET/PUT /orgs/{orgId}/ai/config`; `POST /ai/chat`, `/ai/analyze/{runId}`, `/ai/generate-test`  
+AI: `GET/PUT /orgs/{orgId}/ai/config`; `POST /ai/chat`, `/ai/analyze/{runId}`, `/ai/generate-test`; chat sessions `GET/POST /ai/sessions`, `PUT/DELETE /ai/sessions/{sessionId}`  
 Notifications: `GET/read-all/read` under `/me/notifications`  
 SCORM: upload, status, snapshots, generators under `/orgs/{orgId}/scorm/`  
-GitLab: `GET /auth/gitlab/callback`; `GET /orgs/{orgId}/integrations/gitlab` (list); `GET .../connect` (OAuth init); `GET .../{integrationId}/repos|dirs`; `PUT/DELETE /{integrationId}`; `POST /{integrationId}/sync`
+GitLab: `GET /auth/gitlab/callback`; `GET /orgs/{orgId}/integrations/gitlab` (list); `GET .../connect` (OAuth init); `GET .../{integrationId}/repos|dirs`; `PUT/DELETE /{integrationId}`; `POST /{integrationId}/sync`  
+YouTrack: `GET/POST/DELETE /orgs/{orgId}/integrations/youtrack`; `GET .../{integrationId}/boards|sprints`; `GET .../sprints/{sprintId}/issues`; `POST .../sprints/{sprintId}/run`; `GET/POST/DELETE /orgs/{orgId}/youtrack/mappings`  
+Slack: `GET/PUT /orgs/{orgId}/settings/slack`  
+Scheduled runs: `GET/POST /orgs/{orgId}/scheduled-runs`; `PUT/DELETE /{schedId}`; `POST /{schedId}/toggle`  
+Analytics: `GET /orgs/{orgId}/analytics/{overview,flaky,slow}`; `GET /orgs/{orgId}/analytics/tests/{testCaseId}/history`
 
 ---
 

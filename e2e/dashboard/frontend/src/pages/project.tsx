@@ -22,6 +22,12 @@ import {
 
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Select,
   SelectContent,
@@ -50,6 +56,13 @@ function readError(err: unknown, fallback: string) {
     (err as { response?: { data?: { error?: string } } })?.response?.data
       ?.error ?? fallback
   )
+}
+
+// Flatten every test-case id under a folder subtree (children + own tests).
+function collectTestIds(node: Folder): string[] {
+  const ids = (node.test_cases ?? []).map((t) => t.id)
+  node.children?.forEach((c) => ids.push(...collectTestIds(c)))
+  return ids
 }
 
 export default function ProjectPage() {
@@ -425,6 +438,8 @@ function FolderTreeSection({
   const [busyTarget, setBusyTarget] = useState<string | null>(null)
   const [headed, setHeaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [batchRunning, setBatchRunning] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -564,6 +579,51 @@ function FolderTreeSection({
     }
   }
 
+  const toggleTest = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Select/deselect every test under a folder subtree at once.
+  const toggleFolder = (testIds: string[], fullySelected: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (fullySelected) testIds.forEach((id) => next.delete(id))
+      else testIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelected(new Set())
+
+  const runSelected = async () => {
+    if (!orgId || selected.size === 0) return
+    if (!envId) {
+      setError("Pick an environment before running.")
+      return
+    }
+    setBatchRunning(true)
+    setError(null)
+    try {
+      const ids = Array.from(selected)
+      const { run_id } = await runsApi.start(orgId, {
+        target_type: "test_case",
+        target_ids: ids,
+        environment_id: envId,
+        label: `${ids.length} test${ids.length === 1 ? "" : "s"}`,
+      })
+      navigate(`/runs/${run_id}`)
+    } catch (err) {
+      setError(readError(err, "Failed to start run"))
+    } finally {
+      setBatchRunning(false)
+    }
+  }
+
   if (folders === null) {
     return (
       <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
@@ -577,7 +637,14 @@ function FolderTreeSection({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Folders & tests</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Folders & tests</h2>
+          {selected.size > 0 ? (
+            <span className="text-muted-foreground text-xs">
+              {selected.size} selected
+            </span>
+          ) : null}
+        </div>
         <div className="flex items-center gap-2">
           {noEnvs ? (
             <Link
@@ -651,6 +718,25 @@ function FolderTreeSection({
             )}
             Run all
           </Button>
+          {selected.size > 0 ? (
+            <>
+              <Button
+                size="sm"
+                onClick={runSelected}
+                disabled={!envId || batchRunning}
+              >
+                {batchRunning ? (
+                  <Loader2Icon className="size-4 animate-spin" />
+                ) : (
+                  <PlayIcon className="size-4" />
+                )}
+                Run selected ({selected.size})
+              </Button>
+              <Button size="sm" variant="outline" onClick={clearSelection}>
+                Clear
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -693,6 +779,9 @@ function FolderTreeSection({
                 busyTarget={busyTarget}
                 canRun={!!envId}
                 onRun={startRun}
+                selectedTests={selected}
+                onToggleTest={toggleTest}
+                onToggleFolder={toggleFolder}
               />
             ))
           )}
@@ -715,6 +804,9 @@ function FolderNode({
   busyTarget,
   canRun,
   onRun,
+  selectedTests,
+  onToggleTest,
+  onToggleFolder,
 }: {
   node: Folder
   depth: number
@@ -729,9 +821,26 @@ function FolderNode({
     target_id: string,
     label: string,
   ) => void
+  selectedTests: Set<string>
+  onToggleTest: (id: string) => void
+  onToggleFolder: (testIds: string[], fullySelected: boolean) => void
 }) {
   const open = expanded.has(node.id)
   const pad = 8 + depth * 14
+
+  // Tri-state checkbox driven by how many descendant tests are selected.
+  const descendantTestIds = useMemo(() => collectTestIds(node), [node])
+  const selectedCount = descendantTestIds.filter((id) =>
+    selectedTests.has(id),
+  ).length
+  const fullySelected =
+    descendantTestIds.length > 0 && selectedCount === descendantTestIds.length
+  const checkState: boolean | "indeterminate" = fullySelected
+    ? true
+    : selectedCount > 0
+      ? "indeterminate"
+      : false
+  const anySelected = selectedCount > 0
 
   return (
     <div className="flex flex-col">
@@ -739,6 +848,20 @@ function FolderNode({
         className="hover:bg-muted/40 group flex items-center gap-1.5"
         style={{ paddingLeft: pad }}
       >
+        {descendantTestIds.length > 0 ? (
+          <Checkbox
+            checked={checkState}
+            onCheckedChange={() =>
+              onToggleFolder(descendantTestIds, fullySelected)
+            }
+            aria-label={`Select all tests in ${node.name}`}
+            className={`size-3.5 shrink-0 transition-opacity focus-visible:opacity-100 ${
+              anySelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+          />
+        ) : (
+          <span className="size-3.5 shrink-0" />
+        )}
         <button
           type="button"
           onClick={() => onToggle(node.id)}
@@ -756,22 +879,28 @@ function FolderNode({
           )}
           <span className="truncate font-mono text-xs">{node.name}</span>
         </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onRun("folder", node.id, node.name)
-          }}
-          disabled={!canRun || busyTarget === node.id}
-          title={canRun ? "Run folder" : "Pick an environment first"}
-          className="text-muted-foreground hover:text-foreground disabled:opacity-30 invisible flex size-6 items-center justify-center group-hover:visible"
-        >
-          {busyTarget === node.id ? (
-            <Loader2Icon className="size-3.5 animate-spin" />
-          ) : (
-            <PlayIcon className="size-3.5" />
-          )}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onRun("folder", node.id, node.name)
+              }}
+              disabled={!canRun || busyTarget === node.id}
+              className="text-muted-foreground hover:text-foreground disabled:pointer-events-none flex size-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100 focus-visible:opacity-100"
+            >
+              {busyTarget === node.id ? (
+                <Loader2Icon className="size-3.5 animate-spin" />
+              ) : (
+                <PlayIcon className="size-3.5" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {canRun ? "Run folder" : "Pick an environment first"}
+          </TooltipContent>
+        </Tooltip>
       </div>
       {open ? (
         <>
@@ -787,6 +916,9 @@ function FolderNode({
               busyTarget={busyTarget}
               canRun={canRun}
               onRun={onRun}
+              selectedTests={selectedTests}
+              onToggleTest={onToggleTest}
+              onToggleFolder={onToggleFolder}
             />
           ))}
           {node.test_cases?.map((t) => (
@@ -799,6 +931,8 @@ function FolderNode({
               busy={busyTarget === t.id}
               canRun={canRun}
               onRun={() => onRun("test_case", t.id, t.name)}
+              checked={selectedTests.has(t.id)}
+              onToggleCheck={() => onToggleTest(t.id)}
             />
           ))}
         </>
@@ -815,6 +949,8 @@ function TestRow({
   busy,
   canRun,
   onRun,
+  checked,
+  onToggleCheck,
 }: {
   test: TestCase
   depth: number
@@ -823,6 +959,8 @@ function TestRow({
   busy: boolean
   canRun: boolean
   onRun: () => void
+  checked: boolean
+  onToggleCheck: () => void
 }) {
   const pad = 8 + depth * 14
   return (
@@ -832,6 +970,14 @@ function TestRow({
       }`}
       style={{ paddingLeft: pad }}
     >
+      <Checkbox
+        checked={checked}
+        onCheckedChange={() => onToggleCheck()}
+        aria-label={`Select ${test.file_name}`}
+        className={`size-3.5 shrink-0 transition-opacity focus-visible:opacity-100 ${
+          checked ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
+      />
       <button
         type="button"
         onClick={onSelect}
@@ -841,22 +987,28 @@ function TestRow({
         <FileIcon fileName={test.file_name} />
         <span className="truncate font-mono text-xs">{test.file_name}</span>
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onRun()
-        }}
-        disabled={!canRun || busy}
-        title={canRun ? "Run test" : "Pick an environment first"}
-        className="text-muted-foreground hover:text-foreground disabled:opacity-30 invisible flex size-6 items-center justify-center group-hover:visible"
-      >
-        {busy ? (
-          <Loader2Icon className="size-3.5 animate-spin" />
-        ) : (
-          <PlayIcon className="size-3.5" />
-        )}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRun()
+            }}
+            disabled={!canRun || busy}
+            className="text-muted-foreground hover:text-foreground disabled:pointer-events-none flex size-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100 focus-visible:opacity-100"
+          >
+            {busy ? (
+              <Loader2Icon className="size-3.5 animate-spin" />
+            ) : (
+              <PlayIcon className="size-3.5" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {canRun ? "Run test" : "Pick an environment first"}
+        </TooltipContent>
+      </Tooltip>
     </div>
   )
 }

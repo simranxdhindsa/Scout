@@ -141,7 +141,7 @@ export const orgsApi = {
       })
       .then((r) => r.data.orgs),
   create: (body: OrgInput) =>
-    api.post<ScoutOrg>("/orgs", body).then((r) => r.data),
+    api.post<ScoutOrg>("/admin/orgs", body).then((r) => r.data),
   update: (orgId: string, body: OrgUpdateInput) =>
     api
       .put<ScoutOrg>(`/admin/orgs/${orgId}`, {
@@ -363,10 +363,10 @@ export type GitlabIntegrationUpdate = {
 export const gitlabApi = {
   list: (orgId: string) =>
     api
-      .get<{ integrations: GitlabIntegration[] }>(
+      .get<{ integrations: GitlabIntegration[] | null }>(
         `/orgs/${orgId}/integrations/gitlab`,
       )
-      .then((r) => r.data.integrations),
+      .then((r) => r.data.integrations ?? []),
   listRepos: (orgId: string, integrationId: string) =>
     api
       .get<{ repos: GitlabRepo[] }>(
@@ -662,11 +662,26 @@ export type RunAttachment = {
   created_at: string
 }
 
+export type RunTestResult = {
+  id: string
+  run_id: string
+  run_item_id: string | null
+  file_name: string
+  title: string
+  status: "passed" | "failed" | "skipped" | "timedOut" | string
+  duration_ms: number | null
+  error_message?: string
+  error_stack?: string
+  retry_count: number
+  created_at: string
+}
+
 export type RunDetailResponse = {
   run: RunDetail
   items: RunItem[]
   report: RunReport | null
   attachments: RunAttachment[]
+  test_results: RunTestResult[]
 }
 
 export function runStreamUrl(orgId: string, runId: string) {

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react"
 import {
   ArchiveIcon,
-  CheckCircle2Icon,
   Loader2Icon,
   SearchIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,14 +36,11 @@ function relativeTime(iso: string) {
   return `${days} day${days === 1 ? "" : "s"} ago`
 }
 
-type Toast = { kind: "success" | "error"; text: string }
-
 export default function ArchiveQueuePage() {
   const org = useActiveOrg()
   const [requests, setRequests] = useState<ArchiveRequest[] | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [toast, setToast] = useState<Toast | null>(null)
 
   useEffect(() => {
     if (!org) return
@@ -52,12 +49,6 @@ export default function ArchiveQueuePage() {
       .then(setRequests)
       .catch(() => setRequests([]))
   }, [org])
-
-  useEffect(() => {
-    if (!toast) return
-    const id = window.setTimeout(() => setToast(null), 3500)
-    return () => window.clearTimeout(id)
-  }, [toast])
 
   const refresh = async () => {
     if (!org) return
@@ -76,10 +67,10 @@ export default function ArchiveQueuePage() {
     setBusyId(r.id)
     try {
       await archiveApi.approve(org.id, r.id)
-      setToast({ kind: "success", text: `Deleted "${r.test_case_name}"` })
+      toast.success(`Deleted "${r.test_case_name}"`)
       await refresh()
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to approve") })
+      toast.error(readError(err, "Failed to approve"))
     } finally {
       setBusyId(null)
     }
@@ -90,11 +81,11 @@ export default function ArchiveQueuePage() {
     setBusyId(r.id)
     try {
       await archiveApi.reject(org.id, r.id, comment)
-      setToast({ kind: "success", text: "Request rejected" })
+      toast.success("Request rejected")
       setRejectingId(null)
       await refresh()
     } catch (err) {
-      setToast({ kind: "error", text: readError(err, "Failed to reject") })
+      toast.error(readError(err, "Failed to reject"))
     } finally {
       setBusyId(null)
     }
@@ -122,23 +113,6 @@ export default function ArchiveQueuePage() {
         Test cases submitted for deletion require admin approval. Approved
         requests are permanently deleted.
       </p>
-
-      {toast ? (
-        <div
-          className={`flex items-center gap-2 px-4 py-2 text-sm ring-1 ${
-            toast.kind === "success"
-              ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/30"
-              : "bg-rose-500/10 text-rose-200 ring-rose-500/30"
-          }`}
-        >
-          {toast.kind === "success" ? (
-            <CheckCircle2Icon className="size-4" />
-          ) : (
-            <XIcon className="size-4" />
-          )}
-          {toast.text}
-        </div>
-      ) : null}
 
       {requests === null ? (
         <div className="grid gap-3">

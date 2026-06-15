@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { AuthBootstrap } from '@/components/auth-bootstrap'
 import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Toaster } from '@/components/ui/sonner'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
         <AuthBootstrap>
           <App />
         </AuthBootstrap>
+        <Toaster />
       </TooltipProvider>
     </ThemeProvider>
   </StrictMode>,

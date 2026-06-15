@@ -4,9 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"mime"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -226,6 +229,18 @@ func (h *storageHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rc.Close()
 
-	// Let the browser decide content type from the file extension
-	http.ServeContent(w, r, key, time.Time{}, nil)
+	// Set content type from the file extension (fall back to sniffing).
+	if ct := mime.TypeByExtension(filepath.Ext(key)); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+
+	// Local files are *os.File (seekable) → use ServeContent for range support
+	// (needed for video scrubbing); otherwise stream the bytes directly.
+	if rs, ok := rc.(io.ReadSeeker); ok {
+		http.ServeContent(w, r, key, time.Time{}, rs)
+		return
+	}
+	if _, err := io.Copy(w, rc); err != nil {
+		log.Printf("[storage] stream %s error: %v", key, err)
+	}
 }
