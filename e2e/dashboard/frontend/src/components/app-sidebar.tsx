@@ -5,12 +5,15 @@ import * as React from "react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
+import { ScoutLogo } from "@/components/ScoutLogo"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
+  SidebarMenu,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import {
   BarChart2Icon,
@@ -90,6 +93,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex h-10 items-center px-2">
+              <ScoutLogo variant="sidebar" size="md" showStatusDot animate />
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <TeamSwitcher />
       </SidebarHeader>
       <SidebarContent>

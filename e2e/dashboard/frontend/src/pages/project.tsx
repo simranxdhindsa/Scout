@@ -21,6 +21,8 @@ import {
 } from "lucide-react"
 
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -133,7 +135,7 @@ export default function ProjectPage() {
   if (product === undefined) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading project…" />
       </div>
     )
   }
@@ -352,7 +354,7 @@ function ProjectContents({
   if (subProjects === null) {
     return (
       <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading content…" />
       </div>
     )
   }
@@ -360,12 +362,12 @@ function ProjectContents({
   if (subProjects.length === 0) {
     return (
       <div className="ring-border/40 flex min-h-[30vh] flex-col items-center justify-center gap-3 p-8 text-center ring-1">
-        <h2 className="text-lg font-semibold">No content yet</h2>
-        <p className="text-muted-foreground max-w-md text-sm">
-          {onSync
+        <ScoutEmptyState
+          message="No content yet"
+          sub={onSync
             ? "Sync from GitLab to import folders and tests, or initialize an empty project."
             : "Initialize this project to start adding folders and tests."}
-        </p>
+        />
         {error ? <p className="text-destructive text-xs">{error}</p> : null}
         <div className="flex gap-2">
           {onSync ? (
@@ -627,7 +629,7 @@ function FolderTreeSection({
   if (folders === null) {
     return (
       <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading folders…" />
       </div>
     )
   }
@@ -763,9 +765,7 @@ function FolderTreeSection({
       <div className="bg-muted/30 ring-border/40 grid min-h-[40vh] grid-cols-1 ring-1 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         <div className="border-border/40 overflow-auto border-b py-2 md:border-r md:border-b-0">
           {folders.length === 0 ? (
-            <div className="text-muted-foreground p-6 text-center text-sm">
-              No folders yet. Sync from GitLab or add folders via the API.
-            </div>
+            <ScoutEmptyState message="No folders yet." sub="Sync from GitLab or add folders via the API." />
           ) : (
             folders.map((f) => (
               <FolderNode
@@ -1051,15 +1051,15 @@ function FileViewer({ testId }: { testId: string | null }) {
 
   if (!testId) {
     return (
-      <div className="text-muted-foreground flex h-full min-h-[40vh] items-center justify-center p-6 text-sm">
-        Select a test file to view its contents.
+      <div className="flex h-full min-h-[40vh] items-center justify-center">
+        <ScoutEmptyState message="No test selected" sub="Select a test file from the tree to view its contents." />
       </div>
     )
   }
   if (loading) {
     return (
       <div className="flex h-full min-h-[40vh] items-center justify-center">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading test…" />
       </div>
     )
   }

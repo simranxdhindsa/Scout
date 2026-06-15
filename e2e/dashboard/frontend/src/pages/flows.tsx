@@ -19,8 +19,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { RunBarsLoader } from "@/components/loaders/RunBarsLoader"
+import { TerminalLoader } from "@/components/loaders/TerminalLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   flowsApi,
@@ -409,9 +411,8 @@ function FlowCard({
       {expanded && (
         <div className="border-t border-border px-4 pb-4 pt-3 space-y-2">
           {steps === null ? (
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-3/4" />
+            <div className="flex justify-center py-4">
+              <TerminalLoader label="loading steps…" />
             </div>
           ) : steps.length === 0 ? (
             <p className="text-xs text-muted-foreground">No steps yet. Add the first step below.</p>
@@ -480,13 +481,13 @@ function FlowRunsTable({ orgId }: { orgId: string }) {
 
   if (runs === null) {
     return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+      <div className="flex justify-center py-8">
+        <RunBarsLoader label="Loading runs…" />
       </div>
     )
   }
   if (runs.length === 0) {
-    return <p className="text-sm text-muted-foreground">No flow runs yet.</p>
+    return <ScoutEmptyState message="No flow runs yet." />
   }
 
   return (
@@ -572,13 +573,12 @@ export default function FlowsPage() {
       {tab === "flows" && (
         <div className="space-y-3">
           {flows === null ? (
-            [1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)
+            <div className="flex justify-center py-10">
+              <RunBarsLoader label="Loading pipeline…" />
+            </div>
           ) : flows.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <GitMergeIcon className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                No flows yet. Create one to chain tests across products.
-              </p>
+            <div className="flex flex-col items-center gap-4 py-10">
+              <ScoutEmptyState message="No flows yet." sub="Create one to chain tests across products." />
               <CreateFlowDialog orgId={org.id} onCreated={loadFlows} />
             </div>
           ) : (

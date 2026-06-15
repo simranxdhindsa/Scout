@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   chatHistoryApi,
@@ -295,9 +296,7 @@ export default function AiAssistantPage() {
             </div>
             <div className="flex-1 overflow-y-auto px-2 pb-2">
               {sessions.length === 0 ? (
-                <p className="text-muted-foreground px-3 py-4 text-center text-xs">
-                  No chats yet
-                </p>
+                <ScoutEmptyState message="No chats yet" />
               ) : (
                 sessions.map((session) => (
                   <div

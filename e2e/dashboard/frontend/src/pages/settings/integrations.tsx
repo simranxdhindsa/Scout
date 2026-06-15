@@ -9,6 +9,8 @@ import { toast } from "sonner"
 import GitlabIcon from "@/assets/GitlabIcon"
 import SlackIcon from "@/assets/SlackIcon"
 import YoutrackIcon from "@/assets/YoutrackIcon"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +27,6 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useActiveOrg } from "@/lib/auth"
 import {
   gitlabApi,
@@ -141,12 +142,10 @@ export default function IntegrationsPage() {
         </div>
 
         {integrations === null ? (
-          <Skeleton className="h-32 w-full" />
+          <div className="flex justify-center py-8"><SDrawLoader label="Loading integrations…" /></div>
         ) : integrations.length === 0 ? (
-          <div className="ring-border/40 flex flex-col items-center gap-3 py-10 text-center ring-1">
-            <p className="text-muted-foreground text-sm">
-              You haven't connected a GitLab account yet.
-            </p>
+          <div className="ring-border/40 flex flex-col items-center gap-3 py-10 ring-1">
+            <ScoutEmptyState message="No GitLab account connected." sub="Connect GitLab to sync your test repositories." />
             <Button onClick={startConnect} disabled={!org}>
               <GitlabIcon className="size-4" />
               Connect GitLab
@@ -251,7 +250,7 @@ function YouTrackSection({ orgId }: { orgId: string }) {
         </div>
       </div>
 
-      {integration === undefined && <Skeleton className="h-20 w-full" />}
+      {integration === undefined && <div className="flex justify-center py-6"><SDrawLoader /></div>}
 
       {integration !== undefined && integration !== null && (
         <div className="ring-border/40 flex items-center justify-between gap-4 p-5 ring-1">
@@ -389,7 +388,7 @@ function SlackSection({ orgId }: { orgId: string }) {
         </div>
       </div>
 
-      {settings === undefined && <Skeleton className="h-20 w-full" />}
+      {settings === undefined && <div className="flex justify-center py-6"><SDrawLoader /></div>}
 
       {settings !== undefined && (
         <div className="ring-border/40 flex flex-col gap-4 p-5 ring-1">

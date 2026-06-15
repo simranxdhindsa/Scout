@@ -18,6 +18,8 @@ import {
   type SlowTest,
   type TestRunHistoryEntry,
 } from "@/lib/scout-api"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
+import { RunBarsLoader } from "@/components/loaders/RunBarsLoader"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -249,7 +251,7 @@ export default function AnalyticsPage() {
             <span className="text-muted-foreground ml-auto text-xs">last 30 days · min 3 runs</span>
           </div>
           {loading ? (
-            <div className="text-muted-foreground p-6 text-center text-sm">Loading…</div>
+            <div className="flex justify-center py-8"><RunBarsLoader label="Loading analytics…" /></div>
           ) : flaky && flaky.length > 0 ? (
             <div className="divide-border/40 divide-y overflow-auto">
               {flaky.map((f) => (
@@ -306,13 +308,10 @@ export default function AnalyticsPage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 p-8 text-center">
-              <CheckCircleIcon className="text-green-400 size-8" />
-              <p className="text-sm font-medium">No flaky tests</p>
-              <p className="text-muted-foreground text-xs">
-                All tests have consistent results over the last 30 days.
-              </p>
-            </div>
+            <ScoutEmptyState
+              message="No flaky tests"
+              sub="All tests have consistent results over the last 30 days."
+            />
           )}
         </section>
 
@@ -357,13 +356,10 @@ export default function AnalyticsPage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 p-8 text-center">
-              <ClockIcon className="text-muted-foreground size-8" />
-              <p className="text-sm font-medium">No timing data yet</p>
-              <p className="text-muted-foreground text-xs">
-                Run some tests to see slow test analysis.
-              </p>
-            </div>
+            <ScoutEmptyState
+              message="No timing data yet"
+              sub="Run some tests to see slow test analysis."
+            />
           )}
         </section>
       </div>

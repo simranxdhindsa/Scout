@@ -11,6 +11,8 @@ import { Link } from "react-router-dom"
 import { NewRunDialog } from "@/components/dialogs/new-run-dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { BarScanLoader } from "@/components/loaders/BarScanLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   overviewApi,
@@ -196,15 +198,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-1 items-center justify-center py-6">
             {trend === null ? (
-              <div className="flex h-full w-full items-end gap-2">
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <Skeleton
-                    key={i}
-                    className="h-56 flex-1"
-                    style={{ opacity: 0.4 + (i % 7) * 0.08 }}
-                  />
-                ))}
-              </div>
+              <BarScanLoader label="Loading trend data…" />
             ) : (
               <TrendChart data={trend} />
             )}
@@ -248,9 +242,7 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : runs.length === 0 ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">
-              No runs yet
-            </p>
+            <ScoutEmptyState message="No runs yet" sub="Kick off a new run to see results here." />
           ) : (
             <ul className="flex flex-col">
               {runs.map((r) => (
@@ -294,7 +286,7 @@ export default function DashboardPage() {
 
 function TrendChart({ data }: { data: TrendPoint[] }) {
   if (!data.length) {
-    return <p className="text-muted-foreground text-sm">No run data yet</p>
+    return <ScoutEmptyState message="No run data yet" sub="Trend will appear after your first test run." />
   }
 
   const max = Math.max(

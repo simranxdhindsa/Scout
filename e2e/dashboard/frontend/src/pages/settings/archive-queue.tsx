@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import {
-  ArchiveIcon,
   Loader2Icon,
   SearchIcon,
   Trash2Icon,
@@ -8,9 +7,10 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useActiveOrg } from "@/lib/auth"
 import {
   archiveApi,
@@ -115,23 +115,12 @@ export default function ArchiveQueuePage() {
       </p>
 
       {requests === null ? (
-        <div className="grid gap-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
+        <div className="flex justify-center py-10">
+          <SDrawLoader label="Loading archive queue…" />
         </div>
       ) : !pending || pending.length === 0 ? (
-        <div className="ring-border/40 flex flex-col items-center justify-center gap-3 py-20 text-center ring-1">
-          <ArchiveIcon
-            className="text-muted-foreground size-10"
-            strokeWidth={1.5}
-          />
-          <div>
-            <h2 className="text-base font-semibold">No pending requests</h2>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Archive requests will appear here for review
-            </p>
-          </div>
+        <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
+          <ScoutEmptyState message="No pending requests" sub="Archive requests will appear here for review." />
         </div>
       ) : (
         <div className="flex flex-col gap-3">

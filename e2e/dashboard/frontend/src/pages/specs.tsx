@@ -11,6 +11,8 @@ import {
   RefreshCwIcon,
 } from "lucide-react"
 
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -338,12 +340,14 @@ export default function SpecsPage() {
       <div className="ring-border/40 bg-muted/20 min-h-[60vh] ring-1">
         {loading && nodes === null ? (
           <div className="flex min-h-[40vh] items-center justify-center">
-            <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+            <SDrawLoader label="Loading specs…" />
           </div>
         ) : nodes?.length === 0 ? (
-          <div className="text-muted-foreground flex min-h-[40vh] flex-col items-center justify-center gap-2 p-6 text-center text-sm">
-            <p>No spec files found.</p>
-            <p className="text-xs">Make sure <code>SCOUT_PLAYWRIGHT_PROJECT_DIR</code> is set and a <code>specs/</code> directory exists.</p>
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <ScoutEmptyState
+              message="No spec files found."
+              sub="Make sure SCOUT_PLAYWRIGHT_PROJECT_DIR is set and a specs/ directory exists."
+            />
           </div>
         ) : (
           <div className="py-2">
