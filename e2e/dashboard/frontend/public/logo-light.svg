@@ -1,0 +1,17 @@
+<svg width="280" height="56" viewBox="0 0 280 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="280" height="56" fill="#f8f8fc"/>
+  <path d="M8 16 L8 6 L18 6" stroke="#6366f1" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <path d="M46 16 L46 6 L36 6" stroke="#6366f1" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <path d="M8 40 L8 50 L18 50" stroke="#6366f1" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <path d="M46 40 L46 50 L36 50" stroke="#6366f1" stroke-width="1.5" stroke-linecap="square" fill="none"/>
+  <rect x="14" y="13" width="18" height="5" fill="#6366f1"/>
+  <rect x="14" y="21" width="18" height="5" fill="#6366f1"/>
+  <rect x="14" y="29" width="18" height="5" fill="#6366f1"/>
+  <rect x="14" y="13" width="5" height="13" fill="#6366f1"/>
+  <rect x="27" y="21" width="5" height="13" fill="#6366f1"/>
+  <rect x="19" y="13" width="13" height="8" fill="#f8f8fc"/>
+  <rect x="14" y="26" width="13" height="8" fill="#f8f8fc"/>
+  <rect x="39" y="9" width="4" height="4" fill="#22c55e"/>
+  <text x="60" y="30" font-family="'Nunito Sans', sans-serif" font-size="20" font-weight="700" letter-spacing="6" fill="#0b0b10">SCOUT</text>
+  <text x="61" y="44" font-family="'Nunito Sans', sans-serif" font-size="7" font-weight="600" letter-spacing="3" fill="#6366f1">QA AUTOMATION PLATFORM</text>
+</svg>

@@ -9,10 +9,11 @@ import {
   ArrowLeftIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  FileTextIcon,
   FolderIcon,
+  FolderOpenIcon,
   GitBranchIcon,
   Loader2Icon,
+  MonitorIcon,
   PlayIcon,
   RefreshCwIcon,
   SettingsIcon,
@@ -21,7 +22,8 @@ import {
 import { toast } from "sonner"
 
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog"
-import { UploadZipDialog } from "@/components/dialogs/upload-zip-dialog"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -147,7 +149,7 @@ export default function ProjectPage() {
   if (product === undefined) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading project…" />
       </div>
     )
   }
@@ -238,6 +240,30 @@ export default function ProjectPage() {
         }}
       />
     </div>
+  )
+}
+
+function FileIcon({ fileName }: { fileName: string }) {
+  const isTs = /\.(ts|tsx)$/.test(fileName)
+  const isJs = /\.(js|jsx)$/.test(fileName)
+  if (isTs) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-blue-600 text-[7px] font-bold text-white">
+        TS
+      </span>
+    )
+  }
+  if (isJs) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-amber-500 text-[7px] font-bold text-white">
+        JS
+      </span>
+    )
+  }
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center rounded-sm bg-zinc-500 text-[7px] font-bold text-white">
+      F
+    </span>
   )
 }
 
@@ -341,7 +367,7 @@ function ProjectContents({
   if (subProjects === null) {
     return (
       <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading content…" />
       </div>
     )
   }
@@ -349,12 +375,12 @@ function ProjectContents({
   if (subProjects.length === 0) {
     return (
       <div className="ring-border/40 flex min-h-[30vh] flex-col items-center justify-center gap-3 p-8 text-center ring-1">
-        <h2 className="text-lg font-semibold">No content yet</h2>
-        <p className="text-muted-foreground max-w-md text-sm">
-          {onSync
+        <ScoutEmptyState
+          message="No content yet"
+          sub={onSync
             ? "Sync from GitLab to import folders and tests, or initialize an empty project."
             : "Initialize this project to start adding folders and tests."}
-        </p>
+        />
         {error ? <p className="text-destructive text-xs">{error}</p> : null}
         <div className="flex gap-2">
           {onSync ? (
@@ -426,6 +452,7 @@ function FolderTreeSection({
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [busyTarget, setBusyTarget] = useState<string | null>(null)
+  const [headed, setHeaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batchRunning, setBatchRunning] = useState(false)
@@ -560,6 +587,7 @@ function FolderTreeSection({
         target_ids: [target_id],
         environment_id: envId,
         label,
+        headed,
       })
       navigate(`/runs/${run_id}`)
     } catch (err) {
@@ -617,7 +645,7 @@ function FolderTreeSection({
   if (folders === null) {
     return (
       <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading folders…" />
       </div>
     )
   }
@@ -657,21 +685,41 @@ function FolderTreeSection({
               </SelectContent>
             </Select>
           )}
-          {onSync ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSync}
-              disabled={syncing}
-            >
-              {syncing ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                <RefreshCwIcon className="size-4" />
-              )}
-              {syncing ? "Syncing…" : "Sync"}
-            </Button>
-          ) : null}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onSync ?? undefined}
+            disabled={!onSync || syncing}
+            title={
+              onSync
+                ? "Sync test files from GitLab"
+                : "No GitLab configured — add it in project settings"
+            }
+          >
+            {syncing ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <RefreshCwIcon className="size-4" />
+            )}
+            {syncing ? "Syncing…" : "Sync"}
+          </Button>
+          <button
+            type="button"
+            onClick={() => setHeaded((h) => !h)}
+            className={`flex items-center gap-2 border px-3 py-1.5 text-sm transition-colors ${
+              headed
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <MonitorIcon className="size-4 shrink-0" />
+            <span className="hidden sm:inline">Watch live</span>
+            <div
+              className={`size-3.5 rounded-full border-2 transition-colors ${
+                headed ? "border-primary bg-primary" : "border-muted-foreground"
+              }`}
+            />
+          </button>
           <Button
             size="sm"
             variant="outline"
@@ -741,9 +789,7 @@ function FolderTreeSection({
       <div className="bg-muted/30 ring-border/40 grid min-h-[40vh] grid-cols-1 ring-1 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         <div className="border-border/40 overflow-auto border-b py-2 md:border-r md:border-b-0">
           {folders.length === 0 ? (
-            <div className="text-muted-foreground p-6 text-center text-sm">
-              No folders yet. Sync from GitLab or add folders via the API.
-            </div>
+            <ScoutEmptyState message="No folders yet." sub="Sync from GitLab or add folders via the API." />
           ) : (
             folders.map((f) => (
               <FolderNode
@@ -861,7 +907,11 @@ function FolderNode({
           ) : (
             <ChevronRightIcon className="text-muted-foreground size-3.5 shrink-0" />
           )}
-          <FolderIcon className="text-muted-foreground size-4 shrink-0" />
+          {open ? (
+            <FolderOpenIcon className="size-4 shrink-0 text-amber-400" />
+          ) : (
+            <FolderIcon className="size-4 shrink-0 text-amber-400" />
+          )}
           <span className="truncate font-mono text-xs">{node.name}</span>
         </button>
         <Tooltip>
@@ -968,7 +1018,8 @@ function TestRow({
         onClick={onSelect}
         className="flex flex-1 items-center gap-1.5 py-1 text-left text-sm"
       >
-        <FileTextIcon className="text-muted-foreground size-4 shrink-0" />
+        <span className="size-3.5 shrink-0" />
+        <FileIcon fileName={test.file_name} />
         <span className="truncate font-mono text-xs">{test.file_name}</span>
       </button>
       <Tooltip>
@@ -1035,15 +1086,15 @@ function FileViewer({ testId }: { testId: string | null }) {
 
   if (!testId) {
     return (
-      <div className="text-muted-foreground flex h-full min-h-[40vh] items-center justify-center p-6 text-sm">
-        Select a test file to view its contents.
+      <div className="flex h-full min-h-[40vh] items-center justify-center">
+        <ScoutEmptyState message="No test selected" sub="Select a test file from the tree to view its contents." />
       </div>
     )
   }
   if (loading) {
     return (
       <div className="flex h-full min-h-[40vh] items-center justify-center">
-        <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+        <SDrawLoader label="Loading test…" />
       </div>
     )
   }
@@ -1057,7 +1108,7 @@ function FileViewer({ testId }: { testId: string | null }) {
   return (
     <div className="flex min-w-0 flex-col">
       <div className="border-border/40 flex items-center gap-2 border-b px-3 py-2">
-        <FileTextIcon className="text-muted-foreground size-4" />
+        <FileIcon fileName={test.file_name} />
         <span className="truncate text-sm font-semibold">{test.name}</span>
         <span className="text-muted-foreground ml-auto font-mono text-xs">
           v{test.version}

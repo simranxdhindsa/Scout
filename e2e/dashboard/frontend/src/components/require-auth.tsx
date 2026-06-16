@@ -1,12 +1,15 @@
-import { Loader2Icon } from "lucide-react"
 import { Navigate, Outlet, useLocation } from "react-router-dom"
 
 import { getAuthToken, useAuthStore } from "@/lib/auth"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
 
 function Splash() {
   return (
-    <div className="bg-background flex min-h-svh items-center justify-center">
-      <Loader2Icon className="text-muted-foreground size-6 animate-spin" />
+    <div
+      className="flex min-h-svh items-center justify-center"
+      style={{ background: "#0b0b10" }}
+    >
+      <SDrawLoader />
     </div>
   )
 }
@@ -15,7 +18,6 @@ export function RequireAuth() {
   const { isLoading, isAuthenticated } = useAuthStore()
   const location = useLocation()
 
-  // Cookie exists but store hasn't finished hydrating yet — show splash.
   if (isLoading) return <Splash />
 
   if (!isAuthenticated) {

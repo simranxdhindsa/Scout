@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { Outlet, useLocation } from "react-router-dom"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -16,29 +17,34 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-const titles: Record<string, string> = {
-  "/dashboard": "Overview",
-  "/dashboard/runs": "Runs",
-  "/dashboard/pipeline": "Pipeline",
-  "/dashboard/sprints": "Sprints",
-  "/dashboard/ai-assistant": "AI Assistant",
-  "/dashboard/analytics": "Analytics",
-  "/projects": "Projects",
+const pageMeta: Record<string, { label: string; title: string }> = {
+  "/dashboard":               { label: "Overview",     title: "Overview — SCOUT" },
+  "/dashboard/runs":          { label: "Test Runs",    title: "Test Runs — SCOUT" },
+  "/dashboard/pipeline":      { label: "Pipeline",     title: "Pipeline — SCOUT" },
+  "/dashboard/sprints":       { label: "Sprints",      title: "Sprints — SCOUT" },
+  "/dashboard/ai-assistant":  { label: "AI Assistant", title: "AI Assistant — SCOUT" },
+  "/dashboard/analytics":     { label: "Analytics",    title: "Analytics — SCOUT" },
+  "/dashboard/specs":         { label: "Specs",        title: "Specs — SCOUT" },
+  "/projects":                { label: "Projects",     title: "Projects — SCOUT" },
 }
 
-function resolveTitle(pathname: string) {
-  if (titles[pathname]) return titles[pathname]
-  if (pathname.startsWith("/projects/")) return "Project"
-  if (pathname.startsWith("/runs/")) return "Run"
-  if (pathname.startsWith("/dashboard/pipeline")) return "Pipeline"
-  if (pathname.startsWith("/dashboard/sprints")) return "Sprints"
-  if (pathname.startsWith("/dashboard/settings")) return "Settings"
-  return "Dashboard"
+function resolveMeta(pathname: string): { label: string; title: string } {
+  if (pageMeta[pathname]) return pageMeta[pathname]
+  if (pathname.startsWith("/projects/"))            return { label: "Project",  title: "Projects — SCOUT" }
+  if (pathname.startsWith("/runs/"))                return { label: "Run",      title: "Test Runs — SCOUT" }
+  if (pathname.startsWith("/dashboard/pipeline"))   return { label: "Pipeline", title: "Pipeline — SCOUT" }
+  if (pathname.startsWith("/dashboard/sprints"))    return { label: "Sprints",  title: "Sprints — SCOUT" }
+  if (pathname.startsWith("/dashboard/settings"))   return { label: "Settings", title: "Settings — SCOUT" }
+  return { label: "Dashboard", title: "SCOUT" }
 }
 
 export default function DashboardLayout() {
   const { pathname } = useLocation()
-  const title = resolveTitle(pathname)
+  const { label, title } = resolveMeta(pathname)
+
+  useEffect(() => {
+    document.title = title
+  }, [title])
 
   return (
     <SidebarProvider>
@@ -54,7 +60,7 @@ export default function DashboardLayout() {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbPage>{title}</BreadcrumbPage>
+                  <BreadcrumbPage>{label}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>

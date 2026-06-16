@@ -11,6 +11,7 @@ import {
 import { useNavigate } from "react-router-dom"
 
 import { NewRunDialog } from "@/components/dialogs/new-run-dialog"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -242,9 +243,9 @@ export default function RunsPage() {
             ))}
           </ul>
         ) : visibleRuns.length === 0 ? (
-          <div className="text-muted-foreground border-border/40 border-t px-4 py-10 text-center text-sm">
-            {search ? "No runs match your search." : "No runs match this filter."}
-          </div>
+          <ScoutEmptyState
+            message={search ? "No runs match your search." : "No runs match this filter."}
+          />
         ) : (
           <ul>
             {visibleRuns.map((r) => {

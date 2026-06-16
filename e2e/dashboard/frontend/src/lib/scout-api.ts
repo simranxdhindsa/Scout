@@ -591,57 +591,6 @@ export const environmentsApi = {
     api.delete(`/orgs/${orgId}/environments/${envId}`),
 }
 
-export type PipelineTargetType = "subproject" | "folder" | "test" | "product"
-
-export type PipelineStep = {
-  id: string
-  target_type: PipelineTargetType
-  target_id: string
-  target_label: string
-  order: number
-}
-
-export type PipelineStepInput = {
-  target_type: PipelineTargetType
-  target_id: string
-  order: number
-}
-
-export type Pipeline = {
-  id: string
-  name: string
-  description: string | null
-  created_at: string
-  steps: PipelineStep[]
-}
-
-export const pipelinesApi = {
-  list: (orgId: string) =>
-    api
-      .get<{ pipelines: Pipeline[] }>(`/orgs/${orgId}/pipelines`)
-      .then((r) => r.data.pipelines),
-  create: (
-    orgId: string,
-    body: { name: string; description: string | null; steps: PipelineStepInput[] },
-  ) =>
-    api
-      .post<Pipeline>(`/orgs/${orgId}/pipelines`, body)
-      .then((r) => r.data),
-  update: (
-    orgId: string,
-    pipelineId: string,
-    body: {
-      name: string
-      description: string | null
-      steps: PipelineStepInput[]
-    },
-  ) =>
-    api
-      .put<Pipeline>(`/orgs/${orgId}/pipelines/${pipelineId}`, body)
-      .then((r) => r.data),
-  remove: (orgId: string, pipelineId: string) =>
-    api.delete(`/orgs/${orgId}/pipelines/${pipelineId}`),
-}
 
 export type Run = {
   id: string
@@ -665,6 +614,7 @@ export type StartRunBody = {
   environment_id?: string
   credentials?: Record<string, string>
   label?: string
+  headed?: boolean
 }
 
 export type StartRunResponse = {
@@ -1234,4 +1184,29 @@ export const analyticsApi = {
         `/orgs/${orgId}/analytics/tests/${testCaseId}/history?limit=${limit}`,
       )
       .then((r) => r.data.history),
+}
+
+// ── Local Spec Browser ─────────────────────────────────────────────────────────
+
+export type SpecNode = {
+  name: string
+  path: string
+  is_dir: boolean
+  children?: SpecNode[]
+}
+
+export const specsApi = {
+  tree: (orgId: string): Promise<{ nodes: SpecNode[] }> =>
+    api.get(`/orgs/${orgId}/specs`).then((r) => r.data),
+
+  run: (
+    orgId: string,
+    body: {
+      paths: string[]
+      environment_id?: string
+      label?: string
+      headed?: boolean
+    },
+  ): Promise<{ run_id: string; status: string; label: string }> =>
+    api.post(`/orgs/${orgId}/specs/run`, body).then((r) => r.data),
 }

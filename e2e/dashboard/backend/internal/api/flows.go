@@ -179,15 +179,19 @@ func (h *flowHandler) AddStep(w http.ResponseWriter, r *http.Request) {
 	var tcID, fID *uuid.UUID
 	if body.TestCaseID != "" {
 		id, err := uuid.Parse(body.TestCaseID)
-		if err == nil {
-			tcID = &id
+		if err != nil {
+			writeError(w, "invalid test_case_id", http.StatusBadRequest)
+			return
 		}
+		tcID = &id
 	}
 	if body.FolderID != "" {
 		id, err := uuid.Parse(body.FolderID)
-		if err == nil {
-			fID = &id
+		if err != nil {
+			writeError(w, "invalid folder_id", http.StatusBadRequest)
+			return
 		}
+		fID = &id
 	}
 
 	product := body.Product

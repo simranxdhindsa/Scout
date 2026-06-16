@@ -47,6 +47,9 @@ playwright-report/
 *.exe
 e2e/dashboard/backend/main.exe
 
+# Utility scripts with hardcoded credentials
+e2e/dashboard/backend/cmd/gentoken/
+
 # MCP scratch
 .playwright-mcp/
 

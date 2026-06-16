@@ -166,7 +166,7 @@ func (q *RunQueries) List(ctx context.Context, orgID uuid.UUID, status string, l
 		where += fmt.Sprintf(" AND tr.status = $%d", len(args))
 	}
 
-	// Total count for pagination
+	// Total count for pagination — must alias tr to match the WHERE clause
 	var total int
 	if err := q.db.QueryRow(ctx,
 		fmt.Sprintf("SELECT COUNT(*) FROM test_runs tr %s", where), args...,

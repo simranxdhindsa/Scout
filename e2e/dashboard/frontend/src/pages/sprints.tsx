@@ -24,7 +24,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
+import { RunBarsLoader } from "@/components/loaders/RunBarsLoader"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   youtrackApi,
@@ -576,19 +578,15 @@ function SprintCard({
       {expanded && (
         <div className="border-t border-border">
           {loading && (
-            <div className="space-y-2 p-4">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
+            <div className="flex justify-center py-6">
+              <RunBarsLoader label="Loading issues…" />
             </div>
           )}
           {error && (
             <p className="px-4 py-3 text-sm text-red-400">{error}</p>
           )}
           {issues !== null && issues.length === 0 && (
-            <p className="text-muted-foreground px-4 py-3 text-sm">
-              No issues in this sprint.
-            </p>
+            <ScoutEmptyState message="No issues in this sprint." />
           )}
           {issues !== null &&
             issues.map((issue) => (
@@ -651,9 +649,8 @@ export default function SprintsPage() {
   // Loading state
   if (integration === undefined) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-40 w-full" />
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <SDrawLoader label="Loading sprints…" />
       </div>
     )
   }
@@ -719,20 +716,17 @@ export default function SprintsPage() {
       )}
 
       {loadingSprints && sprints === null && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
+        <div className="flex justify-center py-10">
+          <RunBarsLoader label="Loading sprints…" />
         </div>
       )}
 
       {sprints !== null && sprints.length === 0 && (
-        <div className="ring-border/40 flex flex-col items-center gap-3 py-16 text-center ring-1">
-          <ClockIcon className="text-muted-foreground/30 h-10 w-10" />
-          <p className="text-muted-foreground text-sm">
-            No sprints found for project{" "}
-            <span className="font-mono">{integration.project_id}</span>.
-          </p>
+        <div className="ring-border/40 flex min-h-[20vh] items-center justify-center ring-1">
+          <ScoutEmptyState
+            message="No sprints found"
+            sub={`No sprints found for project ${integration.project_id}.`}
+          />
         </div>
       )}
 

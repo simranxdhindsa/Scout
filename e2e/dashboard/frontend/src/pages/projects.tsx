@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { LayersIcon, Loader2Icon, PlusIcon, Trash2Icon } from "lucide-react"
+import { Loader2Icon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { AddProjectDialog } from "@/components/dialogs/add-project-dialog"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -178,7 +180,7 @@ export default function ProjectsPage() {
 
       {products === null ? (
         <div className="ring-border/40 flex min-h-[30vh] items-center justify-center ring-1">
-          <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+          <SDrawLoader label="Loading projects…" />
         </div>
       ) : hasAny ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -192,17 +194,11 @@ export default function ProjectsPage() {
           ))}
         </div>
       ) : (
-        <div className="ring-border/40 flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center ring-1">
-          <LayersIcon
-            className="text-muted-foreground size-10"
-            strokeWidth={1.5}
+        <div className="ring-border/40 flex min-h-[40vh] flex-col items-center justify-center gap-3 ring-1">
+          <ScoutEmptyState
+            message="No projects yet"
+            sub="Create your first project to organise your test suites."
           />
-          <div>
-            <h2 className="text-base font-semibold">No projects yet</h2>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Create your first project to organise your test suites
-            </p>
-          </div>
           <Button
             variant="secondary"
             onClick={() => setDialogOpen(true)}

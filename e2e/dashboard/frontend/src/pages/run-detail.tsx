@@ -21,6 +21,8 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { RunBarsLoader } from "@/components/loaders/RunBarsLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { api } from "@/lib/api"
 import { useActiveOrg } from "@/lib/auth"
 import {
@@ -216,7 +218,7 @@ export default function RunDetailPage() {
           <p className="text-destructive text-sm">{error}</p>
         ) : (
           <div className="ring-border/40 flex min-h-[40vh] items-center justify-center ring-1">
-            <Loader2Icon className="text-muted-foreground size-5 animate-spin" />
+            <RunBarsLoader label="Loading run…" />
           </div>
         )}
       </div>
@@ -383,7 +385,7 @@ export default function RunDetailPage() {
           </span>
         </div>
         {items.length === 0 ? (
-          <p className="text-muted-foreground p-6 text-center text-sm">No tests yet.</p>
+          <ScoutEmptyState message="No tests yet." />
         ) : (
           <ul className="divide-border/40 divide-y">
             {items.map((it) => (

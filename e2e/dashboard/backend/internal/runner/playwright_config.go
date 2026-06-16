@@ -33,6 +33,9 @@ type PlaywrightConfigOptions struct {
 	// Video controls when video is recorded: "on", "off", "retain-on-failure"
 	Video string
 
+	// Headed, when true, runs Playwright with a visible browser window instead of headless.
+	Headed bool
+
 	// AuthSetupFile, when non-empty, is the absolute path to a generated login
 	// setup spec. A 'setup' project runs it before the main project, which then
 	// reuses the saved session via AuthStatePath. Both must be set to enable auth.
@@ -149,7 +152,7 @@ export default defineConfig({
       name: 'chromium',
 %s      use: {
         browserName: 'chromium',
-        headless: true,
+        headless: %s,
         viewport: { width: 1280, height: 720 },
 %s      },
     },
@@ -167,6 +170,12 @@ export default defineConfig({
 		video,
 		setupProject,
 		deps,
+		func() string {
+			if opts.Headed {
+				return "false"
+			}
+			return "true"
+		}(),
 		storageStateLine,
 	)
 }

@@ -1,0 +1,17 @@
+[mcp_servers.code-review-graph]
+command = 'C:\Users\LOQ\AppData\Local\Programs\Python\Python312\Scripts\code-review-graph.exe'
+args = [
+    "serve",
+    "--repo",
+    'C:\dhindsa\test-cases',
+]
+
+[mcp_servers.code-review-graph.env]
+PYTHONUTF8 = "1"
+
+[mcp_servers.shadcn]
+command = "npx"
+args = [
+    "shadcn@latest",
+    "mcp",
+]

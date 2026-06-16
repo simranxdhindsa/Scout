@@ -19,16 +19,23 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { RunBarsLoader } from "@/components/loaders/RunBarsLoader"
+import { TerminalLoader } from "@/components/loaders/TerminalLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   flowsApi,
+  foldersApi,
+  productsApi,
+  subProjectsApi,
   type Flow,
+  type Folder,
   type FlowProduct,
   type FlowRun,
   type FlowRunStatus,
   type FlowStep,
+  type Product,
 } from "@/lib/scout-api"
 
 const statusMeta: Record<FlowRunStatus, { label: string; cls: string; icon: React.ReactNode }> = {
@@ -137,6 +144,20 @@ function CreateFlowDialog({ orgId, onCreated }: { orgId: string; onCreated: () =
   )
 }
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+type FlatFolder = { id: string; label: string }
+
+function flattenTree(folders: Folder[], prefix = ""): FlatFolder[] {
+  const out: FlatFolder[] = []
+  for (const f of folders) {
+    const label = prefix ? `${prefix} / ${f.name}` : f.name
+    out.push({ id: f.id, label })
+    if (f.children?.length) out.push(...flattenTree(f.children, label))
+  }
+  return out
+}
+
 // ── Add Step Dialog ───────────────────────────────────────────────────────────
 
 function AddStepDialog({
@@ -155,13 +176,60 @@ function AddStepDialog({
   const [product, setProduct] = useState<FlowProduct>("ui")
   const [saving, setSaving] = useState(false)
 
+  // target picker
+  const [products, setProducts] = useState<Product[] | null>(null)
+  const [targetProductId, setTargetProductId] = useState("")
+  const [folders, setFolders] = useState<FlatFolder[] | null>(null)
+  const [foldersLoading, setFoldersLoading] = useState(false)
+  const [folderId, setFolderId] = useState("")
+
+  // load products when dialog opens
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    productsApi.list(orgId)
+      .then((list) => { if (!cancelled) setProducts(list) })
+      .catch(() => { if (!cancelled) setProducts([]) })
+    return () => { cancelled = true }
+  }, [open, orgId])
+
+  // load folders when target product changes
+  useEffect(() => {
+    if (!targetProductId) { setFoldersLoading(false); setFolders(null); setFolderId(""); return }
+    let cancelled = false
+    setFoldersLoading(true)
+    setFolders(null)
+    setFolderId("")
+    subProjectsApi.list(orgId, targetProductId)
+      .then(async (sps) => {
+        if (cancelled || sps.length === 0) { if (!cancelled) setFolders([]); return }
+        const tree = await foldersApi.tree(sps[0].id)
+        if (!cancelled) setFolders(flattenTree(tree))
+      })
+      .catch(() => { if (!cancelled) setFolders([]) })
+      .finally(() => { if (!cancelled) setFoldersLoading(false) })
+    return () => { cancelled = true }
+  }, [orgId, targetProductId])
+
+  function handleClose() {
+    setOpen(false)
+    setName("")
+    setTargetProductId("")
+    setFolders(null)
+    setFolderId("")
+  }
+
   async function handleAdd() {
     if (!name.trim()) return
     setSaving(true)
     try {
-      await flowsApi.addStep(orgId, flowId, { name: name.trim(), product, position })
-      setOpen(false)
-      setName("")
+      await flowsApi.addStep(orgId, flowId, {
+        name: name.trim(),
+        product,
+        position,
+        folder_id: folderId || null,
+      })
+      handleClose()
       onAdded()
     } finally {
       setSaving(false)
@@ -176,8 +244,8 @@ function AddStepDialog({
       >
         <PlusIcon className="h-4 w-4" /> Add step
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm">
+      <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Step</DialogTitle>
           </DialogHeader>
@@ -192,7 +260,7 @@ function AddStepDialog({
               />
             </div>
             <div className="space-y-1">
-              <Label>Product</Label>
+              <Label>Runner</Label>
               <Select value={product} onValueChange={(v) => setProduct(v as FlowProduct)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -203,10 +271,53 @@ function AddStepDialog({
                   <SelectItem value="ui">UI (Learner)</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Which Playwright project runs this step.</p>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Target</div>
+              <div className="space-y-1">
+                <Label>Project</Label>
+                <Select
+                  value={targetProductId}
+                  onValueChange={setTargetProductId}
+                  disabled={products === null}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={products === null ? "Loading…" : "Pick a project…"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products?.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {targetProductId && (
+                <div className="space-y-1">
+                  <Label>Folder</Label>
+                  <Select
+                    value={folderId}
+                    onValueChange={setFolderId}
+                    disabled={foldersLoading || folders === null}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={foldersLoading ? "Loading…" : folders?.length === 0 ? "No folders found" : "Pick a folder…"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {folders?.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Runs all tests in this folder. Leave blank to skip.</p>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={handleClose}>Cancel</Button>
             <Button onClick={handleAdd} disabled={saving || !name.trim()}>
               {saving && <Loader2Icon className="h-4 w-4 mr-1 animate-spin" />}
               Add
@@ -300,9 +411,8 @@ function FlowCard({
       {expanded && (
         <div className="border-t border-border px-4 pb-4 pt-3 space-y-2">
           {steps === null ? (
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-3/4" />
+            <div className="flex justify-center py-4">
+              <TerminalLoader label="loading steps…" />
             </div>
           ) : steps.length === 0 ? (
             <p className="text-xs text-muted-foreground">No steps yet. Add the first step below.</p>
@@ -315,8 +425,8 @@ function FlowCard({
                     {productLabels[step.product]}
                   </span>
                   <span className="text-sm flex-1">{step.name}</span>
-                  {step.test_case_name && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[140px]">{step.test_case_name}</span>
+                  {(step.folder_name || step.test_case_name) && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[140px]">{step.folder_name ?? step.test_case_name}</span>
                   )}
                   {idx < steps.length - 1 && (
                     <ArrowRightIcon className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -371,13 +481,13 @@ function FlowRunsTable({ orgId }: { orgId: string }) {
 
   if (runs === null) {
     return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+      <div className="flex justify-center py-8">
+        <RunBarsLoader label="Loading runs…" />
       </div>
     )
   }
   if (runs.length === 0) {
-    return <p className="text-sm text-muted-foreground">No flow runs yet.</p>
+    return <ScoutEmptyState message="No flow runs yet." />
   }
 
   return (
@@ -463,13 +573,12 @@ export default function FlowsPage() {
       {tab === "flows" && (
         <div className="space-y-3">
           {flows === null ? (
-            [1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)
+            <div className="flex justify-center py-10">
+              <RunBarsLoader label="Loading pipeline…" />
+            </div>
           ) : flows.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <GitMergeIcon className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                No flows yet. Create one to chain tests across products.
-              </p>
+            <div className="flex flex-col items-center gap-4 py-10">
+              <ScoutEmptyState message="No flows yet." sub="Create one to chain tests across products." />
               <CreateFlowDialog orgId={org.id} onCreated={loadFlows} />
             </div>
           ) : (

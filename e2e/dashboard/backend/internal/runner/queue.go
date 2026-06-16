@@ -15,6 +15,7 @@ type RunJob struct {
 	RunID  uuid.UUID
 	OrgID  uuid.UUID
 	IsFlow bool // when true, RunID is a flow_run ID and processFlowRun is called
+	Headed bool // when true, Playwright runs with a visible browser window
 }
 
 // ActiveRun tracks a run that is currently executing.
