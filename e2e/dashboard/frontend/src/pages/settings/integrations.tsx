@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import {
   CheckCircle2Icon,
   Loader2Icon,
-  SearchIcon,
   Trash2Icon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -10,6 +9,8 @@ import { toast } from "sonner"
 import GitlabIcon from "@/assets/GitlabIcon"
 import SlackIcon from "@/assets/SlackIcon"
 import YoutrackIcon from "@/assets/YoutrackIcon"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,6 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useActiveOrg } from "@/lib/auth"
 import {
   gitlabApi,
@@ -126,18 +126,6 @@ export default function IntegrationsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">Integrations</h1>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-              placeholder="Search..."
-              className="bg-muted/60 w-64 pl-9 pr-12"
-            />
-            <kbd className="bg-muted text-muted-foreground absolute top-1/2 right-2 -translate-y-1/2 px-1.5 py-0.5 text-[10px]">
-              ⌘K
-            </kbd>
-          </div>
-        </div>
       </div>
 
       <div className="bg-card/40 ring-border/40 flex flex-col gap-6 p-6 ring-1">
@@ -154,12 +142,10 @@ export default function IntegrationsPage() {
         </div>
 
         {integrations === null ? (
-          <Skeleton className="h-32 w-full" />
+          <div className="flex justify-center py-8"><SDrawLoader label="Loading integrations…" /></div>
         ) : integrations.length === 0 ? (
-          <div className="ring-border/40 flex flex-col items-center gap-3 py-10 text-center ring-1">
-            <p className="text-muted-foreground text-sm">
-              You haven't connected a GitLab account yet.
-            </p>
+          <div className="ring-border/40 flex flex-col items-center gap-3 py-10 ring-1">
+            <ScoutEmptyState message="No GitLab account connected." sub="Connect GitLab to sync your test repositories." />
             <Button onClick={startConnect} disabled={!org}>
               <GitlabIcon className="size-4" />
               Connect GitLab
@@ -264,7 +250,7 @@ function YouTrackSection({ orgId }: { orgId: string }) {
         </div>
       </div>
 
-      {integration === undefined && <Skeleton className="h-20 w-full" />}
+      {integration === undefined && <div className="flex justify-center py-6"><SDrawLoader /></div>}
 
       {integration !== undefined && integration !== null && (
         <div className="ring-border/40 flex items-center justify-between gap-4 p-5 ring-1">
@@ -402,7 +388,7 @@ function SlackSection({ orgId }: { orgId: string }) {
         </div>
       </div>
 
-      {settings === undefined && <Skeleton className="h-20 w-full" />}
+      {settings === undefined && <div className="flex justify-center py-6"><SDrawLoader /></div>}
 
       {settings !== undefined && (
         <div className="ring-border/40 flex flex-col gap-4 p-5 ring-1">

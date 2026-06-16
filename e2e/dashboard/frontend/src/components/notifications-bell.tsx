@@ -9,6 +9,8 @@ import {
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
+import { BracketPulseLoader } from "@/components/loaders/BracketPulseLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import {
   Popover,
   PopoverContent,
@@ -169,19 +171,11 @@ export function NotificationsBell() {
 
         <div className="max-h-96 overflow-y-auto">
           {items === null || loading ? (
-            <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-sm">
-              <Loader2Icon className="size-4 animate-spin" /> Loading…
+            <div className="flex justify-center py-8">
+              <BracketPulseLoader label="Loading…" />
             </div>
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-              <BellIcon
-                className="text-muted-foreground/30 size-8"
-                strokeWidth={1.5}
-              />
-              <p className="text-muted-foreground text-sm">
-                No notifications yet
-              </p>
-            </div>
+            <ScoutEmptyState message="No notifications yet" />
           ) : (
             <ul>
               {items.map((n) => (

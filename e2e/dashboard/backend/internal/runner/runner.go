@@ -163,8 +163,17 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// Create temp workspace
-	ws, err := NewWorkspace(runID)
+	// Resolve Playwright project dir early so the workspace lives inside it.
+	// This lets Node find @playwright/test naturally by walking up to node_modules,
+	// avoiding junction/NODE_PATH resolution issues on Windows.
+	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
+	if playwrightProjectDir == "" {
+		cwd, _ := os.Getwd()
+		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
+	}
+
+	// Create temp workspace inside the playwright project dir (or os.TempDir as fallback)
+	ws, err := NewWorkspace(runID, playwrightProjectDir)
 	if err != nil {
 		s.failRun(ctx, runID, orgID, fmt.Sprintf("create workspace: %v", err))
 		return
@@ -204,6 +213,7 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 	// Generate playwright config
 	cfgOpts := DefaultConfigOptions(ws.Dir)
 	cfgOpts.TestFiles = testFilePaths
+	cfgOpts.Headed = job.Headed
 
 	// If credentials are available, generate a login setup so every spec runs
 	// authenticated (mirrors the ardoise-tests global-setup.ts). Without this,
@@ -227,28 +237,20 @@ func (s *Service) processRun(ctx context.Context, job *RunJob) {
 		return
 	}
 
-	// The generated config imports `@playwright/test`. The workspace is in /tmp
-	// with no node_modules, so Node can't resolve that import. Symlink the host
-	// scout repo's node_modules into the workspace so module resolution works.
-	playwrightProjectDir := os.Getenv("SCOUT_PLAYWRIGHT_PROJECT_DIR")
-	if playwrightProjectDir == "" {
-		cwd, _ := os.Getwd()
-		playwrightProjectDir = FindPlaywrightProjectDir(cwd)
-	}
+	// Verify the playwright project dir was found (resolved earlier for workspace placement).
 	if playwrightProjectDir == "" {
 		s.failRun(ctx, runID, orgID,
 			"could not locate node_modules/@playwright/test — set SCOUT_PLAYWRIGHT_PROJECT_DIR to the repo root that has Playwright installed")
 		return
 	}
-	if err := ws.LinkNodeModules(filepath.Join(playwrightProjectDir, "node_modules")); err != nil {
-		s.failRun(ctx, runID, orgID, fmt.Sprintf("link node_modules: %v", err))
-		return
-	}
-
 	// Build the playwright command
-	cmd := exec.CommandContext(ctx, "npx", "playwright", "test",
+	pwArgs := []string{"playwright", "test",
 		"--config", filepath.Join(ws.Dir, "playwright.config.ts"),
-	)
+	}
+	if job.Headed {
+		pwArgs = append(pwArgs, "--headed")
+	}
+	cmd := exec.CommandContext(ctx, "npx", pwArgs...)
 	cmd.Dir = playwrightProjectDir
 
 	// Inject env vars at OS process level — never written to any file on disk.
@@ -474,6 +476,22 @@ func (s *Service) getEnvCredentials(ctx context.Context, envID uuid.UUID) (usern
 	return username, password
 }
 
+// fileNamesMatch returns true if a and b refer to the same file ignoring
+// extensions — handles the common case where a test case is stored as
+// "dashboard.spec" but the Playwright report uses "dashboard.spec.ts".
+func fileNamesMatch(a, b string) bool {
+	stripExt := func(s string) string {
+		for {
+			ext := filepath.Ext(s)
+			if ext == "" {
+				return s
+			}
+			s = strings.TrimSuffix(s, ext)
+		}
+	}
+	return a == b || stripExt(filepath.Base(a)) == stripExt(filepath.Base(b))
+}
+
 // updateRunItemByName matches a parsed test result to its spec-level run item
 // (by file name / title heuristic) and updates it. Returns the matched run_item
 // id, or nil when no item matched.
@@ -491,7 +509,7 @@ func (s *Service) updateRunItemByName(ctx context.Context, runID uuid.UUID, tr P
 		if err != nil {
 			continue
 		}
-		if tc.FileName == tr.FileName || tc.Name == tr.Title {
+		if fileNamesMatch(tc.FileName, tr.FileName) || tc.Name == tr.Title {
 			_ = s.runQ.UpdateItem(ctx, item.ID, tr.Status, tr.DurationMs, tr.ErrorMessage, tr.ErrorStack)
 			id := item.ID
 			return &id

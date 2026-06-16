@@ -8,8 +8,11 @@ import {
 } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { NewRunDialog } from "@/components/dialogs/new-run-dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { BarScanLoader } from "@/components/loaders/BarScanLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   overviewApi,
@@ -52,7 +55,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<OverviewStats | null>(null)
   const [trend, setTrend] = useState<TrendPoint[] | null>(null)
   const [runs, setRuns] = useState<RecentRun[] | null>(null)
-  const [error] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [newRunOpen, setNewRunOpen] = useState(false)
 
   useEffect(() => {
     if (!org) return
@@ -71,8 +75,8 @@ export default function DashboardPage() {
         if (!cancelled) setTrend(t)
       })
 
-    loadStats().catch(() => {})
-    loadRuns().catch(() => {})
+    loadStats().catch(() => { if (!cancelled) setError("Failed to load overview stats") })
+    loadRuns().catch(() => { if (!cancelled) setError("Failed to load recent runs") })
     loadTrend().catch(() => {})
 
     const statsInterval = window.setInterval(() => {
@@ -138,12 +142,18 @@ export default function DashboardPage() {
             <Skeleton className="mt-1 h-4 w-32" />
           )}
         </div>
-        <Button asChild>
-          <Link to="/dashboard/runs">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/dashboard/runs">
+              <ArrowRightIcon className="size-4" />
+              All Runs
+            </Link>
+          </Button>
+          <Button onClick={() => setNewRunOpen(true)} disabled={!org}>
             <PlayIcon className="size-4" />
-            View Runs
-          </Link>
-        </Button>
+            New Run
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -188,15 +198,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-1 items-center justify-center py-6">
             {trend === null ? (
-              <div className="flex h-full w-full items-end gap-2">
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <Skeleton
-                    key={i}
-                    className="h-56 flex-1"
-                    style={{ opacity: 0.4 + (i % 7) * 0.08 }}
-                  />
-                ))}
-              </div>
+              <BarScanLoader label="Loading trend data…" />
             ) : (
               <TrendChart data={trend} />
             )}
@@ -240,9 +242,7 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : runs.length === 0 ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">
-              No runs yet
-            </p>
+            <ScoutEmptyState message="No runs yet" sub="Kick off a new run to see results here." />
           ) : (
             <ul className="flex flex-col">
               {runs.map((r) => (
@@ -272,13 +272,21 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {org && (
+        <NewRunDialog
+          open={newRunOpen}
+          onOpenChange={setNewRunOpen}
+          orgId={org.id}
+        />
+      )}
     </div>
   )
 }
 
 function TrendChart({ data }: { data: TrendPoint[] }) {
   if (!data.length) {
-    return <p className="text-muted-foreground text-sm">No run data yet</p>
+    return <ScoutEmptyState message="No run data yet" sub="Trend will appear after your first test run." />
   }
 
   const max = Math.max(

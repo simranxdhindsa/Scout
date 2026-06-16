@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 
 import { EnvironmentDialog } from "@/components/dialogs/environment-dialog"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -121,9 +122,7 @@ export default function EnvironmentsPage() {
               </div>
             ))
           ) : envs.length === 0 ? (
-            <div className="text-muted-foreground flex min-h-32 items-center justify-center text-sm">
-              No environments yet
-            </div>
+            <ScoutEmptyState message="No environments yet" sub="Add an environment to configure test targets." />
           ) : (
             envs.map((env) => (
               <div

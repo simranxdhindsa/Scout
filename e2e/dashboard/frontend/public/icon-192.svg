@@ -1,0 +1,19 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" fill="#0b0b10"/>
+  <path d="M16 52 L16 16 L52 16" stroke="#6366f1" stroke-width="4" stroke-linecap="square" fill="none"/>
+  <path d="M176 52 L176 16 L140 16" stroke="#6366f1" stroke-width="4" stroke-linecap="square" fill="none"/>
+  <path d="M16 140 L16 176 L52 176" stroke="#6366f1" stroke-width="4" stroke-linecap="square" fill="none"/>
+  <path d="M176 140 L176 176 L140 176" stroke="#6366f1" stroke-width="4" stroke-linecap="square" fill="none"/>
+  <line x1="16" y1="94" x2="28" y2="94" stroke="#6366f1" stroke-width="2" opacity="0.4"/>
+  <line x1="176" y1="94" x2="164" y2="94" stroke="#6366f1" stroke-width="2" opacity="0.4"/>
+  <line x1="94" y1="16" x2="94" y2="28" stroke="#6366f1" stroke-width="2" opacity="0.4"/>
+  <line x1="94" y1="176" x2="94" y2="164" stroke="#6366f1" stroke-width="2" opacity="0.4"/>
+  <rect x="56" y="52" width="80" height="20" fill="#6366f1"/>
+  <rect x="56" y="86" width="80" height="20" fill="#6366f1"/>
+  <rect x="56" y="120" width="80" height="20" fill="#6366f1"/>
+  <rect x="56" y="52" width="20" height="54" fill="#6366f1"/>
+  <rect x="116" y="86" width="20" height="54" fill="#6366f1"/>
+  <rect x="76" y="52" width="60" height="34" fill="#0b0b10"/>
+  <rect x="56" y="106" width="60" height="34" fill="#0b0b10"/>
+  <rect x="148" y="36" width="12" height="12" fill="#22c55e"/>
+</svg>

@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 
 import { AddMemberDialog } from "@/components/dialogs/add-member-dialog"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -139,9 +140,7 @@ export default function MembersPage() {
               </li>
             ))
           ) : members.length === 0 ? (
-            <li className="text-muted-foreground px-2 py-6 text-center text-sm">
-              No members yet
-            </li>
+            <li><ScoutEmptyState message="No members yet" sub="Invite someone to collaborate." /></li>
           ) : (
             members.map((m) => {
               const isMe = m.user_id === currentUserId

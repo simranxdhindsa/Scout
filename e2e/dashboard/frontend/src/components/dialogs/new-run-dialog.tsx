@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Loader2Icon, PlayIcon } from "lucide-react"
+import { Loader2Icon, MonitorIcon, PlayIcon } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,7 @@ export function NewRunDialog({
   const [label, setLabel] = useState("")
   const [envId, setEnvId] = useState("")
   const [productId, setProductId] = useState("")
+  const [headed, setHeaded] = useState(false)
   const [environments, setEnvironments] = useState<Environment[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
@@ -78,6 +79,7 @@ export function NewRunDialog({
         target_ids: ids,
         environment_id: envId || undefined,
         label: label.trim() || `${selectedProduct?.name ?? "Run"} — manual`,
+        headed,
       })
       onOpenChange(false)
       navigate(`/runs/${run_id}`)
@@ -146,6 +148,29 @@ export function NewRunDialog({
               onChange={(e) => setLabel(e.target.value)}
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setHeaded((h) => !h)}
+            className={`flex items-center gap-3 rounded border px-3 py-2.5 text-sm transition-colors ${
+              headed
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <MonitorIcon className="size-4 shrink-0" />
+            <div className="text-left">
+              <div className="font-medium">Watch live</div>
+              <div className="text-xs opacity-70">
+                Opens a real Chrome window so you can see the test run
+              </div>
+            </div>
+            <div
+              className={`ml-auto size-4 rounded-full border-2 transition-colors ${
+                headed ? "border-primary bg-primary" : "border-muted-foreground"
+              }`}
+            />
+          </button>
 
           {error ? (
             <p className="text-destructive text-sm">{error}</p>

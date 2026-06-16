@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
 import {
-  CalendarClockIcon,
   ClockIcon,
   Loader2Icon,
   PencilIcon,
@@ -19,8 +18,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
+import { SDrawLoader } from "@/components/loaders/SDrawLoader"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { useActiveOrg } from "@/lib/auth"
 import {
   scheduledRunsApi,
@@ -320,19 +320,15 @@ export default function ScheduledRunsPage() {
       </div>
 
       {schedules === null ? (
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="flex justify-center py-10">
+          <SDrawLoader label="Loading schedules…" />
         </div>
       ) : schedules.length === 0 ? (
-        <div className="ring-border/40 flex flex-col items-center gap-4 py-16 ring-1">
-          <CalendarClockIcon className="text-muted-foreground size-10" />
-          <div className="text-center">
-            <p className="font-medium">No schedules yet</p>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Create a schedule to automatically run tests at a recurring time.
-            </p>
-          </div>
+        <div className="ring-border/40 flex flex-col items-center gap-4 py-10 ring-1">
+          <ScoutEmptyState
+            message="No schedules yet"
+            sub="Create a schedule to automatically run tests at a recurring time."
+          />
           <Button
             onClick={() => {
               setEditing(undefined)

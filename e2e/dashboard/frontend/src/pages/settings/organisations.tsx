@@ -13,6 +13,7 @@ import {
 
 import { AddOrganisationDialog } from "@/components/dialogs/add-organisation-dialog"
 import { EditOrganisationDialog } from "@/components/dialogs/edit-organisation-dialog"
+import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -182,9 +183,7 @@ function OrgMembersPanel({ org }: { org: ScoutOrg }) {
             </li>
           ))
         ) : members.length === 0 ? (
-          <li className="text-muted-foreground py-4 text-center text-sm">
-            No members yet
-          </li>
+          <li><ScoutEmptyState message="No members yet" /></li>
         ) : (
           members.map((m) => (
             <li
@@ -310,9 +309,7 @@ export default function OrganisationsPage() {
               </div>
             ))
           ) : orgs.length === 0 ? (
-            <div className="text-muted-foreground flex min-h-32 items-center justify-center text-sm">
-              No organisations yet
-            </div>
+            <ScoutEmptyState message="No organisations yet" sub="Create one to get started." />
           ) : (
             orgs.map((org) => {
               const expanded = expandedId === org.id
