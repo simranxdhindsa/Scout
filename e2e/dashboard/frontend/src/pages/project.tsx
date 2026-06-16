@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner"
 
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog"
+import { UploadZipDialog } from "@/components/dialogs/upload-zip-dialog"
 import { SDrawLoader } from "@/components/loaders/SDrawLoader"
 import { ScoutEmptyState } from "@/components/ScoutEmptyState"
 import { Button } from "@/components/ui/button"
@@ -818,7 +819,7 @@ function FolderTreeSection({
       <UploadZipDialog
         open={uploadOpen}
         onOpenChange={setUploadOpen}
-        onUpload={async (file) => {
+        onUpload={async (file: File) => {
           const res = await subProjectsApi.importZip(spId, file)
           importToast(res)
           setLocalReload((n) => n + 1)
