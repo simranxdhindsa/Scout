@@ -2,16 +2,15 @@
 
 import { useSidebar } from "@/components/ui/sidebar"
 
-// The S-mark SVG paths scaled from the 96x96 master to a 20x20 grid.
-// bg prop controls the negative-space cutout fill so the mark reads on any surface.
+// bg="transparent" lets the SVG cutouts show whatever surface is behind them,
+// making the mark correct on both light and dark backgrounds without theme detection.
 function SMarkIcon({
   size = 20,
-  bg = "currentBg",
+  bg = "transparent",
 }: {
   size?: number
   bg?: string
 }) {
-  // All coordinates derived by scaling 96→size: factor = size/96
   const f = size / 96
   const r = (x: number) => Math.round(x * f * 100) / 100
 
@@ -54,9 +53,9 @@ function SMarkIcon({
         fill="none"
       />
       {/* tick marks */}
-      <line x1={r(8)} y1={r(46)} x2={r(14)} y2={r(46)} stroke="#6366f1" strokeWidth={r(1)} opacity="0.4" />
+      <line x1={r(8)}  y1={r(46)} x2={r(14)} y2={r(46)} stroke="#6366f1" strokeWidth={r(1)} opacity="0.4" />
       <line x1={r(88)} y1={r(46)} x2={r(82)} y2={r(46)} stroke="#6366f1" strokeWidth={r(1)} opacity="0.4" />
-      <line x1={r(46)} y1={r(8)} x2={r(46)} y2={r(14)} stroke="#6366f1" strokeWidth={r(1)} opacity="0.4" />
+      <line x1={r(46)} y1={r(8)}  x2={r(46)} y2={r(14)} stroke="#6366f1" strokeWidth={r(1)} opacity="0.4" />
       <line x1={r(46)} y1={r(88)} x2={r(46)} y2={r(82)} stroke="#6366f1" strokeWidth={r(1)} opacity="0.4" />
       {/* S mark: 3 bars */}
       <rect x={r(28)} y={r(26)} width={r(40)} height={r(10)} fill="#6366f1" />
@@ -65,7 +64,7 @@ function SMarkIcon({
       {/* S connectors */}
       <rect x={r(28)} y={r(26)} width={r(10)} height={r(27)} fill="#6366f1" />
       <rect x={r(58)} y={r(43)} width={r(10)} height={r(27)} fill="#6366f1" />
-      {/* negative-space cutouts */}
+      {/* negative-space cutouts — transparent so the surface behind shows through */}
       <rect x={r(38)} y={r(26)} width={r(30)} height={r(17)} fill={bg} />
       <rect x={r(28)} y={r(53)} width={r(30)} height={r(17)} fill={bg} />
       {/* live status dot */}
@@ -85,20 +84,18 @@ interface ScoutLogoProps {
   animate?: boolean
 }
 
-// Sidebar variant: reads sidebar state to collapse gracefully.
-function SidebarVariant({ size, theme, showStatusDot, animate }: Omit<ScoutLogoProps, "variant">) {
+function SidebarVariant({ size, showStatusDot, animate }: Omit<ScoutLogoProps, "variant">) {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
   const iconSize = sizeMap[size ?? "md"]
-  const bg = theme === "light" ? "#f8f8fc" : "#0b0b10"
 
   return (
     <div className="flex items-center gap-2 overflow-hidden">
-      <SMarkIcon size={iconSize} bg={bg} />
+      <SMarkIcon size={iconSize} />
       {!collapsed && (
         <>
           <span
-            className="flex-1 text-sm font-bold text-white"
+            className="flex-1 text-sm font-bold text-foreground"
             style={{ letterSpacing: "0.18em", fontFamily: "'Nunito Sans Variable', 'Nunito Sans', sans-serif" }}
           >
             SCOUT
@@ -128,28 +125,30 @@ export function ScoutLogo({
   animate = false,
 }: ScoutLogoProps) {
   const iconSize = variant === "sidebar" ? sizeMap[size] : largeSizeMap[size]
-  const bg = theme === "light" ? "#f8f8fc" : "#0b0b10"
 
   if (variant === "sidebar") {
     return <SidebarVariant size={size} theme={theme} showStatusDot={showStatusDot} animate={animate} />
   }
 
   if (variant === "icon") {
-    return <SMarkIcon size={iconSize} bg={bg} />
+    return <SMarkIcon size={iconSize} />
   }
 
-  // horizontal
+  // horizontal — wordmark color via CSS so it adapts to light/dark automatically
+  const explicitColor =
+    theme === "light" ? "#0b0b10" : theme === "dark" ? "#ffffff" : undefined
+
   return (
     <div className="inline-flex items-center gap-3">
-      <SMarkIcon size={iconSize} bg={bg} />
+      <SMarkIcon size={iconSize} />
       <div className="flex flex-col">
         <span
-          className="font-bold leading-none"
+          className={`font-bold leading-none${explicitColor ? "" : " text-foreground"}`}
           style={{
             letterSpacing: "0.5em",
             fontSize: iconSize * 0.6,
             fontFamily: "'Nunito Sans Variable', 'Nunito Sans', sans-serif",
-            color: theme === "light" ? "#0b0b10" : "#ffffff",
+            ...(explicitColor ? { color: explicitColor } : {}),
           }}
         >
           SCOUT
@@ -170,7 +169,7 @@ export function ScoutLogo({
   )
 }
 
-// 48px icon mark for empty states (opacity applied by caller)
-export function ScoutIconMark({ size = 48, bg = "#0b0b10" }: { size?: number; bg?: string }) {
+// 48px icon mark for empty states — transparent bg so it reads on any surface
+export function ScoutIconMark({ size = 48, bg = "transparent" }: { size?: number; bg?: string }) {
   return <SMarkIcon size={size} bg={bg} />
 }
